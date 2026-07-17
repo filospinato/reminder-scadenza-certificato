@@ -46,7 +46,20 @@ OPERATIVO_HEADER_ROW=2
 ADMIN_SPREADSHEET_ID=<id del file vuoto creato dall'amministratore>
 ```
 
-`GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `GCP_SERVICE_ACCOUNT_KEY` e variabili equivalenti sono vietate. `GOOGLE_APPLICATION_CREDENTIALS` non viene invece vietata: l'azione WIF può valorizzarla temporaneamente nel runner indicando il file effimero generato per quella sola esecuzione.
+`GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `GCP_SERVICE_ACCOUNT_KEY` e variabili equivalenti sono vietate. `GOOGLE_APPLICATION_CREDENTIALS` non viene invece vietata: l'azione WIF la valorizza temporaneamente con il percorso del file effimero generato per quella sola esecuzione.
+
+## Verifica runtime del file ADC
+
+Prima di costruire il client Google Sheets, il runtime legge soltanto la struttura del file indicato da `GOOGLE_APPLICATION_CREDENTIALS` e applica una barriera bloccante:
+
+- il percorso deve essere presente e puntare a un file JSON leggibile;
+- il documento deve avere `type: external_account`;
+- devono essere presenti `audience`, `subject_token_type` e `credential_source`;
+- un documento con `type: service_account` viene rifiutato esplicitamente;
+- tipi diversi, file vuoti, troppo grandi, malformati o incompleti vengono rifiutati;
+- il contenuto del file, i token e gli identificatori interni non vengono stampati né inseriti nei log.
+
+Questa barriera impedisce che una chiave privata permanente venga accettata accidentalmente attraverso il normale meccanismo Application Default Credentials. Non sostituisce la trust policy IAM/OIDC: aggiunge un controllo locale ulteriore prima di qualsiasi chiamata a Google Sheets.
 
 ## Provisioning controllato
 
@@ -106,7 +119,7 @@ steps:
       create_credentials_file: true
 ```
 
-Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tramite `.gitignore` e viene eliminato con il workspace del job. Non è una chiave privata permanente del service account.
+Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tramite `.gitignore` e viene eliminato con il workspace del job. Non è una chiave privata permanente del service account e supera la verifica runtime perché usa il formato federato `external_account`.
 
 ## Gate dell'Environment
 
@@ -117,6 +130,7 @@ Le variabili definite a livello di Environment sono disponibili dopo che il runn
 - il codice valida il formato canonico di provider e service account;
 - il codice rifiuta il prefisso WIF riservato `gcp-`;
 - la presenza di variabili riconducibili a chiavi JSON permanenti causa un errore bloccante;
+- il file ADC viene validato come configurazione federata temporanea prima della costruzione del client Google;
 - la trust policy usa gli ID numerici immutabili di repository e proprietario;
 - il token è limitato almeno al branch `main` e dovrà essere vincolato al workflow o Environment autorizzato;
 - gli identificatori dei fogli non devono essere stampati insieme a righe o dati personali;

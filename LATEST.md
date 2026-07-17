@@ -1,9 +1,9 @@
 # Stato corrente
 
-**Versione:** 0.11.1  
+**Versione:** 0.11.2  
 **Data:** 17 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; risorse e collaudi esterni ancora mancanti  
-**Baseline di partenza:** `9474601227d610d36e2c9ba84d0d1361590fd892`
+**Baseline di partenza:** `42b849cf68404f3b4472b9e3bab33ac191dd1ef2`
 
 ## Funziona già
 
@@ -21,12 +21,13 @@
 - SMTP MDaemon testo/HTML, Message-ID, STARTTLS/SSL e logo CID visibile;
 - workflow manuale con gate Environment corretto, data corrente predefinita e lock condiviso;
 - segreti SMTP limitati allo step di invio;
+- barriera runtime che accetta soltanto credenziali Google WIF `external_account` complete e rifiuta file JSON `service_account` permanenti;
 - CI che installa e verifica anche l'extra Google;
 - test automatici e runbook.
 
 ## Barriere di sicurezza
 
-- nessuna chiave JSON permanente;
+- nessuna chiave JSON permanente: le configurazioni note sono vietate e il file ADC viene verificato prima di costruire il client Google;
 - nessuna credenziale, email reale o PII nel repository;
 - nessun accesso Google finché l'environment non abilita esplicitamente la pre-produzione;
 - nessun invio fuori dal dry-run senza conferma CLI e `ALLOW_EMAIL_DELIVERY=true`;
