@@ -32,8 +32,15 @@ class LettoreFake:
 
 def matrice_valida() -> list[list[Any]]:
     return [
-        ["id_arbitro", "nome", "email", "scadenza_certificato", "attivo"],
-        ["A-1", "Mario Rossi", "mario@example.it", "2026-08-01", "Operativo"],
+        [
+            "id_arbitro",
+            "nome",
+            "cognome",
+            "email",
+            "scadenza_certificato",
+            "attivo",
+        ],
+        ["A-1", "Mario", "Rossi", "mario@example.it", "2026-08-01", "Operativo"],
     ]
 
 
@@ -69,10 +76,10 @@ def test_adapter_costruisce_intervallo_a1_e_protegge_apostrofi() -> None:
         lettore=lettore,
         spreadsheet_id=" spreadsheet-test ",
         nome_scheda="Arbitri d'Italia",
-        colonne_a1="A:E",
+        colonne_a1="A:F",
     )
     tabella = adapter.leggi()
-    assert lettore.chiamate == [("spreadsheet-test", "'Arbitri d''Italia'!A:E")]
+    assert lettore.chiamate == [("spreadsheet-test", "'Arbitri d''Italia'!A:F")]
     assert tabella.nome_sorgente == "Google Sheets:Arbitri d'Italia"
     assert tabella.righe[0]["id_arbitro"] == "A-1"
 
@@ -104,6 +111,8 @@ def test_adapter_rifiuta_configurazione_incompleta(
 def test_sorgente_memoria_si_collega_alla_validazione_esistente() -> None:
     esito = leggi_e_valida(SorgenteMemoria(matrice_valida()))
     assert [arbitro.id_arbitro for arbitro in esito.arbitri] == ["A-1"]
+    assert esito.arbitri[0].nome_per_saluto == "Mario"
+    assert esito.arbitri[0].nome_completo == "Mario Rossi"
     assert esito.anomalie == ()
 
 
@@ -138,12 +147,12 @@ def test_lettore_google_api_usa_sola_lettura_per_righe() -> None:
     servizio = ServizioGoogleFake(RichiestaFake({"values": matrice_valida()}))
     valori = LettoreGoogleApi(servizio).leggi_valori(
         spreadsheet_id="sheet",
-        intervallo_a1="'Operativo'!A:E",
+        intervallo_a1="'Operativo'!A:F",
     )
     assert valori == matrice_valida()
     assert servizio.parametri == {
         "spreadsheetId": "sheet",
-        "range": "'Operativo'!A:E",
+        "range": "'Operativo'!A:F",
         "majorDimension": "ROWS",
     }
 
@@ -155,12 +164,12 @@ def test_lettore_google_api_converte_errori_e_risposte_non_valide() -> None:
     with pytest.raises(ErroreSorgenteDati, match="PermissionError"):
         LettoreGoogleApi(servizio_errore).leggi_valori(
             spreadsheet_id="sheet",
-            intervallo_a1="'Operativo'!A:E",
+            intervallo_a1="'Operativo'!A:F",
         )
 
     servizio_risposta = ServizioGoogleFake(RichiestaFake({"values": "non-matrice"}))
     with pytest.raises(ErroreSorgenteDati, match="campo values non valido"):
         LettoreGoogleApi(servizio_risposta).leggi_valori(
             spreadsheet_id="sheet",
-            intervallo_a1="'Operativo'!A:E",
+            intervallo_a1="'Operativo'!A:F",
         )
