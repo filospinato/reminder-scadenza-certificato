@@ -7,10 +7,18 @@ Questo documento definisce il formato logico minimo che il programma deve riceve
 | Campo logico | Significato | Regola |
 |---|---|---|
 | `id_arbitro` | identificativo stabile e univoco | obbligatorio; i duplicati vengono esclusi integralmente |
-| `nome` | nominativo usato nel messaggio | obbligatorio |
+| `nome` | nominativo completo | obbligatorio; viene usato anche come fallback per il saluto |
 | `email` | destinatario della notifica | obbligatoria e formalmente valida |
 | `scadenza_certificato` | data di scadenza | `YYYY-MM-DD`, `GG/MM/AAAA` o valore data fornito dall'adapter |
 | `attivo` | appartenenza alla popolazione da elaborare | valore riconosciuto dalla politica di stato configurata |
+
+## Campo logico facoltativo
+
+| Campo logico | Significato | Regola |
+|---|---|---|
+| `nome_saluto` | nome breve da inserire dopo `Ciao` | facoltativo; se assente o vuoto viene usata la prima parola di `nome` |
+
+La colonna `nome_saluto` è consigliata quando il nominativo contiene un nome composto, quando la sorgente è ordinata `Cognome Nome` o quando il saluto desiderato non coincide con la prima parola del campo `nome`.
 
 ## Stati riconosciuti nella simulazione
 
@@ -45,7 +53,8 @@ Il programma non sceglie arbitrariamente tra dati ambigui e non corregge automat
 Prima di implementare l'adapter Google Sheets servono:
 
 1. nome della scheda che contiene gli arbitri;
-2. intestazioni reali delle cinque colonne logiche;
-3. valori reali che identificano un arbitro operativo e non operativo;
-4. conferma del formato effettivo della data;
-5. identificativo dello Spreadsheet, da conservare fuori dal codice quando opportuno.
+2. intestazioni reali delle cinque colonne obbligatorie;
+3. eventuale intestazione della colonna facoltativa per `nome_saluto`;
+4. valori reali che identificano un arbitro operativo e non operativo;
+5. conferma del formato effettivo della data;
+6. identificativo dello Spreadsheet, da conservare fuori dal codice quando opportuno.
