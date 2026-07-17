@@ -4,7 +4,7 @@ Sistema per individuare gli arbitri con certificato medico prossimo alla scadenz
 
 ## Stato del progetto
 
-La versione corrente **0.11.1** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
+La versione corrente **0.11.2** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
 
 Sono implementati:
 
@@ -19,7 +19,7 @@ Sono implementati:
 - orchestratore completo per dry-run, test e produzione protetta;
 - email testo e HTML con Message-ID e logo CID facoltativo realmente referenziato;
 - trasporto SMTP con STARTTLS o SSL e fake per i test;
-- autenticazione Google predisposta tramite WIF/OIDC;
+- autenticazione Google predisposta tramite WIF/OIDC, con blocco runtime dei file JSON `service_account` permanenti;
 - workflow manuale pre-produzione disabilitato per default;
 - modello di workflow schedulato conservato come esempio non attivo;
 - test automatici e guide operative.
@@ -122,7 +122,9 @@ Il workflow manuale legge il gate dopo che l'Environment è stato dichiarato, us
 
 ## Google Cloud
 
-Il collegamento userà token OIDC temporanei e un service account dedicato, senza chiavi permanenti. Il service account avrà sola lettura sul file operativo e modifica sul solo foglio amministrativo già creato e condiviso dall'amministratore umano.
+Il collegamento usa token OIDC temporanei e un service account dedicato, senza chiavi permanenti. Prima di costruire il client Google Sheets, il runtime controlla il file indicato da `GOOGLE_APPLICATION_CREDENTIALS`: accetta soltanto una configurazione WIF `external_account` completa e rifiuta esplicitamente i file JSON `service_account`. Il contenuto delle credenziali non viene stampato né registrato.
+
+Il service account avrà sola lettura sul file operativo e modifica sul solo foglio amministrativo già creato e condiviso dall'amministratore umano.
 
 ## Guide
 
@@ -138,6 +140,7 @@ Il collegamento userà token OIDC temporanei e un service account dedicato, senz
 - `Operativo` sempre di sola lettura;
 - output dei workflow aggregati;
 - chiavi duplicate o schema inatteso bloccano l'esecuzione;
+- credenziali Google permanenti bloccate anche a runtime;
 - esiti incerti non ritentati automaticamente;
 - nessuna schedule di produzione attiva prima dell'autorizzazione finale.
 
