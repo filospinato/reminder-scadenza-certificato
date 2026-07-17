@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.1] - 2026-07-17
+
+### Corretto
+
+- il modello dati ora rispecchia `Operativo`: `nome`, `cognome` ed `email` sono colonne distinte della stessa riga;
+- il saluto usa direttamente la colonna `nome`, senza dedurre la prima parola da un nominativo completo;
+- i nomi composti vengono mantenuti integralmente;
+- `{{cognome}}` e `{{nome_completo}}` sono disponibili nei template;
+- aggiunta l'anomalia `COGNOME_MANCANTE` e aggiornati fake, esempi e output `dry-run`.
+
+### Sicurezza
+
+- nome, cognome, email e scadenza devono provenire dalla medesima riga validata;
+- eliminato il fallback ambiguo basato sull'ordine del nominativo.
+
 ## [0.4.0] - 2026-07-17
 
 ### Aggiunto
@@ -27,14 +42,12 @@
 - compositore puro di messaggi email in versione testo e HTML, senza invio;
 - configurazione tipizzata di oggetto, corpo e firma;
 - placeholder consentiti per nome, nominativo completo, data di scadenza e giorni residui;
-- campo facoltativo `nome_saluto` con fallback alla prima parola del nominativo;
 - escaping HTML dei dati personalizzati;
-- test dedicati a personalizzazione, fallback, placeholder e sicurezza dell'oggetto.
+- test dedicati a personalizzazione, placeholder e sicurezza dell'oggetto.
 
 ### Modificato
 
-- generazione HTML esplicita per paragrafi, senza manipolazioni basate su slicing;
-- fallback del nome reso sicuro anche davanti a un nominativo vuoto.
+- generazione HTML esplicita per paragrafi, senza manipolazioni basate su slicing.
 
 ### Sicurezza
 
