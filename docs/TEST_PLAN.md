@@ -16,25 +16,35 @@
 - limiti numerici fuori intervallo;
 - modalità test senza override rifiutata;
 - kill switch prima della lettura e dell'invio;
-- inizializzatore idempotente e non distruttivo;
+- bootstrap di una singola tab vuota, idempotenza e blocco dei file già usati;
 - registro con `SENDING` preventivo;
+- dry-run che consulta il registro senza scrivere;
+- limite applicato dopo la deduplicazione;
 - retry soltanto da `FAILED_RETRYABLE`;
-- esiti incerti non ritentati;
-- doppia esecuzione bloccata tramite `concurrency`;
-- messaggi di errore senza email, token o payload completi;
-- MIME testo/HTML, Message-ID e logo CID opzionale;
+- esiti incerti e imprevisti non ritentati;
+- doppia esecuzione bloccata tramite `concurrency` condivisa;
+- messaggi di errore senza email, token, notification ID o payload completi;
+- MIME testo/HTML, Message-ID e logo CID referenziato;
+- nome mittente e CID protetti da header injection;
+- test SMTP limitato a una sola email all'override;
+- dashboard aggiornata senza `clear` preventivo;
+- workflow senza data fissa e senza gate basato prematuramente su variabili Environment;
+- segreti SMTP limitati allo step di invio;
 - assenza di copie nella Posta inviata.
 
 ## Collaudo Google sintetico
 
-1. creare il foglio amministrativo vuoto;
-2. rieseguire l'inizializzatore e verificare idempotenza;
-3. alterare una intestazione su una copia e verificare il blocco;
-4. aggiungere una notifica sintetica;
-5. aggiornare la stessa notifica;
-6. creare un duplicato su una copia e verificare il blocco;
-7. simulare revoca accesso e verificare errore aggregato;
-8. verificare che i log non contengano celle o righe.
+1. creare con l'account umano il foglio amministrativo vuoto;
+2. condividerlo con il service account e valorizzare `ADMIN_SPREADSHEET_ID`;
+3. eseguire l'inizializzatore e verificare la creazione delle quattro tab;
+4. rieseguire l'inizializzatore e verificare idempotenza;
+5. alterare una intestazione su una copia e verificare il blocco;
+6. verificare che una singola tab non vuota non venga rinominata o sovrascritta;
+7. aggiungere una notifica sintetica;
+8. aggiornare la stessa notifica;
+9. creare un duplicato su una copia e verificare il blocco;
+10. simulare revoca accesso e verificare errore aggregato;
+11. verificare che i log non contengano celle, righe o notification ID.
 
 ## Collaudo intestazioni Operativo
 
@@ -42,34 +52,39 @@ Il primo accesso deve eseguire soltanto `check-headers`. Il risultato deve conte
 
 ## Collaudo dry-run reale
 
-- usare una data controllata;
+- usare la data corrente oppure una data controllata esplicitamente;
 - confrontare conteggi aggregati con una verifica manuale ristretta;
 - controllare anomalie senza pubblicare contenuti delle righe;
-- verificare zero righe aggiunte a `NOTIFICHE`;
+- verificare il conteggio delle notifiche già registrate;
+- verificare che i record già presenti non consumino il limite utile;
+- verificare zero righe aggiunte o aggiornate in `NOTIFICHE`;
 - verificare zero chiamate SMTP.
 
 ## Collaudo SMTP
 
 1. usare esclusivamente `TEST_SMTP`;
 2. impostare un override controllato;
-3. verificare testo, HTML, mittente, Reply-To e Message-ID;
-4. verificare il logo solo dopo approvazione;
-5. simulare errore di connessione prima della consegna;
-6. simulare disconnessione durante la consegna;
-7. simulare destinatario rifiutato;
-8. verificare rispettivamente `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
-9. rieseguire la stessa notifica test e verificare deduplicazione.
+3. verificare che venga inviata una sola email anche se esistono più candidati;
+4. verificare testo, HTML, mittente, Reply-To e Message-ID;
+5. verificare che il registro conservi l'override realmente contattato;
+6. verificare il logo solo dopo approvazione e controllare il riferimento `cid:` nel corpo HTML;
+7. simulare errore di connessione prima della consegna;
+8. simulare disconnessione durante la consegna;
+9. simulare destinatario rifiutato e un errore non classificato;
+10. verificare rispettivamente `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+11. rieseguire la stessa notifica test e verificare deduplicazione.
 
 ## Prove di concorrenza e crash
 
 - avviare due workflow manuali: il secondo deve restare in attesa;
+- verificare che anche un futuro workflow di produzione usi lo stesso lock;
 - interrompere dopo `SENDING`: la riga non deve essere ritentata automaticamente;
 - rilanciare un job GitHub: le notifiche già `SENT` devono essere saltate;
 - raggiungere il limite massimo: le eccedenti restano non prenotate.
 
 ## Criteri di uscita
 
-- CI verde su `main`;
+- CI verde su `main`, compresa installazione dell'extra Google;
 - nessun segreto o PII nei diff e nei log;
 - zero criticità alte o medie aperte;
 - dry-run e modalità test validati;

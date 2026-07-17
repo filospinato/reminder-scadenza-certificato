@@ -48,6 +48,21 @@ def test_username_e_password_devono_essere_entrambi_presenti() -> None:
         ConfigurazioneSmtp.da_ambiente(ambiente)
 
 
+def test_nome_mittente_e_cid_rifiutano_header_injection() -> None:
+    base = {
+        "SMTP_HOST": "smtp.example.invalid",
+        "SMTP_FROM": "cia@example.invalid",
+    }
+    with pytest.raises(ErroreSmtpPermanente, match="SMTP_FROM_NAME"):
+        ConfigurazioneSmtp.da_ambiente(
+            {**base, "SMTP_FROM_NAME": "CIA Lazio\nBcc: altro@example.invalid"}
+        )
+    with pytest.raises(ErroreSmtpPermanente, match="SMTP_LOGO_CID"):
+        ConfigurazioneSmtp.da_ambiente(
+            {**base, "SMTP_LOGO_CID": "logo>\r\nBcc"}
+        )
+
+
 def test_mime_contiene_testo_html_message_id_e_non_crea_copia_sent() -> None:
     config = ConfigurazioneSmtp(
         host="smtp.example.invalid",
@@ -83,3 +98,28 @@ def test_logo_opzionale_deve_esistere(tmp_path: Path) -> None:
     )
     with pytest.raises(ErroreSmtpPermanente, match="non trovato"):
         costruisci_mime(_messaggio(), config)
+
+
+def test_logo_cid_allegato_e_referenziato_nel_corpo_html(tmp_path: Path) -> None:
+    logo = tmp_path / "logo.png"
+    logo.write_bytes(b"\x89PNG\r\n\x1a\nsynthetic")
+    config = ConfigurazioneSmtp(
+        host="smtp.example.invalid",
+        porta=587,
+        mittente="cia@example.invalid",
+        logo_path=logo,
+        logo_cid="logo-cia-lazio",
+    )
+
+    mime = costruisci_mime(_messaggio(), config)
+    html_parts = [
+        parte for parte in mime.walk() if parte.get_content_type() == "text/html"
+    ]
+    immagini = [
+        parte for parte in mime.walk() if parte.get_content_maintype() == "image"
+    ]
+
+    assert len(html_parts) == 1
+    assert 'src="cid:logo-cia-lazio"' in html_parts[0].get_content()
+    assert len(immagini) == 1
+    assert immagini[0]["Content-ID"] == "<logo-cia-lazio>"

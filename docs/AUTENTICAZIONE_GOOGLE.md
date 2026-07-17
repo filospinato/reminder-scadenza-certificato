@@ -2,9 +2,9 @@
 
 ## Obiettivo
 
-GitHub Actions accederà in futuro a Google Sheets tramite Workload Identity Federation (WIF) e OIDC. Il repository non usa file JSON di service account, password, token utente o credenziali ChatGPT.
+GitHub Actions accederà a Google Sheets tramite Workload Identity Federation (WIF) e OIDC. Il repository non usa file JSON di service account, password, token utente o credenziali ChatGPT.
 
-Questa fase prepara soltanto il contratto software e il runbook. Non abilita accesso reale, workflow programmati, letture di dati personali o scritture su Spreadsheet.
+Il provisioning resta un passaggio controllato. Nessun accesso reale, workflow programmato, lettura di dati personali o invio viene attivato dal solo merge del codice.
 
 ## Identità e risorse
 
@@ -20,6 +20,18 @@ Questa fase prepara soltanto il contratto software e il runbook. Non abilita acc
 
 Gli ID numerici GitHub sono preferiti nelle condizioni di trust perché non possono essere riutilizzati in seguito a rinomina o cancellazione dell'account o del repository.
 
+## Proprietà del foglio amministrativo
+
+Il file amministrativo deve essere creato vuoto dall'amministratore umano. I service account non hanno una normale quota Drive personale e non devono essere usati come proprietari del file. Dopo la creazione:
+
+1. il file resta di proprietà dell'identità umana;
+2. viene collocato fuori da cartelle con condivisione ereditata ampia;
+3. viene condiviso direttamente con il service account come editor;
+4. l'ID viene salvato in `ADMIN_SPREADSHEET_ID`;
+5. `init-admin --spreadsheet-id ID` trasforma la singola tab vuota nelle quattro tab canoniche.
+
+Non sono richiesti accesso interattivo, Domain-Wide Delegation o chiavi permanenti.
+
 ## Variabili GitHub previste
 
 Sono identificatori pubblici da conservare come GitHub Actions Variables, non come segreti:
@@ -31,19 +43,20 @@ GCP_SERVICE_ACCOUNT=reminder-certificati@PROJECT_ID.iam.gserviceaccount.com
 OPERATIVO_SPREADSHEET_ID=15_TOwRL3Rk-Df7t-29D0OHa2BNtBx3tBxkZSMbeXA2E
 OPERATIVO_SHEET_NAME=Operativo
 OPERATIVO_HEADER_ROW=2
-ADMIN_SPREADSHEET_ID=<da valorizzare dopo la creazione controllata>
+ADMIN_SPREADSHEET_ID=<id del file vuoto creato dall'amministratore>
 ```
 
 `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `GCP_SERVICE_ACCOUNT_KEY` e variabili equivalenti sono vietate. `GOOGLE_APPLICATION_CREDENTIALS` non viene invece vietata: l'azione WIF può valorizzarla temporaneamente nel runner indicando il file effimero generato per quella sola esecuzione.
 
 ## Provisioning controllato
 
-1. Creare il progetto Google Cloud con l'account personale dell'amministratore iniziale, senza attivare servizi a pagamento non necessari.
-2. Abilitare Google Sheets API e usare Google Drive API soltanto se necessaria alla creazione o gestione iniziale del foglio amministrativo.
-3. Creare il service account dedicato senza generare chiavi.
-4. Creare un Workload Identity Pool e un provider OIDC con issuer `https://token.actions.githubusercontent.com` e audience predefinita.
-5. Non usare il prefisso riservato `gcp-` negli ID di pool o provider.
-6. Configurare almeno questo attribute mapping:
+1. Creare con l'account umano lo Spreadsheet amministrativo vuoto.
+2. Creare il progetto Google Cloud con l'account personale dell'amministratore iniziale, senza attivare servizi a pagamento non necessari.
+3. Abilitare Google Sheets API. Drive API non è necessaria al normale runtime basato su condivisione diretta.
+4. Creare il service account dedicato senza generare chiavi.
+5. Creare un Workload Identity Pool e un provider OIDC con issuer `https://token.actions.githubusercontent.com` e audience predefinita.
+6. Non usare il prefisso riservato `gcp-` negli ID di pool o provider.
+7. Configurare almeno questo attribute mapping:
 
 ```text
 google.subject=assertion.sub
@@ -53,7 +66,7 @@ attribute.ref=assertion.ref
 attribute.workflow_ref=assertion.workflow_ref
 ```
 
-7. Applicare una attribute condition equivalente a:
+8. Applicare una attribute condition equivalente a:
 
 ```text
 assertion.repository_id == '1303804647' &&
@@ -61,23 +74,20 @@ assertion.repository_owner_id == '265553127' &&
 assertion.ref == 'refs/heads/main'
 ```
 
-8. Concedere `roles/iam.workloadIdentityUser` sul solo service account al seguente insieme di principal:
+9. Concedere `roles/iam.workloadIdentityUser` sul solo service account al seguente insieme di principal:
 
 ```text
 principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/attribute.repository_id/1303804647
 ```
 
-9. Prima della produzione, restringere ulteriormente il workflow autorizzato tramite `workflow_ref` oppure un GitHub Environment protetto, mantenendo comunque i vincoli su repository, proprietario e branch.
-10. Condividere direttamente lo Spreadsheet operativo con l'email del service account come lettore.
-11. Condividere direttamente lo Spreadsheet amministrativo separato con l'email del service account come editor.
-12. Non assegnare al service account ruoli generali su Drive: i permessi sui due file derivano dalla loro condivisione diretta.
-13. Non collocare il foglio amministrativo in cartelle con condivisione ereditata ampia.
-14. Eseguire la prima prova soltanto su uno Spreadsheet sintetico e mediante un workflow manuale su `main`.
+10. Prima della produzione, restringere ulteriormente il workflow autorizzato tramite `workflow_ref` oppure un GitHub Environment protetto, mantenendo comunque i vincoli su repository, proprietario e branch.
+11. Condividere direttamente lo Spreadsheet operativo con l'email del service account come lettore.
+12. Condividere direttamente lo Spreadsheet amministrativo con l'email del service account come editor.
+13. Non assegnare al service account ruoli generali su Drive: i permessi sui due file derivano dalla loro condivisione diretta.
+14. Eseguire la prima prova mediante il workflow manuale su `main`, iniziando da `check-headers` e `init-admin`.
 15. Prima della produzione aggiungere una seconda identità umana CIA per recupero e documentare trasferimento e revoca degli accessi.
 
-## Esempio di autenticazione futura
-
-Da inserire in un workflow soltanto dopo verifica esplicita della configurazione IAM:
+## Esempio di autenticazione
 
 ```yaml
 permissions:
@@ -96,9 +106,11 @@ steps:
       create_credentials_file: true
 ```
 
-Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tramite `.gitignore` e deve essere eliminato automaticamente con il workspace del job. Non è una chiave privata permanente del service account.
+Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tramite `.gitignore` e viene eliminato con il workspace del job. Non è una chiave privata permanente del service account.
 
-L'esempio non viene aggiunto come workflow attivo in questa fase, così nessuna federazione o risorsa reale può essere utilizzata accidentalmente.
+## Gate dell'Environment
+
+Le variabili definite a livello di Environment sono disponibili dopo che il runner ha dichiarato quell'Environment. Per questo il workflow non usa `PREPRODUCTION_ENABLED` come `job.if`: un primo step legge la variabile e tutti gli step successivi sono condizionati al suo output. Se il gate non vale `true`, non vengono eseguiti checkout, autenticazione o accessi esterni.
 
 ## Verifiche di sicurezza
 
@@ -106,7 +118,7 @@ L'esempio non viene aggiunto come workflow attivo in questa fase, così nessuna 
 - il codice rifiuta il prefisso WIF riservato `gcp-`;
 - la presenza di variabili riconducibili a chiavi JSON permanenti causa un errore bloccante;
 - la trust policy usa gli ID numerici immutabili di repository e proprietario;
-- il token è limitato almeno al branch `main` e dovrà essere vincolato al workflow o environment autorizzato;
+- il token è limitato almeno al branch `main` e dovrà essere vincolato al workflow o Environment autorizzato;
 - gli identificatori dei fogli non devono essere stampati insieme a righe o dati personali;
 - i test automatici usano soltanto identificatori sintetici;
 - la lettura iniziale di `Operativo` deve limitarsi a intestazioni e struttura;
@@ -114,4 +126,4 @@ L'esempio non viene aggiunto come workflow attivo in questa fase, così nessuna 
 
 ## Attivazione reale
 
-Il provisioning IAM/OIDC, la condivisione dei fogli e l'aggiunta del workflow autenticato richiedono un passaggio controllato e una verifica esplicita. Il merge di questo documento non autorizza né esegue tali operazioni.
+Il provisioning IAM/OIDC, la condivisione dei fogli e la valorizzazione dell'Environment richiedono un passaggio controllato e una verifica esplicita. Il workflow di produzione resta un file `.example` non attivo.

@@ -1,7 +1,9 @@
-"""Creazione e verifica non distruttiva dello Spreadsheet amministrativo.
+"""Inizializzazione non distruttiva dello Spreadsheet amministrativo.
 
-Il modulo non costruisce credenziali. Riceve un trasporto già autenticato oppure
-un fake in memoria. Non legge mai ``Operativo`` e non inserisce dati personali.
+Il file deve essere creato da un'identità umana e condiviso con il service
+account. Il service account non crea né possiede file: può soltanto trasformare
+un singolo foglio vuoto nelle quattro tab canoniche e inizializzarne la struttura.
+Il modulo non legge mai ``Operativo`` e non inserisce dati personali.
 """
 
 from __future__ import annotations
@@ -10,11 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from .admin_schema import (
-    NOME_SPREADSHEET_AMMINISTRATIVO,
-    SchemaFoglioAmministrativo,
-    crea_schema_amministrativo,
-)
+from .admin_schema import SchemaFoglioAmministrativo, crea_schema_amministrativo
 
 
 class ErroreInizializzazioneFoglio(RuntimeError):
@@ -22,14 +20,15 @@ class ErroreInizializzazioneFoglio(RuntimeError):
 
 
 class TrasportoStrutturaSheets(Protocol):
-    def crea_spreadsheet(
+    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]: ...
+
+    def configura_tab_canoniche(
         self,
         *,
-        titolo: str,
+        spreadsheet_id: str,
         nomi_tab: Sequence[str],
-    ) -> str: ...
-
-    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]: ...
+    ) -> None:
+        """Trasforma l'unica tab vuota nelle tab canoniche ordinate."""
 
     def leggi_valori(
         self,
@@ -50,7 +49,7 @@ class TrasportoStrutturaSheets(Protocol):
 @dataclass(frozen=True, slots=True)
 class EsitoInizializzazione:
     spreadsheet_id: str
-    creato: bool
+    tab_configurate: bool
     tab_inizializzate: tuple[str, ...]
     tab_gia_conformi: tuple[str, ...]
 
@@ -60,33 +59,28 @@ class InizializzatoreFoglioAmministrativo:
     trasporto: TrasportoStrutturaSheets
     schema: SchemaFoglioAmministrativo = field(default_factory=crea_schema_amministrativo)
 
-    def prepara(self, *, spreadsheet_id: str | None = None) -> EsitoInizializzazione:
-        """Crea o verifica il foglio senza sovrascrivere contenuti inattesi.
+    def prepara(self, *, spreadsheet_id: str) -> EsitoInizializzazione:
+        """Configura e inizializza un file esistente senza sovrascrivere dati.
+
+        Sono accettati soltanto:
+
+        * un file con un'unica tab completamente vuota, che viene rinominata e
+          completata con le altre tre tab canoniche;
+        * un file che possiede già le quattro tab nell'ordine esatto.
 
         Una tab vuota viene inizializzata. Una tab già usata viene verificata per
         intestazioni, larghezza e vincoli minimi, senza richiedere che i valori
         runtime coincidano ancora con quelli sintetici iniziali.
         """
 
-        identificativo = (spreadsheet_id or "").strip()
-        creato = False
+        identificativo = spreadsheet_id.strip()
         if not identificativo:
-            try:
-                identificativo = self.trasporto.crea_spreadsheet(
-                    titolo=self.schema.nome_spreadsheet,
-                    nomi_tab=tuple(tab.nome for tab in self.schema.tab),
-                ).strip()
-            except Exception as exc:
-                raise ErroreInizializzazioneFoglio(
-                    f"creazione Spreadsheet non riuscita: {type(exc).__name__}"
-                ) from exc
-            if not identificativo:
-                raise ErroreInizializzazioneFoglio(
-                    "la creazione non ha restituito uno spreadsheet_id"
-                )
-            creato = True
+            raise ErroreInizializzazioneFoglio(
+                "spreadsheet_id mancante: crea prima un file vuoto con un account "
+                "umano e condividilo con il service account"
+            )
 
-        self._verifica_tab(identificativo)
+        tab_configurate = self._prepara_tab(identificativo)
         inizializzate: list[str] = []
         conformi: list[str] = []
 
@@ -113,7 +107,7 @@ class InizializzatoreFoglioAmministrativo:
 
         return EsitoInizializzazione(
             spreadsheet_id=identificativo,
-            creato=creato,
+            tab_configurate=tab_configurate,
             tab_inizializzate=tuple(inizializzate),
             tab_gia_conformi=tuple(conformi),
         )
@@ -122,7 +116,7 @@ class InizializzatoreFoglioAmministrativo:
         identificativo = spreadsheet_id.strip()
         if not identificativo:
             raise ErroreInizializzazioneFoglio("spreadsheet_id mancante")
-        self._verifica_tab(identificativo)
+        self._verifica_tab_esatte(identificativo)
         for definizione in self.schema.tab:
             attuale = self._leggi(
                 identificativo,
@@ -138,9 +132,51 @@ class InizializzatoreFoglioAmministrativo:
                 attuale,
             )
 
-    def _verifica_tab(self, spreadsheet_id: str) -> None:
+    def _prepara_tab(self, spreadsheet_id: str) -> bool:
+        nomi = self._elenca_tab(spreadsheet_id)
+        attesi = tuple(tab.nome for tab in self.schema.tab)
+        if nomi == attesi:
+            return False
+
+        if len(nomi) != 1:
+            raise ErroreInizializzazioneFoglio(
+                "tab mancanti, duplicate o fuori ordine; il bootstrap automatico "
+                "è consentito soltanto su un file con una singola tab vuota"
+            )
+
+        tab_originale = nomi[0]
+        if not _matrice_vuota(
+            self._leggi(spreadsheet_id, _intervallo_tab(tab_originale))
+        ):
+            raise ErroreInizializzazioneFoglio(
+                "la singola tab iniziale contiene già dati; nessuna modifica eseguita"
+            )
+
         try:
-            nomi = tuple(
+            self.trasporto.configura_tab_canoniche(
+                spreadsheet_id=spreadsheet_id,
+                nomi_tab=attesi,
+            )
+        except Exception as exc:
+            raise ErroreInizializzazioneFoglio(
+                f"configurazione tab non riuscita: {type(exc).__name__}"
+            ) from exc
+
+        self._verifica_tab_esatte(spreadsheet_id)
+        return True
+
+    def _verifica_tab_esatte(self, spreadsheet_id: str) -> None:
+        nomi = self._elenca_tab(spreadsheet_id)
+        attesi = tuple(tab.nome for tab in self.schema.tab)
+        if nomi != attesi:
+            raise ErroreInizializzazioneFoglio(
+                "tab mancanti, duplicate o fuori ordine; attese: "
+                + ", ".join(attesi)
+            )
+
+    def _elenca_tab(self, spreadsheet_id: str) -> tuple[str, ...]:
+        try:
+            return tuple(
                 str(nome).strip()
                 for nome in self.trasporto.elenca_tab(
                     spreadsheet_id=spreadsheet_id
@@ -150,12 +186,6 @@ class InizializzatoreFoglioAmministrativo:
             raise ErroreInizializzazioneFoglio(
                 f"lettura metadati non riuscita: {type(exc).__name__}"
             ) from exc
-        attesi = tuple(tab.nome for tab in self.schema.tab)
-        if nomi != attesi:
-            raise ErroreInizializzazioneFoglio(
-                "tab mancanti, duplicate o fuori ordine; attese: "
-                + ", ".join(attesi)
-            )
 
     def _leggi(
         self,
@@ -288,26 +318,39 @@ class TrasportoStrutturaMemoria:
     ordine_tab: dict[str, list[str]] = field(default_factory=dict)
     prossimo_id: int = 1
 
-    def crea_spreadsheet(
+    def crea_spreadsheet_vuoto(
         self,
         *,
-        titolo: str,
-        nomi_tab: Sequence[str],
+        titolo: str = "Reminder certificati CIA Lazio — Gestione",
+        nome_tab: str = "Foglio1",
     ) -> str:
-        if titolo != NOME_SPREADSHEET_AMMINISTRATIVO:
-            raise ValueError("titolo non canonico")
-        nomi = [str(nome).strip() for nome in nomi_tab]
-        if len(set(nomi)) != len(nomi) or any(not nome for nome in nomi):
-            raise ValueError("nomi tab non validi")
         identificativo = f"synthetic-{self.prossimo_id}"
         self.prossimo_id += 1
         self.titoli[identificativo] = titolo
-        self.ordine_tab[identificativo] = list(nomi)
-        self.spreadsheet[identificativo] = {nome: [] for nome in nomi}
+        self.ordine_tab[identificativo] = [nome_tab]
+        self.spreadsheet[identificativo] = {nome_tab: []}
         return identificativo
 
     def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]:
         return tuple(self.ordine_tab[spreadsheet_id])
+
+    def configura_tab_canoniche(
+        self,
+        *,
+        spreadsheet_id: str,
+        nomi_tab: Sequence[str],
+    ) -> None:
+        nomi = [str(nome).strip() for nome in nomi_tab]
+        if len(set(nomi)) != len(nomi) or any(not nome for nome in nomi):
+            raise ValueError("nomi tab non validi")
+        esistenti = self.ordine_tab[spreadsheet_id]
+        if len(esistenti) != 1:
+            raise ValueError("il file non contiene una sola tab")
+        originale = esistenti[0]
+        if self.spreadsheet[spreadsheet_id][originale]:
+            raise ValueError("la tab originale non è vuota")
+        self.ordine_tab[spreadsheet_id] = list(nomi)
+        self.spreadsheet[spreadsheet_id] = {nome: [] for nome in nomi}
 
     def leggi_valori(
         self,
@@ -343,38 +386,60 @@ class TrasportoStrutturaGoogleApi:
 
     servizio: Any
 
-    def crea_spreadsheet(
+    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]:
+        return tuple(nome for _, _, nome in self._metadati_tab(spreadsheet_id))
+
+    def configura_tab_canoniche(
         self,
         *,
-        titolo: str,
+        spreadsheet_id: str,
         nomi_tab: Sequence[str],
-    ) -> str:
-        corpo = {
-            "properties": {"title": titolo},
-            "sheets": [
-                {"properties": {"title": nome, "index": indice}}
-                for indice, nome in enumerate(nomi_tab)
-            ],
-        }
-        risposta = self.servizio.spreadsheets().create(
-            body=corpo,
-            fields="spreadsheetId",
+    ) -> None:
+        metadati = self._metadati_tab(spreadsheet_id)
+        if len(metadati) != 1:
+            raise ErroreInizializzazioneFoglio(
+                "il bootstrap richiede una singola tab vuota"
+            )
+        sheet_id, _, _ = metadati[0]
+        nomi = tuple(str(nome).strip() for nome in nomi_tab)
+        if not nomi or any(not nome for nome in nomi) or len(set(nomi)) != len(nomi):
+            raise ErroreInizializzazioneFoglio("nomi tab non validi")
+        richieste: list[dict[str, Any]] = [
+            {
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": sheet_id,
+                        "title": nomi[0],
+                        "index": 0,
+                    },
+                    "fields": "title,index",
+                }
+            }
+        ]
+        richieste.extend(
+            {
+                "addSheet": {
+                    "properties": {"title": nome, "index": indice}
+                }
+            }
+            for indice, nome in enumerate(nomi[1:], start=1)
+        )
+        self.servizio.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"requests": richieste},
         ).execute()
-        if not isinstance(risposta, Mapping):
-            raise ErroreInizializzazioneFoglio("risposta create non valida")
-        return str(risposta.get("spreadsheetId", ""))
 
-    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]:
+    def _metadati_tab(self, spreadsheet_id: str) -> tuple[tuple[int, int, str], ...]:
         risposta = self.servizio.spreadsheets().get(
             spreadsheetId=spreadsheet_id,
-            fields="sheets(properties(title,index))",
+            fields="sheets(properties(sheetId,title,index))",
         ).execute()
         if not isinstance(risposta, Mapping):
             raise ErroreInizializzazioneFoglio("risposta metadata non valida")
         sheets = risposta.get("sheets", [])
         if not isinstance(sheets, Sequence) or isinstance(sheets, (str, bytes)):
             raise ErroreInizializzazioneFoglio("campo sheets non valido")
-        ordinati: list[tuple[int, str]] = []
+        ordinati: list[tuple[int, int, str]] = []
         for item in sheets:
             if not isinstance(item, Mapping):
                 raise ErroreInizializzazioneFoglio("metadato tab non valido")
@@ -383,11 +448,12 @@ class TrasportoStrutturaGoogleApi:
                 raise ErroreInizializzazioneFoglio("properties tab non valide")
             ordinati.append(
                 (
+                    int(properties.get("sheetId", -1)),
                     int(properties.get("index", 0)),
                     str(properties.get("title", "")),
                 )
             )
-        return tuple(nome for _, nome in sorted(ordinati))
+        return tuple(sorted(ordinati, key=lambda item: item[1]))
 
     def leggi_valori(
         self,

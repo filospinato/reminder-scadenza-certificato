@@ -1,6 +1,6 @@
 # Schema dei fogli amministrativi
 
-Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Non deve essere creato dentro il database operativo né collocato in una cartella con condivisione ereditata ampia.
+Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Deve essere creato dall'amministratore umano, fuori dal database operativo e da cartelle con condivisione ereditata ampia.
 
 Le tab devono esistere una sola volta e nell'ordine:
 
@@ -12,15 +12,17 @@ CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
 
 `InizializzatoreFoglioAmministrativo` opera tramite un protocollo iniettato, con fake in memoria e ponte Google Sheets.
 
-- Se non riceve un ID, crea un nuovo Spreadsheet con le quattro tab.
+- Richiede l'ID di uno Spreadsheet già creato e condiviso dall'identità umana.
+- Se il file contiene una sola tab completamente vuota, la rinomina in `CONFIG` e aggiunge le altre tre tab nell'ordine canonico.
+- Se le quattro tab esistono già, ne verifica l'ordine.
 - Scrive le matrici canoniche soltanto nelle tab vuote.
 - Rilegge i valori dopo ogni inizializzazione.
 - Non sovrascrive mai una tab già popolata.
 - Verifica ordine delle tab, intestazioni, larghezza delle righe e chiavi strutturali.
 - Accetta i normali aggiornamenti runtime di CONFIG e DASHBOARD e le righe aggiunte a NOTIFICHE e ANOMALIE.
-- Blocca tab duplicate o fuori ordine, intestazioni alterate, chiavi duplicate e strutture incomplete.
+- Blocca file con più tab non canoniche, singola tab non vuota, intestazioni alterate, chiavi duplicate o strutture incomplete.
 
-L'operazione è idempotente: una seconda esecuzione su un foglio conforme non aggiunge tab o righe.
+L'operazione è idempotente: una seconda esecuzione su un foglio conforme non aggiunge tab o righe. Il service account non crea e non possiede il file.
 
 ## Tab `CONFIG`
 
@@ -59,7 +61,7 @@ Vincoli principali:
 - l'oggetto non può contenere ritorni a capo;
 - una configurazione dichiarata reale deve avere sistema attivo, modalità test e kill switch disattivati.
 
-La configurazione del foglio non basta da sola per inviare: servono anche il consenso del comando e dell'environment.
+La configurazione del foglio non basta da sola per inviare: servono anche il consenso del comando e dell'Environment.
 
 ## Tab `NOTIFICHE`
 
@@ -85,7 +87,9 @@ Regole:
 - più righe con la stessa chiave bloccano l'esecuzione;
 - testo tecnico e Message-ID vengono limitati a lunghezze controllate.
 
-La modalità test usa un tipo `TEST_REMINDER_*`, separato dalle chiavi reali.
+Il dry-run consulta la tab per saltare le chiavi già presenti ma non scrive. Il limite viene applicato dopo questa deduplicazione.
+
+La modalità test usa un tipo `TEST_REMINDER_*`, separato dalle chiavi reali. Nel campo `email` viene salvato il destinatario override realmente contattato e ogni esecuzione tenta al massimo un messaggio.
 
 ## Tab `DASHBOARD`
 
@@ -95,7 +99,7 @@ Intestazioni:
 metrica | valore | descrizione
 ```
 
-All'inizio la tab contiene stato disattivato, heartbeat vuoto, conteggi a zero e kill switch attivo. Durante l'esecuzione viene sostituita con una fotografia aggregata che comprende:
+All'inizio la tab contiene stato disattivato, heartbeat vuoto, conteggi a zero e kill switch attivo. Durante l'esecuzione viene aggiornata con una fotografia aggregata che comprende:
 
 - stato del sistema;
 - ultima esecuzione e heartbeat UTC;
@@ -109,7 +113,7 @@ All'inizio la tab contiene stato disattivato, heartbeat vuoto, conteggi a zero e
 - versione applicativa;
 - codice sintetico dell'eventuale errore fatale.
 
-La dashboard non contiene nominativi, email o contenuti delle righe.
+La dashboard non contiene nominativi, email o contenuti delle righe. L'adapter usa un singolo `values.update`: non esegue prima un `clear` che potrebbe lasciare la tab vuota in caso di errore intermedio.
 
 ## Tab `ANOMALIE`
 
@@ -125,7 +129,7 @@ Il messaggio:
 
 - è limitato a 500 caratteri;
 - non contiene intere righe o certificati;
-- rimuove indirizzi email e stringhe simili a token;
+- rimuove indirizzi email, stringhe simili a token e chiavi `notification_id`;
 - usa codici stabili per distinguere dati, registro, template, Google e SMTP.
 
 ## Scritture Google
@@ -134,16 +138,16 @@ Tutte le scritture usano `valueInputOption=RAW`.
 
 - L'inizializzatore scrive una matrice soltanto in tab vuote.
 - `NOTIFICHE` usa append per nuove chiavi e update della stessa riga per le transizioni.
-- `DASHBOARD` sostituisce la fotografia aggregata.
+- `DASHBOARD` aggiorna la fotografia aggregata in un'unica richiesta.
 - `ANOMALIE` accoda righe minimizzate.
 
-Google Sheets non offre una transazione tra ricerca e scrittura. I controlli sul foglio sono quindi affiancati da `concurrency` nei workflow, senza annullare le verifiche di chiavi duplicate.
+Google Sheets non offre una transazione tra ricerca e scrittura. I controlli sul foglio sono quindi affiancati da un gruppo `concurrency` condiviso dai workflow, senza annullare le verifiche di chiavi duplicate.
 
 ## Stato operativo
 
 Codice, fake, adapter e test sono presenti. Restano da eseguire esternamente:
 
-- creazione e condivisione del foglio reale;
+- creazione umana e condivisione del foglio reale vuoto;
 - prova idempotente dell'inizializzatore;
 - append, update e duplicati su un foglio sintetico;
 - aggiornamento reale di dashboard e anomalie;

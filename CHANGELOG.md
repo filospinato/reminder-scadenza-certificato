@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.11.1] - 2026-07-17
+
+### Corretto
+
+- il service account non tenta più di creare o possedere lo Spreadsheet amministrativo: inizializza un file vuoto creato e condiviso dall'amministratore umano;
+- il bootstrap trasforma in sicurezza una singola tab vuota nelle quattro tab canoniche e rifiuta file non vuoti o ambigui;
+- il gate dei workflow viene valutato dopo la dichiarazione dell'Environment, rendendo utilizzabili le variabili definite a quel livello;
+- il workflow manuale non usa più una data predefinita fissa;
+- pre-produzione e produzione condividono lo stesso gruppo `concurrency`;
+- i segreti SMTP del modello di produzione sono disponibili soltanto allo step di invio;
+- il dry-run consulta il registro senza scrivere e il limite viene applicato dopo la deduplicazione;
+- il test SMTP registra l'indirizzo override realmente contattato ed è limitato a una sola email per esecuzione;
+- la dashboard viene aggiornata con un singolo `values.update`, senza `clear` preventivo;
+- le chiavi `notification_id` vengono rimosse dai messaggi CLI e di monitoraggio;
+- il logo CID viene sia allegato sia referenziato nel corpo HTML;
+- nome mittente e CID vengono validati contro header injection;
+- gli errori SMTP non classificati dopo `SENDING` vengono conservativamente trasformati in `UNKNOWN_REVIEW_REQUIRED`.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.1;
+- la CI installa anche l'extra `google`;
+- README, stato corrente, roadmap e runbook descrivono il flusso corretto di creazione umana e inizializzazione applicativa;
+- aggiunti test di regressione per workflow, CLI, deduplicazione, limite, dashboard, MIME e bootstrap.
+
+### Sicurezza
+
+- nessuna risorsa Google, credenziale, email reale, firma, logo o invio operativo è stato creato o attivato;
+- il file amministrativo resta di proprietà dell'identità umana e il service account riceve soltanto modifica tramite condivisione diretta;
+- i log non espongono chiavi contenenti l'ID dell'arbitro;
+- un test SMTP non può inviare accidentalmente un intero lotto all'override.
+
 ## [0.11.0] - 2026-07-17
 
 ### Aggiunto
