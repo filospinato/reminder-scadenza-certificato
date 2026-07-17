@@ -36,11 +36,23 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] schema tipizzato della tab `NOTIFICHE`;
    - [x] archivio fake con insert/update per chiave e controlli di coerenza;
    - [x] adapter Google Sheets e ponte verso un servizio già autenticato;
-   - [ ] schema completo del nuovo Spreadsheet amministrativo separato;
+   - [x] schema completo dello Spreadsheet amministrativo separato;
+   - [x] tab canoniche e valori iniziali sintetici verificati;
+   - [ ] inizializzatore strutturale Google Sheets testato con fake;
    - [ ] prova controllata di scrittura su Spreadsheet sintetico;
    - [ ] integrazione nel flusso applicativo completo.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
+   - [x] schema di chiave, valore, tipo, descrizione e modificabilità;
+   - [x] valori iniziali con invii disabilitati, modalità test e kill switch attivi;
+   - [x] oggetto, corpo, firma, contatto e override destinatario previsti;
+   - [ ] lettura, validazione e applicazione runtime della configurazione;
+   - [ ] collaudo con responsabile non tecnico.
 10. [ ] `DASHBOARD`, heartbeat, anomalie, kill switch, runbook e handoff.
+   - [x] schema iniziale di `DASHBOARD` con stato disattivato e conteggi a zero;
+   - [x] schema iniziale di `ANOMALIE` senza righe o dati personali;
+   - [x] kill switch presente e attivo nella configurazione iniziale;
+   - [ ] aggiornamento runtime di dashboard, heartbeat e anomalie;
+   - [ ] guide operative, emergenze e passaggio di consegne.
 
 ## Ordine di sviluppo
 
