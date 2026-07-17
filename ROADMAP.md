@@ -1,12 +1,14 @@
 # Roadmap
 
-Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √® implementato, ma l'attivazione reale richiede ancora risorse, permessi, contenuti e collaudi esterni.
+Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √® implementato e rafforzato, ma l'attivazione reale richiede ancora risorse, permessi, contenuti e collaudi esterni.
 
 1. [x] Repository Python, test, CI e documentazione di base.
 2. [ ] GitHub Actions programmata una o due volte al giorno, oltre all'avvio manuale.
    - [x] workflow manuale pre-produzione con WIF, environment e permessi minimi;
-   - [x] workflow disabilitato per default tramite `PREPRODUCTION_ENABLED`;
-   - [x] `concurrency` senza sovrapposizioni;
+   - [x] gate dell'Environment verificato dentro il job, prima dell'autenticazione;
+   - [x] data corrente predefinita, con override manuale opzionale;
+   - [x] `concurrency` condivisa tra pre-produzione e modello di produzione;
+   - [x] segreti SMTP limitati al solo step di invio;
    - [x] modello di produzione schedulato conservato come `.example` non attivo;
    - [ ] creazione degli environment e valorizzazione di Variables/Secrets;
    - [ ] attivazione del workflow di produzione dopo autorizzazione finale.
@@ -27,6 +29,8 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] chiave deterministica `ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA`;
    - [x] prenotazione preventiva `SENDING`;
    - [x] registro persistente sopra `NOTIFICHE`;
+   - [x] dry-run che consulta il registro senza scrivere;
+   - [x] limite applicato dopo la deduplicazione;
    - [x] retry soltanto da `FAILED_RETRYABLE`;
    - [x] blocco automatico di `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED`;
    - [x] serializzazione prevista nei workflow;
@@ -36,18 +40,20 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] composizione testo/HTML con apertura obbligatoria ed escaping;
    - [x] trasporto SMTP con STARTTLS, SSL e PLAIN esplicitamente autorizzato;
    - [x] Message-ID, mittente, Reply-To e MIME multipart;
-   - [x] logo CID opzionale e fake SMTP;
+   - [x] logo CID opzionale allegato e referenziato nel corpo HTML;
+   - [x] validazione contro header injection;
    - [x] classificazione retryable, permanente e incerta;
+   - [x] test SMTP limitato a una email e audit dell'override effettivo;
    - [x] nessuna copia nella Posta inviata;
    - [ ] inserimento dei parametri MDaemon nei Secrets;
    - [ ] approvazione di mittente, Reply-To, firma e logo;
    - [ ] collaudo su MDaemon con destinatario override.
 8. [ ] Registro amministrativo completo.
    - [x] schema, archivio fake e adapter Google Sheets;
-   - [x] inizializzatore idempotente e non distruttivo delle quattro tab;
+   - [x] bootstrap idempotente di un file vuoto creato dall'identit√† umana;
    - [x] registro persistente integrato nell'orchestratore;
    - [x] gestione Message-ID, versione, tentativi ed errori;
-   - [ ] creazione controllata dello Spreadsheet amministrativo;
+   - [ ] creazione umana e condivisione dello Spreadsheet amministrativo;
    - [ ] prova di append, update e blocco duplicati su foglio sintetico.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
    - [x] schema di chiave, valore, tipo, descrizione e modificabilit√†;
@@ -57,7 +63,8 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [ ] collaudo con responsabile non tecnico.
 10. [ ] `DASHBOARD`, heartbeat, anomalie, kill switch, runbook e handoff.
    - [x] aggiornamento runtime aggregato di dashboard e heartbeat;
-   - [x] registro anomalie con sanitizzazione e deduplicazione in memoria;
+   - [x] scrittura dashboard con un solo update, senza finestra vuota intermedia;
+   - [x] registro anomalie con sanitizzazione di email, token e notification ID;
    - [x] valutazione salute per heartbeat, fallimenti ed esiti incerti;
    - [x] kill switch verificato prima della lettura e degli invii;
    - [x] runbook operativo, emergenze, handoff, deployment e test;
@@ -73,13 +80,14 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
 3. controllo kill switch e modalit√†;
 4. lettura e validazione della sorgente;
 5. registrazione minimizzata delle anomalie;
-6. selezione e limite dei candidati;
-7. deduplicazione e prenotazione `SENDING`;
-8. composizione testo/HTML;
-9. override in modalit√† test;
-10. invio SMTP o dry-run;
-11. transizione dello stato persistente;
-12. aggiornamento dashboard e riepilogo aggregato.
+6. selezione dei candidati nella finestra;
+7. deduplicazione rispetto al registro;
+8. applicazione del limite ai soli candidati prenotabili;
+9. composizione testo/HTML;
+10. override e limite unitario in modalit√† test;
+11. invio SMTP o dry-run;
+12. transizione dello stato persistente;
+13. aggiornamento dashboard e riepilogo aggregato.
 
 ## Vincoli permanenti
 
