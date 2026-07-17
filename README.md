@@ -7,7 +7,8 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 La versione corrente è un **MVP esclusivamente in dry-run**:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
-- valida ID, nominativo, email, scadenza e stato operativo;
+- legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
+- valida ID, nome, cognome, email, scadenza e stato operativo;
 - raccoglie anomalie senza interrompere le altre righe valide;
 - esclude integralmente gli ID duplicati;
 - seleziona i certificati in scadenza entro una finestra configurabile;
@@ -37,6 +38,7 @@ Un arbitro è candidato quando:
 
 - è operativo;
 - possiede un identificativo univoco;
+- possiede nome e cognome;
 - possiede un indirizzo email formalmente valido;
 - il certificato scade tra oggi e il limite configurato, estremi inclusi;
 - non presenta anomalie che rendano ambiguo l'invio.
@@ -51,7 +53,9 @@ Il modulo `email_templates` produce una versione testo e una HTML senza effettua
 Ciao {{nome}}, ricevi questa mail...
 ```
 
-Il nome può essere fornito esplicitamente come `nome_saluto`; in assenza di tale valore viene usata la prima parola del nominativo completo. I placeholder consentiti sono `{{nome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`.
+`{{nome}}` viene letto direttamente dalla colonna `nome` della stessa riga di `Operativo` che contiene anche `cognome`, `email`, scadenza e stato. Non vengono usati fallback basati sulla prima parola di un nominativo composto.
+
+I placeholder consentiti sono `{{nome}}`, `{{cognome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`.
 
 Placeholder sconosciuti, oggetti con ritorni a capo, valori HTML non sottoposti a escaping e corpi che non rispettano l'apertura concordata vengono rifiutati. Il contratto completo è in [`docs/CONTRATTO_MESSAGGIO.md`](docs/CONTRATTO_MESSAGGIO.md).
 
@@ -68,13 +72,14 @@ Credenziali, Spreadsheet ID e nome reale della scheda restano fuori dal reposito
 
 ## Contratto dati
 
-Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni reali di `Operativo` saranno collegate tramite configurazione e non verranno inventate nel codice.
+Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni effettive di `Operativo` saranno collegate tramite configurazione.
 
 ## Sicurezza
 
 - Nessun dato personale reale deve essere versionato.
 - Nessun segreto deve essere salvato nei file del repository.
 - `Operativo` sarà accessibile in sola lettura.
+- Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
 - L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, registro notifiche, modalità test e SMTP MDaemon.
 
 ## Roadmap
