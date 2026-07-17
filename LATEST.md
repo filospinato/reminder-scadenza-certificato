@@ -10,15 +10,17 @@
 - caricamento di righe anonime da JSON;
 - contratto dati con mappatura configurabile delle colonne;
 - validazione di ID, nome, email, data e stato;
+- campo facoltativo `nome_saluto` con fallback controllato;
 - raccolta strutturata delle anomalie senza bloccare le righe sane;
 - esclusione sicura di tutte le occorrenze degli ID duplicati;
 - calcolo dei giorni residui e selezione entro una finestra configurabile;
 - chiave anti-duplicazione deterministica;
 - output JSON completo in `dry-run`;
 - composizione sicura in memoria di email testo e HTML;
-- apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` con fallback controllato;
+- apertura personalizzata `Ciao {{nome}}, ricevi questa mail...`;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
-- 20 test automatici e CI.
+- gestione esplicita del nome mancante e struttura HTML a paragrafi;
+- 23 test automatici e CI.
 
 ## Non ancora collegato
 
