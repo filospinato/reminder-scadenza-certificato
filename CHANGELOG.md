@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-07-17
+
+### Aggiunto
+
+- protocollo `TrasportoNotificheSheets` per leggere, aggiungere e aggiornare righe della tab `NOTIFICHE`;
+- adapter `ArchivioNotificheGoogleSheets` indipendente dalle credenziali;
+- ricerca esatta e univoca della `notification_id` prima di ogni scrittura;
+- append quando la chiave è assente e update della stessa riga quando è già presente;
+- fake `TrasportoNotificheMemoria` per testare il comportamento tabellare senza rete;
+- ponte `TrasportoNotificheGoogleApi` verso un servizio Sheets già autenticato;
+- test per append, update, duplicati, intestazioni, regressioni temporali, configurazione ed escaping A1.
+
+### Sicurezza
+
+- chiavi duplicate o intestazioni diverse dallo schema canonico bloccano ogni scrittura;
+- `creato_il` non può cambiare e `aggiornato_il` non può regredire;
+- gli errori tecnici di lettura e scrittura vengono convertiti in errori applicativi senza esporre payload o credenziali;
+- documentato che ricerca e scrittura Google Sheets non sono una transazione atomica e richiedono anche `concurrency` nel workflow;
+- nessuna credenziale, dipendenza Google, risorsa reale o invio SMTP è stato attivato.
+
 ## [0.6.0] - 2026-07-17
 
 ### Aggiunto
