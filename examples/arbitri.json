@@ -1,14 +1,16 @@
 [
   {
     "id_arbitro": "TEST-001",
-    "nome": "Mario Rossi",
+    "nome": "Mario",
+    "cognome": "Rossi",
     "email": "mario.rossi@example.it",
     "scadenza_certificato": "2026-08-01",
     "attivo": true
   },
   {
     "id_arbitro": "TEST-002",
-    "nome": "Anna Verdi",
+    "nome": "Anna",
+    "cognome": "Verdi",
     "email": "anna.verdi@example.it",
     "scadenza_certificato": "2026-12-31",
     "attivo": true
