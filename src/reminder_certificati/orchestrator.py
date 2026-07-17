@@ -1,0 +1,387 @@
+"""Orchestrazione completa, aggregata e sicura del ciclo reminder."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from datetime import date, datetime, timezone
+from enum import StrEnum
+from typing import Protocol
+
+from .data_sources import SorgenteDati, leggi_e_valida
+from .email_templates import ErroreTemplate, MessaggioEmail, componi_email
+from .models import CandidatoNotifica
+from .monitoring import (
+    AnomaliaRuntime,
+    ArchivioAnomalie,
+    ArchivioDashboard,
+    MetricheEsecuzione,
+    SeveritaAnomalia,
+)
+from .persistent_registry import ErroreRegistroPersistente, RegistroPersistente
+from .rules import trova_candidati
+from .runtime_config import ConfigurazioneRuntime
+from .smtp_transport import (
+    ErroreSmtpPermanente,
+    ErroreSmtpRetryable,
+    EsitoSmtpIncerto,
+    TrasportoEmail,
+)
+from .validation import MappaturaColonne, PoliticaStato
+
+
+class ModalitaEsecuzione(StrEnum):
+    DRY_RUN = "DRY_RUN"
+    TEST_SMTP = "TEST_SMTP"
+    PRODUZIONE = "PRODUZIONE"
+
+
+class ErroreOrchestrazione(RuntimeError):
+    """L'esecuzione non può proseguire senza rischi."""
+
+
+@dataclass(frozen=True, slots=True)
+class EsitoEsecuzione:
+    modalita: ModalitaEsecuzione
+    stato: str
+    righe_lette: int
+    righe_valide: int
+    anomalie: int
+    candidati: int
+    notifiche_gia_presenti: int
+    messaggi_composti: int
+    invii_tentati: int
+    invii_riusciti: int
+    invii_falliti: int
+    esiti_incerti: int
+
+
+class RegistroNotifichePersistente(Protocol):
+    def puo_prenotare(self, notification_id: str) -> bool: ...
+    def prenota(self, candidato: CandidatoNotifica, *, ora: datetime | None = None): ...
+    def segna_inviata(self, candidato: CandidatoNotifica, *, message_id: str, ora: datetime | None = None): ...
+    def segna_errore_retryable(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
+    def segna_esito_incerto(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
+
+
+@dataclass(frozen=True, slots=True)
+class OrchestratoreReminder:
+    sorgente: SorgenteDati
+    configurazione: ConfigurazioneRuntime
+    dashboard: ArchivioDashboard
+    anomalie: ArchivioAnomalie
+    versione_app: str
+    registro: RegistroNotifichePersistente | None = None
+    trasporto_email: TrasportoEmail | None = None
+    mappatura: MappaturaColonne = MappaturaColonne()
+    politica_stato: PoliticaStato = PoliticaStato()
+
+    def esegui(
+        self,
+        *,
+        oggi: date,
+        modalita: ModalitaEsecuzione = ModalitaEsecuzione.DRY_RUN,
+        consenso_esterno_invio: bool = False,
+        ora: datetime | None = None,
+    ) -> EsitoEsecuzione:
+        istante = _utc(ora or datetime.now(timezone.utc))
+        if not self.versione_app.strip():
+            raise ErroreOrchestrazione("versione_app mancante")
+
+        if self.configurazione.kill_switch or not self.configurazione.sistema_attivo:
+            stato = "BLOCCATO_KILL_SWITCH" if self.configurazione.kill_switch else "DISATTIVATO"
+            esito = EsitoEsecuzione(
+                modalita=modalita,
+                stato=stato,
+                righe_lette=0,
+                righe_valide=0,
+                anomalie=0,
+                candidati=0,
+                notifiche_gia_presenti=0,
+                messaggi_composti=0,
+                invii_tentati=0,
+                invii_riusciti=0,
+                invii_falliti=0,
+                esiti_incerti=0,
+            )
+            self._aggiorna_dashboard(esito, istante, codice_errore="")
+            return esito
+
+        self._valida_modalita(modalita, consenso_esterno_invio)
+
+        try:
+            validazione = leggi_e_valida(
+                self.sorgente,
+                mappatura=self.mappatura,
+                politica_stato=self.politica_stato,
+            )
+        except Exception as exc:
+            self._registra_anomalia(
+                severita=SeveritaAnomalia.CRITICAL,
+                origine="SORGENTE",
+                codice="LETTURA_FATALE",
+                messaggio=f"lettura o schema non disponibile: {type(exc).__name__}",
+                istante=istante,
+            )
+            esito = EsitoEsecuzione(
+                modalita=modalita,
+                stato="ERRORE",
+                righe_lette=0,
+                righe_valide=0,
+                anomalie=1,
+                candidati=0,
+                notifiche_gia_presenti=0,
+                messaggi_composti=0,
+                invii_tentati=0,
+                invii_riusciti=0,
+                invii_falliti=0,
+                esiti_incerti=0,
+            )
+            self._aggiorna_dashboard(esito, istante, codice_errore="LETTURA_FATALE")
+            raise ErroreOrchestrazione("lettura della sorgente non riuscita") from exc
+
+        for anomalia in validazione.anomalie:
+            self._registra_anomalia(
+                severita=SeveritaAnomalia.WARNING,
+                origine="OPERATIVO",
+                codice=str(anomalia.codice),
+                messaggio=f"anomalia dati nel campo {anomalia.campo}",
+                istante=istante,
+                riga_sorgente=anomalia.numero_riga,
+                campo=anomalia.campo,
+            )
+
+        candidati = trova_candidati(
+            validazione.arbitri,
+            oggi=oggi,
+            giorni_preavviso=self.configurazione.giorni_preavviso,
+        )
+        candidati = candidati[: self.configurazione.limite_invii_per_esecuzione]
+
+        gia_presenti = 0
+        composti = 0
+        tentati = 0
+        riusciti = 0
+        falliti = 0
+        incerti = 0
+
+        for candidato_originale in candidati:
+            candidato = (
+                _candidato_test(candidato_originale)
+                if modalita is ModalitaEsecuzione.TEST_SMTP
+                else candidato_originale
+            )
+            if modalita is not ModalitaEsecuzione.DRY_RUN:
+                if self.registro is None or self.trasporto_email is None:
+                    raise ErroreOrchestrazione(
+                        "registro e trasporto email obbligatori fuori dal dry-run"
+                    )
+                if not self.registro.puo_prenotare(candidato.notification_id):
+                    gia_presenti += 1
+                    continue
+
+            try:
+                messaggio = componi_email(candidato, self.configurazione.email)
+                if modalita is ModalitaEsecuzione.TEST_SMTP:
+                    override = self.configurazione.destinatario_override
+                    if override is None:
+                        raise ErroreOrchestrazione(
+                            "destinatario override mancante in modalità test"
+                        )
+                    messaggio = replace(messaggio, destinatario=override)
+                composti += 1
+            except (ErroreTemplate, ErroreOrchestrazione) as exc:
+                falliti += 1
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.ERROR,
+                    origine="TEMPLATE",
+                    codice="MESSAGGIO_NON_COMPONIBILE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
+                continue
+
+            if modalita is ModalitaEsecuzione.DRY_RUN:
+                continue
+
+            assert self.registro is not None
+            assert self.trasporto_email is not None
+            try:
+                self.registro.prenota(candidato, ora=istante)
+                tentati += 1
+                esito_smtp = self.trasporto_email.invia(messaggio)
+                self.registro.segna_inviata(
+                    candidato,
+                    message_id=esito_smtp.message_id,
+                    ora=istante,
+                )
+                riusciti += 1
+            except ErroreSmtpRetryable as exc:
+                falliti += 1
+                self.registro.segna_errore_retryable(
+                    candidato,
+                    errore=type(exc).__name__,
+                    ora=istante,
+                )
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.ERROR,
+                    origine="SMTP",
+                    codice="SMTP_RETRYABLE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
+            except EsitoSmtpIncerto as exc:
+                incerti += 1
+                self.registro.segna_esito_incerto(
+                    candidato,
+                    errore=type(exc).__name__,
+                    ora=istante,
+                )
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.CRITICAL,
+                    origine="SMTP",
+                    codice="SMTP_ESITO_INCERTO",
+                    messaggio="la consegna richiede revisione umana",
+                    istante=istante,
+                )
+            except ErroreSmtpPermanente as exc:
+                incerti += 1
+                self.registro.segna_esito_incerto(
+                    candidato,
+                    errore=type(exc).__name__,
+                    ora=istante,
+                )
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.CRITICAL,
+                    origine="SMTP",
+                    codice="SMTP_PERMANENTE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
+            except ErroreRegistroPersistente as exc:
+                incerti += 1
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.CRITICAL,
+                    origine="REGISTRO",
+                    codice="REGISTRO_INCOERENTE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
+
+        stato = "DRY_RUN_OK" if modalita is ModalitaEsecuzione.DRY_RUN else "OK"
+        if incerti:
+            stato = "REVISIONE_RICHIESTA"
+        elif falliti:
+            stato = "ATTENZIONE"
+
+        esito = EsitoEsecuzione(
+            modalita=modalita,
+            stato=stato,
+            righe_lette=validazione.righe_totali,
+            righe_valide=len(validazione.arbitri),
+            anomalie=len(validazione.anomalie) + falliti + incerti,
+            candidati=len(candidati),
+            notifiche_gia_presenti=gia_presenti,
+            messaggi_composti=composti,
+            invii_tentati=tentati,
+            invii_riusciti=riusciti,
+            invii_falliti=falliti,
+            esiti_incerti=incerti,
+        )
+        self._aggiorna_dashboard(esito, istante, codice_errore="")
+        return esito
+
+    def _valida_modalita(
+        self,
+        modalita: ModalitaEsecuzione,
+        consenso_esterno: bool,
+    ) -> None:
+        if modalita is ModalitaEsecuzione.DRY_RUN:
+            return
+        if not consenso_esterno:
+            raise ErroreOrchestrazione(
+                "un workflow protetto deve fornire il consenso esterno all'invio"
+            )
+        if modalita is ModalitaEsecuzione.TEST_SMTP:
+            if not self.configurazione.modalita_test:
+                raise ErroreOrchestrazione("MODALITA_TEST deve essere true")
+            if self.configurazione.destinatario_override is None:
+                raise ErroreOrchestrazione("DESTINATARIO_OVERRIDE mancante")
+            return
+        if not self.configurazione.invio_reale_consentito(
+            consenso_esterno=consenso_esterno
+        ):
+            raise ErroreOrchestrazione(
+                "le barriere per l'invio reale non sono tutte disattivate"
+            )
+
+    def _registra_anomalia(
+        self,
+        *,
+        severita: SeveritaAnomalia,
+        origine: str,
+        codice: str,
+        messaggio: str,
+        istante: datetime,
+        riga_sorgente: int | None = None,
+        campo: str | None = None,
+    ) -> None:
+        self.anomalie.registra(
+            AnomaliaRuntime.crea(
+                severita=severita,
+                origine=origine,
+                codice=codice,
+                messaggio=messaggio,
+                versione_app=self.versione_app,
+                riga_sorgente=riga_sorgente,
+                campo=campo,
+                rilevata_il=istante,
+            )
+        )
+
+    def _aggiorna_dashboard(
+        self,
+        esito: EsitoEsecuzione,
+        istante: datetime,
+        *,
+        codice_errore: str,
+    ) -> None:
+        self.dashboard.aggiorna(
+            MetricheEsecuzione(
+                stato_sistema=esito.stato,
+                ultima_esecuzione=istante,
+                heartbeat=istante,
+                righe_lette=esito.righe_lette,
+                righe_valide=esito.righe_valide,
+                candidati=esito.candidati,
+                notifiche_gia_presenti=esito.notifiche_gia_presenti,
+                invii_tentati=esito.invii_tentati,
+                invii_riusciti=esito.invii_riusciti,
+                invii_falliti=esito.invii_falliti,
+                esiti_incerti=esito.esiti_incerti,
+                anomalie=esito.anomalie,
+                kill_switch=self.configurazione.kill_switch,
+                versione_app=self.versione_app,
+                codice_errore=codice_errore,
+            )
+        )
+
+
+def _candidato_test(candidato: CandidatoNotifica) -> CandidatoNotifica:
+    tipo = f"TEST_{candidato.tipo}"
+    return replace(
+        candidato,
+        tipo=tipo,
+        notification_id="|".join(
+            (
+                candidato.arbitro.id_arbitro.strip(),
+                candidato.arbitro.scadenza_certificato.isoformat(),
+                tipo,
+            )
+        ),
+    )
+
+
+def _utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("ora deve includere il fuso orario")
+    return value.astimezone(timezone.utc)
