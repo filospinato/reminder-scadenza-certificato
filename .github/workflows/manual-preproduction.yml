@@ -55,15 +55,6 @@ jobs:
       OPERATIVO_HEADER_ROW: ${{ vars.OPERATIVO_HEADER_ROW }}
       OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
-      SMTP_HOST: ${{ secrets.SMTP_HOST }}
-      SMTP_PORT: ${{ secrets.SMTP_PORT }}
-      SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
-      SMTP_FROM: ${{ secrets.SMTP_FROM }}
-      SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME }}
-      SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
-      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      ALLOW_EMAIL_DELIVERY: ${{ inputs.confirm_email_delivery }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,33 +77,41 @@ jobs:
       - name: Install
         run: python -m pip install --upgrade pip && pip install -e ".[google]"
 
-      - name: Esegui operazione selezionata
+      - name: Controlla intestazioni
+        if: inputs.operation == 'check-headers'
+        run: reminder-certificati-runtime check-headers
+
+      - name: Inizializza o verifica il foglio amministrativo
+        if: inputs.operation == 'init-admin'
         shell: bash
         run: |
           set -euo pipefail
-          case "${{ inputs.operation }}" in
-            check-headers)
-              reminder-certificati-runtime check-headers
-              ;;
-            init-admin)
-              if [[ -n "${ADMIN_SPREADSHEET_ID:-}" ]]; then
-                reminder-certificati-runtime init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
-              else
-                reminder-certificati-runtime init-admin
-              fi
-              ;;
-            dry-run)
-              reminder-certificati-runtime run --mode DRY_RUN --today "${{ inputs.today }}"
-              ;;
-            test-smtp)
-              if [[ "${{ inputs.confirm_email_delivery }}" != "true" ]]; then
-                echo "Conferma email non fornita" >&2
-                exit 2
-              fi
-              reminder-certificati-runtime run --mode TEST_SMTP --today "${{ inputs.today }}" --confirm-email-delivery
-              ;;
-            *)
-              echo "Operazione non consentita" >&2
-              exit 2
-              ;;
-          esac
+          if [[ -n "${ADMIN_SPREADSHEET_ID:-}" ]]; then
+            reminder-certificati-runtime init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
+          else
+            reminder-certificati-runtime init-admin
+          fi
+
+      - name: Esegui dry-run aggregato
+        if: inputs.operation == 'dry-run'
+        run: reminder-certificati-runtime run --mode DRY_RUN --today "${{ inputs.today }}"
+
+      - name: Esegui test SMTP all'override
+        if: inputs.operation == 'test-smtp' && inputs.confirm_email_delivery
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME }}
+          SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALLOW_EMAIL_DELIVERY: "true"
+        run: reminder-certificati-runtime run --mode TEST_SMTP --today "${{ inputs.today }}" --confirm-email-delivery
+
+      - name: Rifiuta test SMTP senza conferma
+        if: inputs.operation == 'test-smtp' && !inputs.confirm_email_delivery
+        run: |
+          echo "Conferma email non fornita" >&2
+          exit 2
