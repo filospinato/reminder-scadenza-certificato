@@ -1,6 +1,6 @@
 # Contratto del messaggio email
 
-Il programma compone sempre una versione testuale e una versione HTML dello stesso messaggio. La composizione è separata dall'invio SMTP: può quindi essere provata in `dry-run` senza contattare MDaemon.
+Il programma compone sempre una versione testuale e una versione HTML dello stesso messaggio. La composizione è separata dall'invio SMTP e può essere provata in `dry-run` senza contattare MDaemon.
 
 ## Apertura obbligatoria
 
@@ -12,17 +12,16 @@ Ciao {{nome}}, ricevi questa mail...
 
 Il saluto non è affidato liberamente al template. Il programma aggiunge `Ciao {{nome}}, ` e accetta il corpo solo quando inizia con `ricevi questa mail`.
 
-## Scelta del nome
+## Provenienza del nome
 
-1. se la mappatura di `Operativo` indica una colonna facoltativa `nome_saluto`, viene usato quel valore;
-2. altrimenti viene usata la prima parola del nominativo completo;
-3. per nomi composti, soprannomi istituzionali o sorgenti ordinate `Cognome Nome`, è consigliato configurare esplicitamente `nome_saluto`.
+`{{nome}}` è letto direttamente dalla colonna del nome presente sulla stessa riga di `Operativo` che contiene anche cognome, email, scadenza e stato dell'arbitro.
 
 Esempio:
 
 ```text
-nome = Anna Maria Verdi
-nome_saluto = Anna Maria
+nome = Anna Maria
+cognome = Verdi
+email = anna@example.it
 ```
 
 produce:
@@ -31,12 +30,15 @@ produce:
 Ciao Anna Maria, ricevi questa mail...
 ```
 
+Il programma non prende la prima parola di un nominativo completo e non tenta di dedurre il nome dal cognome.
+
 ## Placeholder consentiti
 
 | Placeholder | Valore |
 |---|---|
-| `{{nome}}` | nome usato nel saluto |
-| `{{nome_completo}}` | nominativo completo presente nella sorgente |
+| `{{nome}}` | colonna `nome` di Operativo |
+| `{{cognome}}` | colonna `cognome` di Operativo |
+| `{{nome_completo}}` | `nome` e `cognome` ricomposti |
 | `{{data_scadenza}}` | data in formato `GG/MM/AAAA` |
 | `{{giorni_residui}}` | giorni mancanti alla scadenza |
 
@@ -61,6 +63,7 @@ Oggetto, corpo e firma saranno caricati dal foglio `CONFIG`. La firma ufficiale 
 
 ## Sicurezza
 
+- nome, cognome, email e scadenza provengono dalla medesima riga validata;
 - valori personalizzati sottoposti a escaping nella versione HTML;
 - ritorni a capo vietati nell'oggetto per prevenire header injection;
 - testo e HTML generati dalla stessa configurazione;
