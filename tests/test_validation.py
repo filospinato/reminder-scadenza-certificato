@@ -14,7 +14,8 @@ from reminder_certificati.validation import (
 def riga(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
         "id_arbitro": "A-1",
-        "nome": "Mario Rossi",
+        "nome": "Mario",
+        "cognome": "Rossi",
         "email": "mario@example.it",
         "scadenza_certificato": "2026-08-01",
         "attivo": "Operativo",
@@ -29,12 +30,16 @@ def test_accetta_formati_data_e_stato_previsti() -> None:
             riga(),
             riga(
                 id_arbitro="A-2",
+                nome="Anna Maria",
+                cognome="Verdi",
                 scadenza_certificato="02/08/2026",
                 attivo=1,
             ),
         ]
     )
     assert [item.id_arbitro for item in esito.arbitri] == ["A-1", "A-2"]
+    assert esito.arbitri[1].nome_per_saluto == "Anna Maria"
+    assert esito.arbitri[1].nome_completo == "Anna Maria Verdi"
     assert esito.arbitri[1].scadenza_certificato == date(2026, 8, 2)
     assert esito.anomalie == ()
 
@@ -46,6 +51,7 @@ def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
             riga(
                 id_arbitro="",
                 nome="",
+                cognome="",
                 email="x",
                 scadenza_certificato="31-12-2026",
                 attivo="forse",
@@ -56,6 +62,7 @@ def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
     assert {item.codice for item in esito.anomalie} == {
         CodiceAnomalia.ID_MANCANTE,
         CodiceAnomalia.NOME_MANCANTE,
+        CodiceAnomalia.COGNOME_MANCANTE,
         CodiceAnomalia.EMAIL_NON_VALIDA,
         CodiceAnomalia.SCADENZA_NON_VALIDA,
         CodiceAnomalia.STATO_NON_VALIDO,
@@ -80,18 +87,18 @@ def test_ignora_righe_interamente_vuote() -> None:
 def test_mappatura_colonne_personalizzata() -> None:
     mapping = MappaturaColonne(
         id_arbitro="ID",
-        nome="Nominativo",
+        nome="Nome",
+        cognome="Cognome",
         email="Email",
         scadenza_certificato="Scadenza",
         attivo="Stato",
-        nome_saluto="Nome",
     )
     esito = valida_righe(
         [
             {
                 "ID": "A-9",
-                "Nominativo": "Anna Maria Verdi",
                 "Nome": "Anna Maria",
+                "Cognome": "Verdi",
                 "Email": "anna@example.it",
                 "Scadenza": "2026-09-01",
                 "Stato": "Sì",
@@ -101,19 +108,19 @@ def test_mappatura_colonne_personalizzata() -> None:
     )
     assert esito.arbitri[0].id_arbitro == "A-9"
     assert esito.arbitri[0].nome_per_saluto == "Anna Maria"
+    assert esito.arbitri[0].nome_completo == "Anna Maria Verdi"
 
 
-def test_nome_saluto_opzionale_non_diventa_colonna_obbligatoria() -> None:
-    mapping = MappaturaColonne(nome_saluto="Nome")
-    valida_intestazioni(
-        ["id_arbitro", "nome", "email", "scadenza_certificato", "attivo"],
-        mapping,
-    )
+def test_cognome_e_colonna_obbligatoria() -> None:
+    with pytest.raises(SchemaError, match="cognome"):
+        valida_intestazioni(
+            ["id_arbitro", "nome", "email", "scadenza_certificato", "attivo"]
+        )
 
 
 def test_intestazioni_mancanti_sono_errore_fatale() -> None:
     with pytest.raises(SchemaError, match="scadenza_certificato"):
-        valida_intestazioni(["id_arbitro", "nome", "email", "attivo"])
+        valida_intestazioni(["id_arbitro", "nome", "cognome", "email", "attivo"])
 
 
 def test_numero_riga_parte_dalla_riga_dati_configurata() -> None:
