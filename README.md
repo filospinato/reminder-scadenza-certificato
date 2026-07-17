@@ -4,7 +4,7 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 
 ## Stato del progetto
 
-La versione corrente **0.9.0** resta esclusivamente in `dry-run` e prepara l'autenticazione Google Cloud senza chiavi permanenti:
+La versione corrente **0.10.0** resta esclusivamente in `dry-run` e definisce anche il contratto completo dello Spreadsheet amministrativo separato:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
 - legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
@@ -15,13 +15,14 @@ La versione corrente **0.9.0** resta esclusivamente in `dry-run` e prepara l'aut
 - genera una chiave deterministica anti-duplicazione;
 - modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
 - impedisce prenotazioni concorrenti duplicate nel registro in memoria;
-- definisce lo schema completo della tab `NOTIFICHE`;
 - include adapter Google Sheets testati con fake per lettura, append e update;
 - supporta la struttura verificata di `Operativo`, con intestazioni in riga 2;
+- definisce le tab `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`;
+- inizializza configurazione e dashboard in stato disattivato e senza dati personali;
 - compone in memoria versioni testo e HTML del promemoria, senza inviarle;
 - valida gli identificatori pubblici di Workload Identity Federation;
 - rifiuta variabili riconducibili a chiavi JSON permanenti;
-- non accede ancora al database reale `Operativo` e non effettua scritture o invii reali.
+- non accede ancora al database reale `Operativo` e non crea o modifica Spreadsheet reali.
 
 ## Avvio locale
 
@@ -70,7 +71,17 @@ Il modulo `admin_store` converte candidato e stato in una `RigaNotifica` complet
 
 Il ponte `TrasportoNotificheGoogleApi` è pronto per un servizio Google già autenticato, ma non costruisce credenziali e non viene ancora usato contro Spreadsheet reali. La ricerca seguita da scrittura non è una transazione atomica di Google Sheets: in produzione le esecuzioni saranno anche serializzate tramite `concurrency` di GitHub Actions.
 
-I contratti completi sono in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md), [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md) e [`docs/SORGENTI_DATI.md`](docs/SORGENTI_DATI.md).
+## Foglio amministrativo
+
+Il modulo `admin_schema` definisce lo Spreadsheet canonico `Reminder certificati CIA Lazio — Gestione` e le quattro tab, nell'ordine:
+
+```text
+CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
+```
+
+La configurazione iniziale mantiene `SISTEMA_ATTIVO=false`, `INVII_REALI_ABILITATI=false`, `MODALITA_TEST=true` e `KILL_SWITCH=true`. `NOTIFICHE` e `ANOMALIE` nascono senza righe dati; `DASHBOARD` contiene soltanto metriche sintetiche a zero.
+
+Il codice valida nome del file, ordine delle tab, intestazioni duplicate e larghezza delle righe. Non crea ancora il file su Google Drive. Il contratto completo è in [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md).
 
 ## Composizione del messaggio
 
@@ -118,6 +129,7 @@ Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DA
 - Nessun segreto o chiave permanente deve essere salvato nel repository.
 - `Operativo` sarà accessibile in sola lettura.
 - Il foglio amministrativo riceverà accesso in scrittura separato e limitato.
+- Il foglio iniziale mantiene invii reali disabilitati e kill switch attivo.
 - Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
 - Gli esiti incerti non vengono ritentati automaticamente.
 - Chiavi duplicate o schema errato in `NOTIFICHE` bloccano la scrittura.
