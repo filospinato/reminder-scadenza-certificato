@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Protocol
 
 from .validation import (
     EsitoValidazione,
@@ -39,6 +41,14 @@ class LettoreValoriSheets(Protocol):
         """Legge una matrice di valori dalla Google Sheets API."""
 
 
+def _riga_sequenza(value: Any, *, nome_sorgente: str, numero_riga: int) -> Sequence[Any]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ErroreSorgenteDati(
+            f"{nome_sorgente}: riga {numero_riga} non è una sequenza di celle"
+        )
+    return value
+
+
 def tabella_da_matrice(
     matrice: Sequence[Sequence[Any]],
     *,
@@ -50,18 +60,22 @@ def tabella_da_matrice(
     silenziose. Le righe corte vengono invece completate con valori vuoti.
     """
 
+    if isinstance(matrice, (str, bytes)) or not isinstance(matrice, Sequence):
+        raise ErroreSorgenteDati(f"{nome_sorgente}: matrice non valida")
     if not matrice:
         raise ErroreSorgenteDati(f"{nome_sorgente}: nessun dato disponibile")
 
-    intestazioni = tuple(str(value).strip() for value in matrice[0])
+    riga_intestazioni = _riga_sequenza(
+        matrice[0], nome_sorgente=nome_sorgente, numero_riga=1
+    )
+    intestazioni = tuple(str(value).strip() for value in riga_intestazioni)
     if not intestazioni or all(not value for value in intestazioni):
         raise ErroreSorgenteDati(f"{nome_sorgente}: intestazioni mancanti")
     if any(not value for value in intestazioni):
         raise ErroreSorgenteDati(f"{nome_sorgente}: intestazione vuota")
 
-    duplicati = sorted(
-        {value for value in intestazioni if intestazioni.count(value) > 1}
-    )
+    conteggi = Counter(intestazioni)
+    duplicati = sorted(value for value, count in conteggi.items() if count > 1)
     if duplicati:
         raise ErroreSorgenteDati(
             f"{nome_sorgente}: intestazioni duplicate: {', '.join(duplicati)}"
@@ -70,7 +84,12 @@ def tabella_da_matrice(
     righe: list[Mapping[str, Any]] = []
     larghezza = len(intestazioni)
     for numero_riga, valori_originali in enumerate(matrice[1:], start=2):
-        valori = list(valori_originali)
+        riga = _riga_sequenza(
+            valori_originali,
+            nome_sorgente=nome_sorgente,
+            numero_riga=numero_riga,
+        )
+        valori = list(riga)
         eccedenti = valori[larghezza:]
         if any(str(value).strip() for value in eccedenti):
             raise ErroreSorgenteDati(
