@@ -1,6 +1,43 @@
 # Schema dei fogli amministrativi
 
-Questo documento definisce lo schema logico iniziale dello Spreadsheet amministrativo. Il codice include ora un adapter Google Sheets testato con fake, ma non usa ancora credenziali né Spreadsheet reali.
+Questo documento definisce il contratto logico dello Spreadsheet separato `Reminder certificati CIA Lazio — Gestione`. Il codice produce esclusivamente una struttura iniziale sintetica: non crea ancora lo Spreadsheet, non legge dati personali e non attiva invii.
+
+Le tab devono esistere una sola volta e nell'ordine canonico:
+
+```text
+CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
+```
+
+Il modulo `admin_schema` valida nome del file, nomi e ordine delle tab, intestazioni, duplicati e larghezza delle righe iniziali.
+
+## Tab `CONFIG`
+
+Intestazioni:
+
+```text
+chiave | valore | tipo | descrizione | modificabile
+```
+
+Ogni riga rappresenta una singola impostazione. I tipi previsti sono `BOOLEANO`, `INTERO`, `TESTO`, `EMAIL_OPZIONALE` e `TEMPLATE`.
+
+La configurazione iniziale è deliberatamente bloccata:
+
+| Chiave | Valore iniziale | Modificabile | Scopo |
+|---|---:|---:|---|
+| `SISTEMA_ATTIVO` | `false` | sì | abilita l'elaborazione soltanto dopo collaudo |
+| `INVII_REALI_ABILITATI` | `false` | no | barriera separata contro invii SMTP accidentali |
+| `MODALITA_TEST` | `true` | sì | forza l'uso del destinatario sostitutivo |
+| `KILL_SWITCH` | `true` | sì | blocco operativo immediato |
+| `GIORNI_PREAVVISO` | `30` | sì | finestra inclusiva dei certificati in scadenza |
+| `LIMITE_INVII_PER_ESECUZIONE` | `10` | sì | limite massimo per singolo avvio |
+| `DESTINATARIO_OVERRIDE` | vuoto | sì | deve essere valorizzato prima di prove di invio |
+| `OGGETTO_EMAIL` | valore sintetico predefinito | sì | oggetto del promemoria |
+| `SALUTO_EMAIL` | `Ciao {{nome}},` | no | saluto fisso dalla colonna `nome` della stessa riga |
+| `CORPO_EMAIL` | inizia con `ricevi questa mail` | sì | corpo del messaggio |
+| `FIRMA_TESTO` | firma testuale provvisoria | sì | firma ufficiale e logo richiedono approvazione separata |
+| `CONTATTO_SUPPORTO` | vuoto | sì | contatto da definire prima della produzione |
+
+`SALUTO_EMAIL` e `CORPO_EMAIL` preservano insieme l'apertura obbligatoria `Ciao {{nome}}, ricevi questa mail...`. Lo schema non introduce `nome_saluto` e non deduce il nome da un nominativo completo.
 
 ## Tab `NOTIFICHE`
 
@@ -20,12 +57,41 @@ Una riga rappresenta lo stato corrente di una sola notifica, identificata in mod
 | `creato_il` | primo inserimento UTC | immutabile |
 | `aggiornato_il` | ultima transizione UTC | non può regredire |
 | `message_id` | identificativo SMTP | valorizzato dopo invio accettato |
-| `versione_app` | versione del programma | utile per audit e diagnosi |
+| `versione_app` | versione del programma | audit e diagnosi |
 | `errore` | dettaglio tecnico sintetico | privo di segreti e dati superflui |
 
-L'ordine delle quattordici colonne è canonico e viene verificato esattamente prima di ogni lettura o scrittura.
+L'ordine delle quattordici colonne è canonico e viene riusato direttamente dal contratto già implementato in `admin_store`.
 
-## Comportamento dell'adapter
+Lo schema iniziale contiene soltanto le intestazioni: nessuna notifica o dato personale viene precompilato.
+
+## Tab `DASHBOARD`
+
+Intestazioni:
+
+```text
+metrica | valore | descrizione
+```
+
+La dashboard iniziale contiene metriche sintetiche e sicure:
+
+- `stato_sistema = DISATTIVATO`;
+- `ultima_esecuzione` e `heartbeat` vuoti;
+- `righe_lette`, `candidati`, `invii_tentati`, `invii_riusciti` e `anomalie` uguali a `0`;
+- `kill_switch = ATTIVO`.
+
+Questi valori non dichiarano un'esecuzione reale e non devono essere confusi con dati operativi.
+
+## Tab `ANOMALIE`
+
+Intestazioni:
+
+```text
+anomalia_id | rilevata_il | severita | origine | codice | riga_sorgente | campo | messaggio | versione_app | risolta_il
+```
+
+La tab nasce vuota. In futuro conterrà problemi di qualità dati o tecnici senza modificare `Operativo`. `messaggio` deve restare sintetico e non deve includere intere righe, certificati, credenziali o dati personali non necessari.
+
+## Comportamento dell'adapter `NOTIFICHE`
 
 `ArchivioNotificheGoogleSheets`:
 
@@ -37,30 +103,22 @@ L'ordine delle quattordici colonne è canonico e viene verificato esattamente pr
 6. blocca la scrittura se esistono due o più corrispondenze;
 7. rifiuta intestazioni diverse, timestamp regressivi o modifica di `creato_il`.
 
-Il trasporto usa `valueInputOption=RAW`, quindi date, timestamp e identificativi vengono conservati come stringhe canoniche senza interpretazioni automatiche del foglio.
+Il trasporto usa `valueInputOption=RAW`, quindi date, timestamp e identificativi vengono conservati come stringhe canoniche.
 
 ## Concorrenza
 
-Google Sheets non offre una transazione atomica che comprenda ricerca della chiave e successiva scrittura. Il controllo applicativo evita errori e duplicati già presenti, ma in produzione deve essere affiancato da un solo workflow attivo alla volta tramite `concurrency` di GitHub Actions.
+Google Sheets non offre una transazione atomica che comprenda ricerca della chiave e successiva scrittura. In produzione il controllo applicativo dovrà essere affiancato da un solo workflow attivo alla volta tramite `concurrency` di GitHub Actions.
 
-Il lock del workflow non sostituisce i controlli sul foglio: se una modifica manuale crea chiavi duplicate, l'esecuzione deve comunque bloccarsi e segnalare l'anomalia.
-
-## Preparazione del foglio sintetico
-
-Per la prova reale sarà sufficiente uno Spreadsheet senza dati personali con una tab chiamata `NOTIFICHE`. La prima riga dovrà contenere, nell'ordine:
-
-```text
-notification_id | id_arbitro | nome | cognome | email | scadenza_certificato | tipo | stato | tentativi | creato_il | aggiornato_il | message_id | versione_app | errore
-```
-
-Il service account riceverà accesso in scrittura soltanto a questo Spreadsheet sintetico durante il collaudo.
-
-## Tab future
-
-- `CONFIG`: attivazione, finestra temporale, limiti, modalità test, override destinatario, oggetto, corpo, firma e contatti.
-- `DASHBOARD`: heartbeat, ultima esecuzione, conteggi, stato generale e kill switch.
-- `ANOMALIE`: problemi di qualità dati e tecnici, senza modificare Operativo.
+Il lock del workflow non sostituisce i controlli sul foglio: una chiave duplicata creata manualmente deve comunque bloccare l'esecuzione.
 
 ## Stato attuale
 
-Sono implementati e testati `RigaNotifica`, `ArchivioNotificheMemoria`, `ArchivioNotificheGoogleSheets`, `TrasportoNotificheMemoria` e `TrasportoNotificheGoogleApi`. Mancano ancora la costruzione delle credenziali, la prova su uno Spreadsheet sintetico, l'integrazione nel flusso completo e il workflow `concurrency` di produzione.
+Sono implementati e testati:
+
+- il contratto completo delle quattro tab;
+- i valori iniziali sicuri di `CONFIG` e `DASHBOARD`;
+- l'assenza di righe iniziali in `NOTIFICHE` e `ANOMALIE`;
+- i controlli su nome del file, ordine delle tab, intestazioni duplicate e larghezza delle righe;
+- il riuso dello schema `NOTIFICHE` già esistente.
+
+Non sono ancora stati creati Spreadsheet reali, configurati permessi Google, copiati dati da `Operativo` o attivati workflow e invii SMTP.
