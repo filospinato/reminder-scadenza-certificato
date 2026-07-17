@@ -4,7 +4,7 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 
 ## Stato del progetto
 
-La versione corrente **0.7.0** è un MVP esclusivamente in `dry-run`:
+La versione corrente **0.9.0** resta esclusivamente in `dry-run` e prepara l'autenticazione Google Cloud senza chiavi permanenti:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
 - legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
@@ -16,12 +16,12 @@ La versione corrente **0.7.0** è un MVP esclusivamente in `dry-run`:
 - modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
 - impedisce prenotazioni concorrenti duplicate nel registro in memoria;
 - definisce lo schema completo della tab `NOTIFICHE`;
-- include un archivio in memoria e un adapter Google Sheets testati con fake;
-- cerca la `notification_id` in modo univoco, aggiunge una riga quando è assente e aggiorna la stessa riga quando è già presente;
-- blocca la scrittura se trova chiavi duplicate, intestazioni errate o regressioni temporali;
+- include adapter Google Sheets testati con fake per lettura, append e update;
+- supporta la struttura verificata di `Operativo`, con intestazioni in riga 2;
 - compone in memoria versioni testo e HTML del promemoria, senza inviarle;
-- non accede ancora al database reale `Operativo`;
-- non contiene credenziali e non effettua scritture Google o invii email reali.
+- valida gli identificatori pubblici di Workload Identity Federation;
+- rifiuta variabili riconducibili a chiavi JSON permanenti;
+- non accede ancora al database reale `Operativo` e non effettua scritture o invii reali.
 
 ## Avvio locale
 
@@ -98,16 +98,24 @@ La logica applicativa dipende da protocolli, non direttamente dalla libreria Goo
 - `TrasportoNotificheGoogleApi`, ponte di lettura e scrittura verso un servizio Google già autenticato;
 - `leggi_e_valida`, che collega qualsiasi sorgente degli arbitri alla validazione esistente.
 
-Credenziali, Spreadsheet ID e nomi reali delle schede restano fuori dal repository. Architettura, controlli e privilegi minimi sono descritti in [`docs/SORGENTI_DATI.md`](docs/SORGENTI_DATI.md).
+La riga delle intestazioni è configurabile. Per `Operativo` è fissata a 2 e le anomalie mantengono il numero di riga originale del foglio.
+
+## Autenticazione Google
+
+Il modulo `google_auth` valida soltanto gli identificatori pubblici necessari a Workload Identity Federation. Il repository non accetta chiavi JSON permanenti.
+
+Il futuro collegamento GitHub–Google userà token OIDC temporanei, un service account dedicato e una trust policy limitata al repository, al proprietario e al branch autorizzato. Il provisioning non è ancora stato applicato.
+
+Il runbook completo è in [`docs/AUTENTICAZIONE_GOOGLE.md`](docs/AUTENTICAZIONE_GOOGLE.md).
 
 ## Contratto dati
 
-Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni effettive di `Operativo` saranno collegate tramite configurazione.
+Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni reali vengono collegate tramite configurazione e non tramite valori personali versionati.
 
 ## Sicurezza
 
 - Nessun dato personale reale deve essere versionato.
-- Nessun segreto deve essere salvato nei file del repository.
+- Nessun segreto o chiave permanente deve essere salvato nel repository.
 - `Operativo` sarà accessibile in sola lettura.
 - Il foglio amministrativo riceverà accesso in scrittura separato e limitato.
 - Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
@@ -117,4 +125,4 @@ Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DA
 
 ## Roadmap
 
-La roadmap canonica in dieci passi è in [`ROADMAP.md`](ROADMAP.md); l'avanzamento operativo è tracciato anche nell'issue #1. Il progetto procede per incrementi piccoli, testati e revisionabili tramite pull request draft.
+La roadmap canonica in dieci passi è in [`ROADMAP.md`](ROADMAP.md); l'avanzamento operativo è tracciato anche nell'issue #1. Il progetto procede per incrementi piccoli, testati e revisionabili tramite pull request.
