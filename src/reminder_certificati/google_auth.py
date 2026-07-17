@@ -24,6 +24,12 @@ _SERVICE_ACCOUNT_RE = re.compile(
     r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]"
     r"\.iam\.gserviceaccount\.com$"
 )
+_VARIABILI_CHIAVE_PERMANENTE = {
+    "GOOGLE_SERVICE_ACCOUNT_JSON",
+    "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+    "GCP_SERVICE_ACCOUNT_KEY",
+}
+_PREFISSO_WIF_RISERVATO = "gcp-"
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +39,16 @@ class ConfigurazioneGoogleWif:
 
     @classmethod
     def da_ambiente(cls, ambiente: Mapping[str, str]) -> "ConfigurazioneGoogleWif":
+        presenti = sorted(
+            nome
+            for nome in _VARIABILI_CHIAVE_PERMANENTE
+            if ambiente.get(nome, "").strip()
+        )
+        if presenti:
+            raise ErroreConfigurazioneGoogle(
+                "chiavi JSON permanenti non consentite: " + ", ".join(presenti)
+            )
+
         provider = ambiente.get("GCP_WORKLOAD_IDENTITY_PROVIDER", "").strip()
         service_account = ambiente.get("GCP_SERVICE_ACCOUNT", "").strip()
 
@@ -42,24 +58,23 @@ class ConfigurazioneGoogleWif:
             )
         if not service_account:
             raise ErroreConfigurazioneGoogle("GCP_SERVICE_ACCOUNT mancante")
-        if not _PROVIDER_RE.fullmatch(provider):
+
+        provider_match = _PROVIDER_RE.fullmatch(provider)
+        if provider_match is None:
             raise ErroreConfigurazioneGoogle(
                 "GCP_WORKLOAD_IDENTITY_PROVIDER non ha il formato canonico"
             )
+        if any(
+            provider_match.group(nome).startswith(_PREFISSO_WIF_RISERVATO)
+            for nome in ("pool", "provider")
+        ):
+            raise ErroreConfigurazioneGoogle(
+                "pool e provider WIF non possono usare il prefisso riservato gcp-"
+            )
+
         if not _SERVICE_ACCOUNT_RE.fullmatch(service_account):
             raise ErroreConfigurazioneGoogle(
                 "GCP_SERVICE_ACCOUNT non ha il formato canonico"
-            )
-
-        vietate = {
-            "GOOGLE_SERVICE_ACCOUNT_JSON",
-            "GOOGLE_APPLICATION_CREDENTIALS_JSON",
-            "GCP_SERVICE_ACCOUNT_KEY",
-        }
-        presenti = sorted(nome for nome in vietate if ambiente.get(nome, "").strip())
-        if presenti:
-            raise ErroreConfigurazioneGoogle(
-                "chiavi JSON permanenti non consentite: " + ", ".join(presenti)
             )
 
         return cls(
