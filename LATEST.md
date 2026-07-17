@@ -23,7 +23,7 @@
 - apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando direttamente la colonna `nome`;
 - disponibilità di `{{cognome}}` e `{{nome_completo}}` nei template;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
-- test automatici e CI.
+- 35 test automatici e CI.
 
 ## Non ancora collegato
 
@@ -37,7 +37,7 @@
 
 ## Informazioni esterne ancora necessarie
 
-Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive delle colonne, i valori reali dello stato operativo e il formato effettivo della data. È già confermato che ogni arbitro occupa una riga e che nome, cognome ed email sono in colonne separate.
+Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive delle colonne, i valori reali dello stato operativo e il formato effettivo della data. È confermato che ogni arbitro occupa una riga e che nome, cognome ed email sono in colonne separate.
 
 Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e testo approvato; nel frattempo il compositore resta disaccoppiato dall'invio e usa dati sintetici nei test.
 
