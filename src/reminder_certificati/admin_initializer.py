@@ -27,19 +27,16 @@ class TrasportoStrutturaSheets(Protocol):
         *,
         titolo: str,
         nomi_tab: Sequence[str],
-    ) -> str:
-        """Crea uno Spreadsheet con le tab già nell'ordine richiesto."""
+    ) -> str: ...
 
-    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]:
-        """Restituisce i nomi delle tab nell'ordine effettivo."""
+    def elenca_tab(self, *, spreadsheet_id: str) -> Sequence[str]: ...
 
     def leggi_valori(
         self,
         *,
         spreadsheet_id: str,
         intervallo_a1: str,
-    ) -> Sequence[Sequence[Any]]:
-        """Legge una matrice di valori."""
+    ) -> Sequence[Sequence[Any]]: ...
 
     def scrivi_valori(
         self,
@@ -47,8 +44,7 @@ class TrasportoStrutturaSheets(Protocol):
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Sequence[Any]],
-    ) -> None:
-        """Scrive valori RAW senza inserimenti impliciti di righe."""
+    ) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,17 +58,14 @@ class EsitoInizializzazione:
 @dataclass(frozen=True, slots=True)
 class InizializzatoreFoglioAmministrativo:
     trasporto: TrasportoStrutturaSheets
-    schema: SchemaFoglioAmministrativo = field(
-        default_factory=crea_schema_amministrativo
-    )
+    schema: SchemaFoglioAmministrativo = field(default_factory=crea_schema_amministrativo)
 
     def prepara(self, *, spreadsheet_id: str | None = None) -> EsitoInizializzazione:
         """Crea o verifica il foglio senza sovrascrivere contenuti inattesi.
 
-        Se ``spreadsheet_id`` è assente viene creato un nuovo file con tutte le
-        tab canoniche. Se è presente, l'ordine delle tab deve essere già esatto.
-        Ogni tab può essere vuota oppure già identica alla matrice canonica.
-        Qualsiasi contenuto parziale o diverso blocca l'operazione.
+        Una tab vuota viene inizializzata. Una tab già usata viene verificata per
+        intestazioni, larghezza e vincoli minimi, senza richiedere che i valori
+        runtime coincidano ancora con quelli sintetici iniziali.
         """
 
         identificativo = (spreadsheet_id or "").strip()
@@ -100,8 +93,8 @@ class InizializzatoreFoglioAmministrativo:
         for definizione in self.schema.tab:
             intervallo = _intervallo_tab(definizione.nome)
             attuale = self._leggi(identificativo, intervallo)
-            canonica = definizione.matrice()
             if _matrice_vuota(attuale):
+                canonica = definizione.matrice()
                 self._scrivi(identificativo, intervallo, canonica)
                 riletta = self._leggi(identificativo, intervallo)
                 if _normalizza_matrice(riletta) != _normalizza_matrice(canonica):
@@ -111,11 +104,11 @@ class InizializzatoreFoglioAmministrativo:
                 inizializzate.append(definizione.nome)
                 continue
 
-            if _normalizza_matrice(attuale) != _normalizza_matrice(canonica):
-                raise ErroreInizializzazioneFoglio(
-                    f"{definizione.nome}: contenuto esistente incompatibile; "
-                    "nessuna sovrascrittura eseguita"
-                )
+            _verifica_matrice_esistente(
+                definizione.nome,
+                definizione.intestazioni,
+                attuale,
+            )
             conformi.append(definizione.nome)
 
         return EsitoInizializzazione(
@@ -135,12 +128,15 @@ class InizializzatoreFoglioAmministrativo:
                 identificativo,
                 _intervallo_tab(definizione.nome),
             )
-            if _normalizza_matrice(attuale) != _normalizza_matrice(
-                definizione.matrice()
-            ):
+            if _matrice_vuota(attuale):
                 raise ErroreInizializzazioneFoglio(
-                    f"{definizione.nome}: struttura non conforme"
+                    f"{definizione.nome}: tab non inizializzata"
                 )
+            _verifica_matrice_esistente(
+                definizione.nome,
+                definizione.intestazioni,
+                attuale,
+            )
 
     def _verifica_tab(self, spreadsheet_id: str) -> None:
         try:
@@ -194,6 +190,66 @@ class InizializzatoreFoglioAmministrativo:
             ) from exc
 
 
+def _verifica_matrice_esistente(
+    nome_tab: str,
+    intestazioni_attese: Sequence[str],
+    matrice: Sequence[Sequence[Any]],
+) -> None:
+    normalizzata = _normalizza_matrice(matrice)
+    if not normalizzata:
+        raise ErroreInizializzazioneFoglio(f"{nome_tab}: tab vuota")
+    intestazioni = tuple(cella.strip() for cella in normalizzata[0])
+    if intestazioni != tuple(intestazioni_attese):
+        raise ErroreInizializzazioneFoglio(
+            f"{nome_tab}: contenuto esistente incompatibile; intestazioni diverse"
+        )
+    larghezza = len(intestazioni)
+    chiavi: set[str] = set()
+    for numero_riga, riga in enumerate(normalizzata[1:], start=2):
+        if len(riga) != larghezza:
+            raise ErroreInizializzazioneFoglio(
+                f"{nome_tab}: riga {numero_riga} con larghezza non valida"
+            )
+        if nome_tab in {"CONFIG", "DASHBOARD"}:
+            chiave = riga[0].strip()
+            if not chiave:
+                raise ErroreInizializzazioneFoglio(
+                    f"{nome_tab}: riga {numero_riga} senza chiave"
+                )
+            if chiave in chiavi:
+                raise ErroreInizializzazioneFoglio(
+                    f"{nome_tab}: chiave duplicata: {chiave}"
+                )
+            chiavi.add(chiave)
+    if nome_tab == "CONFIG":
+        richieste = {
+            "SISTEMA_ATTIVO",
+            "INVII_REALI_ABILITATI",
+            "MODALITA_TEST",
+            "KILL_SWITCH",
+            "GIORNI_PREAVVISO",
+            "LIMITE_INVII_PER_ESECUZIONE",
+            "DESTINATARIO_OVERRIDE",
+            "OGGETTO_EMAIL",
+            "SALUTO_EMAIL",
+            "CORPO_EMAIL",
+            "FIRMA_TESTO",
+            "CONTATTO_SUPPORTO",
+        }
+        mancanti = richieste - chiavi
+        if mancanti:
+            raise ErroreInizializzazioneFoglio(
+                "CONFIG: chiavi obbligatorie mancanti: " + ", ".join(sorted(mancanti))
+            )
+    if nome_tab == "DASHBOARD":
+        mancanti = {"stato_sistema", "heartbeat", "kill_switch"} - chiavi
+        if mancanti:
+            raise ErroreInizializzazioneFoglio(
+                "DASHBOARD: metriche obbligatorie mancanti: "
+                + ", ".join(sorted(mancanti))
+            )
+
+
 def _intervallo_tab(nome: str) -> str:
     escaped = nome.replace("'", "''")
     return f"'{escaped}'!A1:ZZ"
@@ -202,14 +258,19 @@ def _intervallo_tab(nome: str) -> str:
 def _normalizza_matrice(
     matrice: Sequence[Sequence[Any]],
 ) -> tuple[tuple[str, ...], ...]:
-    righe = [tuple("" if cella is None else str(cella) for cella in riga) for riga in matrice]
+    righe = [
+        tuple("" if cella is None else str(cella) for cella in riga)
+        for riga in matrice
+    ]
     while righe and all(not cella.strip() for cella in righe[-1]):
         righe.pop()
     if not righe:
         return ()
     larghezza = max(len(riga) for riga in righe)
     normalizzate = [riga + ("",) * (larghezza - len(riga)) for riga in righe]
-    while larghezza > 0 and all(not riga[larghezza - 1].strip() for riga in normalizzate):
+    while larghezza > 0 and all(
+        not riga[larghezza - 1].strip() for riga in normalizzate
+    ):
         larghezza -= 1
     return tuple(riga[:larghezza] for riga in normalizzate)
 
@@ -278,7 +339,7 @@ def _nome_tab_da_intervallo(intervallo_a1: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class TrasportoStrutturaGoogleApi:
-    """Ponte verso servizi Sheets già autenticati tramite WIF/ADC."""
+    """Ponte verso un servizio Google Sheets già autenticato tramite WIF/ADC."""
 
     servizio: Any
 
@@ -320,7 +381,12 @@ class TrasportoStrutturaGoogleApi:
             properties = item.get("properties", {})
             if not isinstance(properties, Mapping):
                 raise ErroreInizializzazioneFoglio("properties tab non valide")
-            ordinati.append((int(properties.get("index", 0)), str(properties.get("title", ""))))
+            ordinati.append(
+                (
+                    int(properties.get("index", 0)),
+                    str(properties.get("title", "")),
+                )
+            )
         return tuple(nome for _, nome in sorted(ordinati))
 
     def leggi_valori(
@@ -352,5 +418,8 @@ class TrasportoStrutturaGoogleApi:
             spreadsheetId=spreadsheet_id,
             range=intervallo_a1,
             valueInputOption="RAW",
-            body={"majorDimension": "ROWS", "values": [list(riga) for riga in valori]},
+            body={
+                "majorDimension": "ROWS",
+                "values": [list(riga) for riga in valori],
+            },
         ).execute()
