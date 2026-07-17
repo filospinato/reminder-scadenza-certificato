@@ -8,12 +8,15 @@ solo dall'ambiente del processo e non sono mai incluse negli errori.
 from __future__ import annotations
 
 import mimetypes
+import re
 import smtplib
 import socket
 import ssl
 from dataclasses import dataclass, field
+from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
+from html import escape
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
@@ -35,6 +38,9 @@ class ErroreSmtpPermanente(ErroreSmtp):
 
 class EsitoSmtpIncerto(ErroreSmtp):
     """La consegna potrebbe essere avvenuta e non deve essere ritentata."""
+
+
+_CID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +97,13 @@ class ConfigurazioneSmtp:
         reply_to = ambiente.get("SMTP_REPLY_TO", "").strip() or None
         if reply_to is not None and not email_valida(reply_to):
             raise ErroreSmtpPermanente("SMTP_REPLY_TO non valido")
+        nome_mittente = ambiente.get("SMTP_FROM_NAME", "CIA Lazio").strip() or "CIA Lazio"
+        if "\r" in nome_mittente or "\n" in nome_mittente:
+            raise ErroreSmtpPermanente("SMTP_FROM_NAME contiene ritorni a capo")
         logo = ambiente.get("SMTP_LOGO_PATH", "").strip()
+        logo_cid = ambiente.get("SMTP_LOGO_CID", "logo-cia-lazio").strip() or "logo-cia-lazio"
+        if not _CID_RE.fullmatch(logo_cid):
+            raise ErroreSmtpPermanente("SMTP_LOGO_CID non valido")
         return cls(
             host=host,
             porta=porta,
@@ -101,9 +113,9 @@ class ConfigurazioneSmtp:
             sicurezza=sicurezza,
             timeout_secondi=timeout,
             reply_to=reply_to,
-            nome_mittente=ambiente.get("SMTP_FROM_NAME", "CIA Lazio").strip() or "CIA Lazio",
+            nome_mittente=nome_mittente,
             logo_path=Path(logo) if logo else None,
-            logo_cid=ambiente.get("SMTP_LOGO_CID", "logo-cia-lazio").strip() or "logo-cia-lazio",
+            logo_cid=logo_cid,
         )
 
 
@@ -144,7 +156,15 @@ class TrasportoSmtpMdaemon:
     def invia(self, messaggio: MessaggioEmail) -> EsitoInvio:
         if not email_valida(messaggio.destinatario):
             raise ErroreSmtpPermanente("destinatario non valido")
-        email = costruisci_mime(messaggio, self.configurazione)
+        try:
+            email = costruisci_mime(messaggio, self.configurazione)
+        except ErroreSmtp:
+            raise
+        except (TypeError, ValueError, OSError) as exc:
+            raise ErroreSmtpPermanente(
+                f"costruzione MIME non riuscita: {type(exc).__name__}"
+            ) from exc
+
         connessione: smtplib.SMTP | smtplib.SMTP_SSL | None = None
         consegna_iniziata = False
         try:
@@ -226,32 +246,54 @@ def costruisci_mime(
     messaggio: MessaggioEmail,
     configurazione: ConfigurazioneSmtp,
 ) -> EmailMessage:
+    if "\r" in configurazione.nome_mittente or "\n" in configurazione.nome_mittente:
+        raise ErroreSmtpPermanente("nome mittente non valido")
+    if not _CID_RE.fullmatch(configurazione.logo_cid):
+        raise ErroreSmtpPermanente("logo CID non valido")
+
+    username, dominio = configurazione.mittente.rsplit("@", 1)
     email = EmailMessage()
     email["Subject"] = messaggio.oggetto
-    email["From"] = f"{configurazione.nome_mittente} <{configurazione.mittente}>"
+    email["From"] = Address(
+        display_name=configurazione.nome_mittente,
+        username=username,
+        domain=dominio,
+    )
     email["To"] = messaggio.destinatario
     email["Date"] = formatdate(localtime=False, usegmt=True)
-    email["Message-ID"] = make_msgid(domain=configurazione.mittente.split("@", 1)[1])
+    email["Message-ID"] = make_msgid(domain=dominio)
     if configurazione.reply_to:
-        email["Reply-To"] = configurazione.reply_to
+        reply_user, reply_domain = configurazione.reply_to.rsplit("@", 1)
+        email["Reply-To"] = Address(username=reply_user, domain=reply_domain)
     email.set_content(messaggio.testo)
-    email.add_alternative(messaggio.html, subtype="html")
 
-    if configurazione.logo_path is not None:
-        path = configurazione.logo_path
-        if not path.is_file():
+    html_messaggio = messaggio.html
+    logo_path = configurazione.logo_path
+    if logo_path is not None:
+        if not logo_path.is_file():
             raise ErroreSmtpPermanente("file logo SMTP non trovato")
-        tipo, _ = mimetypes.guess_type(path.name)
+        tipo, _ = mimetypes.guess_type(logo_path.name)
         if tipo is None or not tipo.startswith("image/"):
             raise ErroreSmtpPermanente("formato logo SMTP non riconosciuto")
+        html_messaggio += (
+            '<p><img src="cid:'
+            + escape(configurazione.logo_cid, quote=True)
+            + '" alt="Logo CIA Lazio"></p>'
+        )
+
+    email.add_alternative(html_messaggio, subtype="html")
+
+    if logo_path is not None:
+        tipo, _ = mimetypes.guess_type(logo_path.name)
+        assert tipo is not None
         maintype, subtype = tipo.split("/", 1)
         html_part = email.get_payload()[-1]
         html_part.add_related(
-            path.read_bytes(),
+            logo_path.read_bytes(),
             maintype=maintype,
             subtype=subtype,
             cid=f"<{configurazione.logo_cid}>",
-            filename=path.name,
+            filename=logo_path.name,
             disposition="inline",
         )
     return email
