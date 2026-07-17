@@ -1,0 +1,65 @@
+# MODELLO NON ATTIVO: non spostare in .github/workflows senza autorizzazione finale.
+name: Reminder certificati produzione
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 6 * * *"
+    - cron: "15 16 * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: reminder-certificati-production
+  cancel-in-progress: false
+
+jobs:
+  reminder:
+    if: vars.PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      OPERATIVO_SPREADSHEET_ID: ${{ vars.OPERATIVO_SPREADSHEET_ID }}
+      OPERATIVO_SHEET_NAME: Operativo
+      OPERATIVO_HEADER_ROW: "2"
+      OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
+      ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME }}
+      SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      ALLOW_EMAIL_DELIVERY: "true"
+      PRODUCTION_ACTIVATION_ACK: REMINDER_CERTIFICATI_PRODUCTION_V1
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install -e ".[google]"
+      - name: Esecuzione produzione
+        run: reminder-certificati-runtime run --mode PRODUZIONE --confirm-email-delivery
+
+# Prima dell'attivazione:
+# 1. vincolare WIF anche a questo workflow_ref o all'environment production;
+# 2. approvare firma, logo, mittente, Reply-To e contenuto;
+# 3. completare test SMTP e collaudo con override;
+# 4. impostare CONFIG con sistema attivo, modalità test false, kill switch false;
+# 5. cambiare PRODUCTION_ENABLED a true soltanto dopo autorizzazione esplicita.
