@@ -1,13 +1,16 @@
 # Stato corrente
 
-**Versione:** 0.3.0  
+**Versione:** 0.4.0  
 **Data:** 17 luglio 2026  
 **Branch di sviluppo:** `agent/bootstrap-mvp`  
 **Pull request:** #2, bozza
 
 ## Funziona già
 
-- caricamento di righe anonime da JSON;
+- caricamento di righe anonime da JSON o da sorgente tabellare simulata;
+- protocollo indipendente `SorgenteDati`;
+- adapter Google Sheets con trasporto iniettato e ponte verso un servizio Google già autenticato;
+- conversione sicura di matrici con controlli su intestazioni, righe e celle eccedenti;
 - contratto dati con mappatura configurabile delle colonne;
 - validazione di ID, nome, email, data e stato;
 - campo facoltativo `nome_saluto` con fallback controllato;
@@ -19,12 +22,11 @@
 - composizione sicura in memoria di email testo e HTML;
 - apertura personalizzata `Ciao {{nome}}, ricevi questa mail...`;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
-- gestione esplicita del nome mancante e struttura HTML a paragrafi;
-- 23 test automatici e CI.
+- 34 test automatici e CI.
 
 ## Non ancora collegato
 
-- Google Sheets API e database `Operativo`;
+- credenziali Google e accesso reale al database `Operativo`;
 - foglio amministrativo con `CONFIG`, `DASHBOARD`, `NOTIFICHE` e `ANOMALIE`;
 - registro degli stati di invio;
 - SMTP MDaemon;
@@ -33,10 +35,10 @@
 
 ## Informazioni esterne ancora necessarie
 
-Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive, i valori reali dello stato operativo e il formato effettivo della data. Il codice non deve inventare questi dati.
+Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive, i valori reali dello stato operativo e il formato effettivo della data. Il codice non inventa questi dati.
 
 Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e testo approvato; nel frattempo il compositore resta disaccoppiato dall'invio e usa dati sintetici nei test.
 
 ## Prossimo incremento
 
-Aggiungere l'interfaccia della sorgente dati e un adapter Google Sheets testabile con fake, mantenendo credenziali, Spreadsheet ID e dati reali fuori dal repository.
+Progettare il registro anti-duplicazione e gli stati di invio usando una sorgente in memoria e test atomici, prima di introdurre scritture reali nel foglio amministrativo.
