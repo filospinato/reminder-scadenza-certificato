@@ -1,26 +1,35 @@
 # Stato corrente
 
-**Versione:** 0.1.0  
+**Versione:** 0.2.0  
 **Data:** 17 luglio 2026  
-**Branch di sviluppo:** `agent/bootstrap-mvp`
+**Branch di sviluppo:** `agent/bootstrap-mvp`  
+**Pull request:** #2, bozza
 
 ## Funziona già
 
-- caricamento di dati anonimi da JSON;
-- calcolo dei giorni residui;
-- selezione entro una finestra configurabile;
+- caricamento di righe anonime da JSON;
+- contratto dati con mappatura configurabile delle colonne;
+- validazione di ID, nome, email, data e stato;
+- raccolta strutturata delle anomalie senza bloccare le righe sane;
+- esclusione sicura di tutte le occorrenze degli ID duplicati;
+- calcolo dei giorni residui e selezione entro una finestra configurabile;
 - chiave anti-duplicazione deterministica;
-- output JSON in `dry-run`;
-- test e CI.
+- output JSON completo in `dry-run`;
+- 13 test automatici e CI.
 
 ## Non ancora collegato
 
-- Google Sheets / Operativo;
-- foglio `CONFIG`, dashboard e registro;
+- Google Sheets API e database `Operativo`;
+- foglio amministrativo con `CONFIG`, `DASHBOARD`, `NOTIFICHE` e `ANOMALIE`;
+- registro degli stati di invio;
 - SMTP MDaemon;
 - firma HTML ufficiale;
 - workflow programmato di produzione.
 
+## Informazioni esterne ancora necessarie
+
+Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive, i valori reali dello stato operativo e il formato effettivo della data. Il codice non deve inventare questi dati.
+
 ## Prossimo incremento
 
-Definire il contratto dei fogli Google e il livello di validazione dei dati, mantenendo il `dry-run` come comportamento predefinito.
+Aggiungere l'interfaccia della sorgente dati e un adapter Google Sheets testabile con fake, mantenendo credenziali, Spreadsheet ID e dati reali fuori dal repository.
