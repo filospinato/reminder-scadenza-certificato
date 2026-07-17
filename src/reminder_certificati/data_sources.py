@@ -24,6 +24,7 @@ class TabellaDati:
     intestazioni: tuple[str, ...]
     righe: tuple[Mapping[str, Any], ...]
     nome_sorgente: str
+    prima_riga_dati: int = 2
 
 
 class SorgenteDati(Protocol):
@@ -53,20 +54,26 @@ def tabella_da_matrice(
     matrice: Sequence[Sequence[Any]],
     *,
     nome_sorgente: str,
+    prima_riga_dati: int = 2,
 ) -> TabellaDati:
     """Converte una matrice con intestazione nella prima riga in record mappati.
 
     Le colonne eccedenti non vuote vengono rifiutate per evitare perdite di dati
     silenziose. Le righe corte vengono invece completate con valori vuoti.
+    ``prima_riga_dati`` conserva il numero di riga originale della sorgente, così
+    le anomalie possono essere ricondotte alla riga corretta del foglio.
     """
-
+    if prima_riga_dati < 2:
+        raise ErroreSorgenteDati(
+            f"{nome_sorgente}: prima_riga_dati deve essere almeno 2"
+        )
     if isinstance(matrice, (str, bytes)) or not isinstance(matrice, Sequence):
         raise ErroreSorgenteDati(f"{nome_sorgente}: matrice non valida")
     if not matrice:
         raise ErroreSorgenteDati(f"{nome_sorgente}: nessun dato disponibile")
 
     riga_intestazioni = _riga_sequenza(
-        matrice[0], nome_sorgente=nome_sorgente, numero_riga=1
+        matrice[0], nome_sorgente=nome_sorgente, numero_riga=prima_riga_dati - 1
     )
     intestazioni = tuple(str(value).strip() for value in riga_intestazioni)
     if not intestazioni or all(not value for value in intestazioni):
@@ -83,7 +90,9 @@ def tabella_da_matrice(
 
     righe: list[Mapping[str, Any]] = []
     larghezza = len(intestazioni)
-    for numero_riga, valori_originali in enumerate(matrice[1:], start=2):
+    for numero_riga, valori_originali in enumerate(
+        matrice[1:], start=prima_riga_dati
+    ):
         riga = _riga_sequenza(
             valori_originali,
             nome_sorgente=nome_sorgente,
@@ -103,6 +112,7 @@ def tabella_da_matrice(
         intestazioni=intestazioni,
         righe=tuple(righe),
         nome_sorgente=nome_sorgente,
+        prima_riga_dati=prima_riga_dati,
     )
 
 
@@ -123,6 +133,7 @@ class AdapterGoogleSheets:
     spreadsheet_id: str
     nome_scheda: str
     colonne_a1: str = "A:ZZ"
+    riga_intestazioni: int = 1
 
     def leggi(self) -> TabellaDati:
         spreadsheet_id = self.spreadsheet_id.strip()
@@ -134,9 +145,14 @@ class AdapterGoogleSheets:
             raise ErroreSorgenteDati("Google Sheets: nome_scheda mancante")
         if not colonne:
             raise ErroreSorgenteDati("Google Sheets: intervallo colonne mancante")
+        if self.riga_intestazioni < 1:
+            raise ErroreSorgenteDati(
+                "Google Sheets: riga_intestazioni deve essere almeno 1"
+            )
 
         scheda_escaped = nome_scheda.replace("'", "''")
-        intervallo = f"'{scheda_escaped}'!{colonne}"
+        colonne_con_riga = _intervallo_da_riga(colonne, self.riga_intestazioni)
+        intervallo = f"'{scheda_escaped}'!{colonne_con_riga}"
         matrice = self.lettore.leggi_valori(
             spreadsheet_id=spreadsheet_id,
             intervallo_a1=intervallo,
@@ -144,7 +160,19 @@ class AdapterGoogleSheets:
         return tabella_da_matrice(
             matrice,
             nome_sorgente=f"Google Sheets:{nome_scheda}",
+            prima_riga_dati=self.riga_intestazioni + 1,
         )
+
+
+def _intervallo_da_riga(colonne_a1: str, riga: int) -> str:
+    """Trasforma ``A:F`` in ``A2:F`` senza accettare range ambigui."""
+    parti = colonne_a1.split(":")
+    if len(parti) != 2 or not all(parte.isalpha() for parte in parti):
+        raise ErroreSorgenteDati(
+            "Google Sheets: intervallo colonne deve avere forma A:ZZ"
+        )
+    inizio, fine = (parte.upper() for parte in parti)
+    return f"{inizio}{riga}:{fine}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,5 +229,5 @@ def leggi_e_valida(
         intestazioni=tabella.intestazioni,
         mappatura=mappatura,
         politica_stato=politica_stato,
-        prima_riga_dati=2,
+        prima_riga_dati=tabella.prima_riga_dati,
     )
