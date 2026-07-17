@@ -4,7 +4,7 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 
 ## Stato del progetto
 
-La versione corrente **0.4.1** è un MVP esclusivamente in `dry-run`:
+La versione corrente **0.5.0** è un MVP esclusivamente in `dry-run`:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
 - legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
@@ -13,6 +13,8 @@ La versione corrente **0.4.1** è un MVP esclusivamente in `dry-run`:
 - esclude integralmente gli ID duplicati;
 - seleziona i certificati in scadenza entro una finestra configurabile;
 - genera una chiave deterministica anti-duplicazione;
+- modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+- impedisce prenotazioni concorrenti duplicate nel registro in memoria;
 - compone in memoria versioni testo e HTML del promemoria, senza inviarle;
 - include un adapter Google Sheets testabile con fake, senza credenziali reali;
 - non accede ancora al database reale `Operativo`;
@@ -44,6 +46,18 @@ Un arbitro è candidato quando:
 - non presenta anomalie che rendano ambiguo l'invio.
 
 I certificati già scaduti saranno gestiti in futuro da un promemoria separato.
+
+## Registro anti-duplicazione
+
+Il modulo `registry` definisce il ciclo di vita della notifica usando la chiave:
+
+```text
+ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
+```
+
+La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. La versione corrente usa `RegistroMemoria`, atomico all'interno del processo e testato anche con prenotazioni concorrenti. Non persiste ancora tra esecuzioni.
+
+Il contratto completo è in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md).
 
 ## Composizione del messaggio
 
@@ -80,7 +94,8 @@ Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DA
 - Nessun segreto deve essere salvato nei file del repository.
 - `Operativo` sarà accessibile in sola lettura.
 - Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
-- L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, registro notifiche, modalità test e SMTP MDaemon.
+- Gli esiti incerti non vengono ritentati automaticamente.
+- L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, registro persistente, modalità test e SMTP MDaemon.
 
 ## Roadmap
 
