@@ -11,10 +11,16 @@
 - escaping HTML dei dati personalizzati;
 - test dedicati a personalizzazione, fallback, placeholder e sicurezza dell'oggetto.
 
+### Modificato
+
+- generazione HTML esplicita per paragrafi, senza manipolazioni basate su slicing;
+- fallback del nome reso sicuro anche davanti a un nominativo vuoto.
+
 ### Sicurezza
 
 - rifiuto dei placeholder sconosciuti, malformati o privi di valore;
 - divieto di ritorni a capo nell'oggetto per prevenire header injection;
+- rifiuto esplicito di messaggi privi del nome da inserire nel saluto;
 - vincolo esplicito sull'apertura `Ciao {{nome}}, ricevi questa mail...`.
 
 ## [0.2.0] - 2026-07-17
