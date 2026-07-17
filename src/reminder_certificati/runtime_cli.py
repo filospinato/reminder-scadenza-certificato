@@ -9,7 +9,10 @@ from datetime import date
 from importlib.metadata import version
 from typing import Any, Mapping, Sequence
 
-from .admin_initializer import InizializzatoreFoglioAmministrativo
+from .admin_initializer import (
+    InizializzatoreFoglioAmministrativo,
+    TrasportoStrutturaGoogleApi,
+)
 from .google_runtime import (
     MAPPATURA_OPERATIVO_REALE,
     ConfigurazioneRisorseGoogle,
@@ -17,6 +20,7 @@ from .google_runtime import (
     costruisci_servizio_sheets,
     leggi_matrice_config,
 )
+from .monitoring import sanitizza_messaggio
 from .orchestrator import ModalitaEsecuzione, OrchestratoreReminder
 from .persistent_registry import RegistroPersistente
 from .runtime_config import carica_configurazione
@@ -59,12 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     inizializza = sub.add_parser(
         "init-admin",
-        help="crea o verifica lo Spreadsheet amministrativo senza PII",
+        help="inizializza un file vuoto già creato e condiviso dall'utente",
     )
     inizializza.add_argument(
         "--spreadsheet-id",
-        default="",
-        help="ID esistente; omettere per creare il file canonico",
+        required=True,
+        help="ID del file vuoto creato dall'amministratore umano",
     )
 
     sub.add_parser(
@@ -96,27 +100,28 @@ def main() -> int:
             return _check_headers(os.environ)
         return _run(args, os.environ)
     except Exception as exc:
-        raise SystemExit(f"Errore operativo: {type(exc).__name__}: {exc}") from exc
+        dettaglio = sanitizza_messaggio(str(exc))
+        raise SystemExit(
+            f"Errore operativo: {type(exc).__name__}: {dettaglio}"
+        ) from exc
 
 
 def _init_admin(spreadsheet_id: str) -> int:
+    identificativo = spreadsheet_id.strip()
+    if not identificativo:
+        raise ErroreCliRuntime(
+            "crea prima uno Spreadsheet vuoto con l'account umano e passa il suo ID"
+        )
     servizio = costruisci_servizio_sheets()
-    componenti = costruisci_componenti_google(
-        servizio=servizio,
-        risorse=ConfigurazioneRisorseGoogle(
-            operativo_spreadsheet_id="placeholder-not-used",
-            admin_spreadsheet_id=spreadsheet_id.strip() or "placeholder-not-used",
-        ),
-    )
     esito = InizializzatoreFoglioAmministrativo(
-        componenti.trasporto_struttura
-    ).prepara(spreadsheet_id=spreadsheet_id.strip() or None)
+        TrasportoStrutturaGoogleApi(servizio)
+    ).prepara(spreadsheet_id=identificativo)
     print(
         json.dumps(
             {
                 "operation": "init-admin",
                 "spreadsheet_id": esito.spreadsheet_id,
-                "created": esito.creato,
+                "tabs_configured": esito.tab_configurate,
                 "initialized_tabs": list(esito.tab_inizializzate),
                 "already_compliant_tabs": list(esito.tab_gia_conformi),
                 "contains_personal_data": False,
@@ -189,15 +194,14 @@ def _run(args: argparse.Namespace, ambiente: Mapping[str, str]) -> int:
         )
     )
 
+    registro = RegistroPersistente(
+        componenti.archivio_notifiche,
+        versione_app=_versione(),
+    )
     trasporto = None
-    registro = None
     if modalita is not ModalitaEsecuzione.DRY_RUN:
         trasporto = TrasportoSmtpMdaemon(
             ConfigurazioneSmtp.da_ambiente(ambiente)
-        )
-        registro = RegistroPersistente(
-            componenti.archivio_notifiche,
-            versione_app=_versione(),
         )
 
     orchestratore = OrchestratoreReminder(
