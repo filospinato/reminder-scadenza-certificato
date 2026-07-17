@@ -32,6 +32,7 @@ class MappaturaColonne:
     email: str = "email"
     scadenza_certificato: str = "scadenza_certificato"
     attivo: str = "attivo"
+    nome_saluto: str | None = None
 
     @property
     def obbligatorie(self) -> tuple[str, ...]:
@@ -163,6 +164,11 @@ def valida_righe(
         email = _testo(riga.get(mappatura.email))
         scadenza = _parse_data(riga.get(mappatura.scadenza_certificato))
         attivo = _parse_attivo(riga.get(mappatura.attivo), politica_stato)
+        nome_saluto = (
+            _testo(riga.get(mappatura.nome_saluto))
+            if mappatura.nome_saluto
+            else ""
+        )
 
         errori_riga: list[AnomaliaDati] = []
         if not id_arbitro:
@@ -229,6 +235,7 @@ def valida_righe(
                     email=email,
                     scadenza_certificato=scadenza,
                     attivo=attivo,
+                    nome_saluto=nome_saluto or None,
                 ),
             )
         )
