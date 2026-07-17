@@ -2,8 +2,9 @@
 
 **Versione:** 0.7.0  
 **Data:** 17 luglio 2026  
-**Branch di sviluppo:** `agent/bootstrap-mvp`  
-**Pull request:** #2, bozza
+**Stato di pubblicazione:** baseline disponibile su `main`  
+**Commit baseline:** `eff46227970c5730b66f1cc91e65570988e27508`  
+**Pull request baseline:** #2, mergiata con squash
 
 ## Funziona già
 
@@ -33,6 +34,14 @@
 - disponibilità di `{{cognome}}` e `{{nome_completo}}` nei template;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
 - test automatici e CI.
+
+## Politica di sviluppo
+
+- `main` remoto è la fonte di verità;
+- ogni incremento completo viene sviluppato su un branch breve `agent/<slug>`;
+- ogni incremento usa una PR dedicata verso `main`;
+- quando test e CI sono verdi e non esistono conflitti o criticità alte/medie, la PR viene mergiata con squash;
+- collegamenti reali, credenziali, invii e risorse operative richiedono sempre autorizzazione esplicita.
 
 ## Non ancora collegato
 
