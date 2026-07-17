@@ -1,0 +1,154 @@
+from datetime import date, datetime, timedelta, timezone
+
+import pytest
+
+from reminder_certificati.admin_store import (
+    COLONNE_NOTIFICHE,
+    ErroreArchivioNotifiche,
+    RigaNotifica,
+)
+from reminder_certificati.models import Arbitro, CandidatoNotifica
+from reminder_certificati.notifications_sheets import (
+    ArchivioNotificheGoogleSheets,
+    TrasportoNotificheMemoria,
+)
+from reminder_certificati.registry import RecordNotifica, StatoNotifica
+
+ORA = datetime(2026, 7, 17, 10, 0, tzinfo=timezone.utc)
+
+
+def riga_notifica(
+    *,
+    stato: StatoNotifica = StatoNotifica.SENDING,
+    aggiornato_il: datetime = ORA,
+    notification_id: str = "A-1|2026-08-01|REMINDER_30",
+) -> RigaNotifica:
+    arbitro = Arbitro(
+        id_arbitro="A-1",
+        nome="Anna Maria",
+        cognome="Verdi",
+        email="anna@example.it",
+        scadenza_certificato=date(2026, 8, 1),
+    )
+    candidato = CandidatoNotifica(
+        arbitro=arbitro,
+        tipo="REMINDER_30",
+        giorni_residui=15,
+        notification_id=notification_id,
+    )
+    record = RecordNotifica(
+        notification_id=notification_id,
+        stato=stato,
+        tentativi=1,
+        creato_il=ORA,
+        aggiornato_il=aggiornato_il,
+        message_id="<test@example.it>" if stato is StatoNotifica.SENT else None,
+    )
+    return RigaNotifica.da_record(candidato, record, versione_app="0.7.0")
+
+
+def matrice_con(*righe: RigaNotifica) -> list[list[str]]:
+    return [
+        list(COLONNE_NOTIFICHE),
+        *[
+            [riga.come_mappa()[colonna] for colonna in COLONNE_NOTIFICHE]
+            for riga in righe
+        ],
+    ]
+
+
+def archivio(matrice: list[list[str]]) -> ArchivioNotificheGoogleSheets:
+    return ArchivioNotificheGoogleSheets(
+        trasporto=TrasportoNotificheMemoria(matrice),
+        spreadsheet_id="spreadsheet-test",
+    )
+
+
+def test_chiave_assente_aggiunge_una_sola_riga() -> None:
+    matrice = matrice_con()
+    adapter = archivio(matrice)
+    nuova = riga_notifica()
+
+    adapter.salva(nuova)
+
+    assert len(matrice) == 2
+    assert adapter.ottieni(nuova.notification_id) == nuova
+
+
+def test_chiave_presente_aggiorna_la_stessa_riga() -> None:
+    iniziale = riga_notifica()
+    matrice = matrice_con(iniziale)
+    adapter = archivio(matrice)
+    inviata = riga_notifica(
+        stato=StatoNotifica.SENT,
+        aggiornato_il=ORA + timedelta(minutes=1),
+    )
+
+    adapter.salva(inviata)
+
+    assert len(matrice) == 2
+    assert adapter.ottieni(inviata.notification_id) == inviata
+
+
+def test_chiave_duplicata_blocca_senza_scrivere() -> None:
+    riga = riga_notifica()
+    matrice = matrice_con(riga, riga)
+    prima = [list(valori) for valori in matrice]
+    adapter = archivio(matrice)
+
+    with pytest.raises(ErroreArchivioNotifiche, match="duplicato"):
+        adapter.salva(riga)
+
+    assert matrice == prima
+
+
+def test_intestazioni_diverse_bloccano_la_lettura() -> None:
+    matrice = matrice_con()
+    matrice[0][0] = "chiave_sbagliata"
+
+    with pytest.raises(ErroreArchivioNotifiche, match="intestazioni"):
+        archivio(matrice).ottieni("A-1|2026-08-01|REMINDER_30")
+
+
+def test_rifiuta_regressione_temporale() -> None:
+    iniziale = riga_notifica(aggiornato_il=ORA + timedelta(minutes=1))
+    matrice = matrice_con(iniziale)
+    adapter = archivio(matrice)
+    precedente = riga_notifica(aggiornato_il=ORA)
+
+    with pytest.raises(ErroreArchivioNotifiche, match="precedere"):
+        adapter.salva(precedente)
+
+
+def test_nome_scheda_con_apostrofo_viene_escaped() -> None:
+    class SpyTrasporto(TrasportoNotificheMemoria):
+        ultimo_intervallo: str | None = None
+
+        def leggi_valori(self, *, spreadsheet_id: str, intervallo_a1: str):
+            self.ultimo_intervallo = intervallo_a1
+            return super().leggi_valori(
+                spreadsheet_id=spreadsheet_id,
+                intervallo_a1=intervallo_a1,
+            )
+
+    trasporto = SpyTrasporto(matrice_con())
+    adapter = ArchivioNotificheGoogleSheets(
+        trasporto=trasporto,
+        spreadsheet_id="spreadsheet-test",
+        nome_scheda="NOTIFICHE D'ITALIA",
+    )
+
+    adapter.ottieni("inesistente")
+
+    assert trasporto.ultimo_intervallo == "'NOTIFICHE D''ITALIA'!A:N"
+
+
+def test_configurazione_mancante_non_contatta_il_trasporto() -> None:
+    trasporto = TrasportoNotificheMemoria(matrice_con())
+    adapter = ArchivioNotificheGoogleSheets(
+        trasporto=trasporto,
+        spreadsheet_id=" ",
+    )
+
+    with pytest.raises(ErroreArchivioNotifiche, match="spreadsheet_id"):
+        adapter.ottieni("chiave")
