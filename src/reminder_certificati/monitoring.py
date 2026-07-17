@@ -42,13 +42,13 @@ class MetricheEsecuzione:
     codice_errore: str = ""
 
     def come_righe(self) -> tuple[tuple[str, str, str], ...]:
-        valori = (
+        return (
             ("stato_sistema", self.stato_sistema, "Stato operativo complessivo."),
             ("ultima_esecuzione", _istante_opzionale(self.ultima_esecuzione), "Ultima esecuzione conclusa in UTC."),
             ("heartbeat", _istante_opzionale(self.heartbeat), "Ultimo segnale di vita in UTC."),
             ("righe_lette", str(self.righe_lette), "Righe lette dalla sorgente."),
             ("righe_valide", str(self.righe_valide), "Righe valide dopo i controlli."),
-            ("candidati", str(self.candidati), "Promemoria candidati."),
+            ("candidati", str(self.candidati), "Promemoria candidati nella finestra."),
             ("notifiche_gia_presenti", str(self.notifiche_gia_presenti), "Notifiche saltate perché già registrate."),
             ("invii_tentati", str(self.invii_tentati), "Invii passati al trasporto SMTP."),
             ("invii_riusciti", str(self.invii_riusciti), "Invii confermati."),
@@ -59,10 +59,6 @@ class MetricheEsecuzione:
             ("versione_app", self.versione_app, "Versione del programma."),
             ("codice_errore", self.codice_errore, "Codice sintetico dell'eventuale errore fatale."),
         )
-        for chiave, valore, _ in valori:
-            if chiave not in {riga[0] for riga in valori}:
-                raise AssertionError(chiave)
-        return valori
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,7 +136,7 @@ class ArchivioDashboard(Protocol):
 
 class ArchivioAnomalie(Protocol):
     def registra(self, anomalia: AnomaliaRuntime) -> None:
-        """Registra una nuova anomalia o ignora un duplicato aperto."""
+        """Registra una nuova anomalia."""
 
 
 @dataclass(slots=True)
@@ -173,7 +169,7 @@ class TrasportoMonitoraggioSheets(Protocol):
         intervallo_a1: str,
         valori: Sequence[Sequence[Any]],
     ) -> None:
-        """Sostituisce un intervallo con valueInputOption RAW."""
+        """Scrive la fotografia completa con valueInputOption RAW."""
 
     def aggiungi_riga(
         self,
@@ -241,11 +237,8 @@ class TrasportoMonitoraggioGoogleApi:
         intervallo_a1: str,
         valori: Sequence[Sequence[Any]],
     ) -> None:
-        self.servizio.spreadsheets().values().clear(
-            spreadsheetId=spreadsheet_id,
-            range=intervallo_a1,
-            body={},
-        ).execute()
+        # Il numero delle metriche è stabile. Un singolo update evita che un
+        # errore tra clear e update lasci la dashboard completamente vuota.
         self.servizio.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
             range=intervallo_a1,
@@ -271,12 +264,16 @@ class TrasportoMonitoraggioGoogleApi:
 
 _EMAIL_RE = re.compile(r"(?i)\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 _TOKEN_RE = re.compile(r"(?i)\b(?:ya29\.|gh[ps]_|sk-|eyJ)[A-Za-z0-9._-]+")
+_NOTIFICATION_ID_RE = re.compile(
+    r"(?i)(?<!\S)[^|\s]+\|\d{4}-\d{2}-\d{2}\|(?:TEST_)?REMINDER_\d+(?!\S)"
+)
 
 
 def sanitizza_messaggio(value: str) -> str:
     testo = str(value).replace("\r", " ").replace("\n", " ")
     testo = _EMAIL_RE.sub("[email-rimossa]", testo)
     testo = _TOKEN_RE.sub("[token-rimosso]", testo)
+    testo = _NOTIFICATION_ID_RE.sub("[notification-id-rimosso]", testo)
     testo = re.sub(r"\s+", " ", testo).strip()
     if not testo:
         return "dettaglio non disponibile"
