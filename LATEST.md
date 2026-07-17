@@ -1,9 +1,9 @@
 # Stato corrente
 
-**Versione:** 0.11.2  
+**Versione:** 0.11.3  
 **Data:** 17 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; risorse e collaudi esterni ancora mancanti  
-**Baseline di partenza:** `42b849cf68404f3b4472b9e3bab33ac191dd1ef2`
+**Baseline di partenza:** `b3c5bbe99ea1e30fae04e6cabb61ca047a04cc88`
 
 ## Funziona già
 
@@ -13,6 +13,7 @@
 - bootstrap sicuro dalla singola tab vuota alle quattro tab canoniche;
 - parser tipizzato di `CONFIG` con kill switch, limiti, override e barriere multiple;
 - registro persistente con `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+- collaudo sintetico persistente di append, update, crash dopo `SENDING`, rerun e retry sulla stessa riga;
 - dry-run consapevole delle notifiche già registrate, senza scritture;
 - limite applicato dopo la deduplicazione;
 - test SMTP limitato a un messaggio e audit dell'override effettivo;
@@ -52,10 +53,10 @@
 - inizializzazione reale del file amministrativo vuoto;
 - `check-headers` reale con zero righe dati lette;
 - dry-run aggregato su `Operativo`;
-- append, update e duplicati sul registro sintetico;
+- ripetizione controllata del collaudo del registro sullo Spreadsheet amministrativo;
 - test SMTP esclusivamente all'override;
-- errori retryable, permanenti e incerti;
-- concorrenza, crash dopo `SENDING` e rerun;
+- errori SMTP retryable, permanenti e incerti;
+- concorrenza reale tra workflow;
 - prova dei runbook con un responsabile non tecnico.
 
 ## Prossimo passo
