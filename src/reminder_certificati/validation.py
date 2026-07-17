@@ -19,6 +19,7 @@ class SchemaError(ValueError):
 class CodiceAnomalia(StrEnum):
     ID_MANCANTE = "ID_MANCANTE"
     NOME_MANCANTE = "NOME_MANCANTE"
+    COGNOME_MANCANTE = "COGNOME_MANCANTE"
     EMAIL_NON_VALIDA = "EMAIL_NON_VALIDA"
     SCADENZA_NON_VALIDA = "SCADENZA_NON_VALIDA"
     STATO_NON_VALIDO = "STATO_NON_VALIDO"
@@ -27,18 +28,21 @@ class CodiceAnomalia(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class MappaturaColonne:
+    """Associa i campi logici alle intestazioni effettive di Operativo."""
+
     id_arbitro: str = "id_arbitro"
     nome: str = "nome"
+    cognome: str = "cognome"
     email: str = "email"
     scadenza_certificato: str = "scadenza_certificato"
     attivo: str = "attivo"
-    nome_saluto: str | None = None
 
     @property
     def obbligatorie(self) -> tuple[str, ...]:
         return (
             self.id_arbitro,
             self.nome,
+            self.cognome,
             self.email,
             self.scadenza_certificato,
             self.attivo,
@@ -133,8 +137,8 @@ def valida_righe(
 ) -> EsitoValidazione:
     """Converte righe grezze in arbitri validi e raccoglie anomalie non fatali.
 
-    Gli ID duplicati vengono esclusi integralmente: inviare a una riga arbitraria
-    sarebbe più rischioso che richiedere una correzione del dato sorgente.
+    Nome, cognome ed email vengono letti dalle rispettive colonne della stessa
+    riga di Operativo. Gli ID duplicati vengono esclusi integralmente.
     """
 
     if prima_riga_dati < 1:
@@ -161,14 +165,10 @@ def valida_righe(
 
         id_arbitro = _testo(riga.get(mappatura.id_arbitro))
         nome = _testo(riga.get(mappatura.nome))
+        cognome = _testo(riga.get(mappatura.cognome))
         email = _testo(riga.get(mappatura.email))
         scadenza = _parse_data(riga.get(mappatura.scadenza_certificato))
         attivo = _parse_attivo(riga.get(mappatura.attivo), politica_stato)
-        nome_saluto = (
-            _testo(riga.get(mappatura.nome_saluto))
-            if mappatura.nome_saluto
-            else ""
-        )
 
         errori_riga: list[AnomaliaDati] = []
         if not id_arbitro:
@@ -187,6 +187,16 @@ def valida_righe(
                     CodiceAnomalia.NOME_MANCANTE,
                     mappatura.nome,
                     "nome arbitro mancante",
+                    id_arbitro or None,
+                )
+            )
+        if not cognome:
+            errori_riga.append(
+                AnomaliaDati(
+                    numero_riga,
+                    CodiceAnomalia.COGNOME_MANCANTE,
+                    mappatura.cognome,
+                    "cognome arbitro mancante",
                     id_arbitro or None,
                 )
             )
@@ -232,10 +242,10 @@ def valida_righe(
                 Arbitro(
                     id_arbitro=id_arbitro,
                     nome=nome,
+                    cognome=cognome,
                     email=email,
                     scadenza_certificato=scadenza,
                     attivo=attivo,
-                    nome_saluto=nome_saluto or None,
                 ),
             )
         )
