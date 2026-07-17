@@ -5,6 +5,12 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
 1. [x] Repository Python, test, CI e documentazione di base.
 2. [ ] GitHub Actions programmata una o due volte al giorno, oltre all'avvio manuale.
 3. [ ] Lettura di `Operativo` tramite Google Sheets API e service account a privilegi minimi.
+   - [x] protocollo indipendente per le sorgenti dati;
+   - [x] adapter Google Sheets con lettore iniettato;
+   - [x] conversione e validazione strutturale delle matrici;
+   - [x] test con fake del trasporto Google API;
+   - [ ] autenticazione reale con service account in sola lettura;
+   - [ ] prova su Spreadsheet sintetico e successivo collegamento a `Operativo`.
 4. [x] Validazione di ID, nominativo, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
 6. [ ] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`.
