@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione:** 0.4.1  
+**Versione:** 0.5.0  
 **Data:** 17 luglio 2026  
 **Branch di sviluppo:** `agent/bootstrap-mvp`  
 **Pull request:** #2, bozza
@@ -18,19 +18,22 @@
 - esclusione sicura di tutte le occorrenze degli ID duplicati;
 - calcolo dei giorni residui e selezione entro una finestra configurabile;
 - chiave anti-duplicazione deterministica;
+- registro in memoria con stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`;
+- prenotazione atomica e blocco dei duplicati concorrenti;
+- retry consentito soltanto dopo un errore esplicitamente retryable;
 - output JSON completo in `dry-run`;
 - composizione sicura in memoria di email testo e HTML;
 - apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando direttamente la colonna `nome`;
 - disponibilità di `{{cognome}}` e `{{nome_completo}}` nei template;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
-- 35 test automatici e CI.
+- 44 test automatici previsti e CI.
 
 ## Non ancora collegato
 
 - credenziali Google e accesso reale al database `Operativo`;
 - intestazioni effettive e valori reali dello stato operativo;
-- foglio amministrativo con `CONFIG`, `DASHBOARD`, `NOTIFICHE` e `ANOMALIE`;
-- registro degli stati di invio;
+- persistenza del registro nel foglio `NOTIFICHE`;
+- foglio amministrativo con `CONFIG`, `DASHBOARD` e `ANOMALIE`;
 - SMTP MDaemon;
 - firma HTML ufficiale e logo CID;
 - workflow programmato di produzione.
@@ -43,4 +46,4 @@ Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e
 
 ## Prossimo incremento
 
-Progettare il registro anti-duplicazione e gli stati di invio usando una sorgente in memoria e test atomici, prima di introdurre scritture reali nel foglio amministrativo.
+Definire lo schema del foglio amministrativo e un adapter fake/testabile per persistere `NOTIFICHE` e le transizioni del registro, senza credenziali o scritture su Spreadsheet reali.
