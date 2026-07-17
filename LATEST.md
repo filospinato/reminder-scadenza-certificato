@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione:** 0.5.0  
+**Versione:** 0.6.0  
 **Data:** 17 luglio 2026  
 **Branch di sviluppo:** `agent/bootstrap-mvp`  
 **Pull request:** #2, bozza
@@ -21,18 +21,21 @@
 - registro in memoria con stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`;
 - prenotazione atomica e blocco dei duplicati concorrenti;
 - retry consentito soltanto dopo un errore esplicitamente retryable;
+- schema tipizzato completo della futura tab `NOTIFICHE`;
+- archivio fake thread-safe con insert/update per chiave, round-trip tabellare e controlli temporali;
 - output JSON completo in `dry-run`;
 - composizione sicura in memoria di email testo e HTML;
 - apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando direttamente la colonna `nome`;
 - disponibilità di `{{cognome}}` e `{{nome_completo}}` nei template;
 - validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
-- 44 test automatici previsti e CI.
+- test automatici e CI.
 
 ## Non ancora collegato
 
 - credenziali Google e accesso reale al database `Operativo`;
 - intestazioni effettive e valori reali dello stato operativo;
-- persistenza del registro nel foglio `NOTIFICHE`;
+- persistenza reale del registro nel foglio `NOTIFICHE`;
+- ricerca e aggiornamento concorrente della riga su Google Sheets;
 - foglio amministrativo con `CONFIG`, `DASHBOARD` e `ANOMALIE`;
 - SMTP MDaemon;
 - firma HTML ufficiale e logo CID;
@@ -46,4 +49,4 @@ Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e
 
 ## Prossimo incremento
 
-Definire lo schema del foglio amministrativo e un adapter fake/testabile per persistere `NOTIFICHE` e le transizioni del registro, senza credenziali o scritture su Spreadsheet reali.
+Definire il contratto di trasporto della tab `NOTIFICHE` e l'adapter Google Sheets con fake, inclusi ricerca univoca della chiave e aggiornamento controllato, senza credenziali o Spreadsheet reali.
