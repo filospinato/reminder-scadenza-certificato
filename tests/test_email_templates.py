@@ -37,12 +37,24 @@ def test_fallback_usa_prima_parola_del_nominativo() -> None:
     assert messaggio.testo.startswith("Ciao Anna, ricevi questa mail")
 
 
+def test_nome_vuoto_produce_errore_controllato() -> None:
+    with pytest.raises(ErroreTemplate, match="valore mancante"):
+        componi_email(candidato(nome=""))
+
+
 def test_data_e_firma_sono_presenti_in_testo_e_html() -> None:
     messaggio = componi_email(candidato())
     assert "01/08/2026" in messaggio.testo
     assert "Cordiali saluti,\nCIA Lazio" in messaggio.testo
     assert "01/08/2026" in messaggio.html
     assert "Cordiali saluti,<br>CIA Lazio" in messaggio.html
+
+
+def test_paragrafi_html_restano_separati() -> None:
+    messaggio = componi_email(candidato())
+    assert "</p><p>Ti invitiamo" in messaggio.html
+    assert messaggio.html.count("<p>") == 3
+    assert messaggio.html.count("</p>") == 3
 
 
 def test_html_esegue_escape_dei_dati_personalizzati() -> None:
