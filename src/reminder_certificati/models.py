@@ -6,31 +6,26 @@ from datetime import date
 
 @dataclass(frozen=True, slots=True)
 class Arbitro:
-    """Dati minimi necessari per valutare una scadenza."""
+    """Dati minimi di una riga valida di Operativo."""
 
     id_arbitro: str
     nome: str
+    cognome: str
     email: str
     scadenza_certificato: date
     attivo: bool = True
-    nome_saluto: str | None = None
 
     @property
     def nome_per_saluto(self) -> str:
-        """Nome da usare nell'apertura della mail.
+        """Nome, letto direttamente dalla relativa colonna di Operativo."""
 
-        Quando la sorgente espone un nome breve esplicito viene preferito.
-        In assenza di quel dato, usa la prima parola del nominativo completo.
-        Se anche il nominativo è vuoto restituisce una stringa vuota, che il
-        compositore del messaggio rifiuterà con un errore di configurazione.
-        """
+        return self.nome.strip()
 
-        esplicito = (self.nome_saluto or "").strip()
-        if esplicito:
-            return esplicito
+    @property
+    def nome_completo(self) -> str:
+        """Nominativo completo ricomposto dalle colonne nome e cognome."""
 
-        parti = self.nome.strip().split()
-        return parti[0] if parti else ""
+        return " ".join(parte for parte in (self.nome.strip(), self.cognome.strip()) if parte)
 
 
 @dataclass(frozen=True, slots=True)
