@@ -1,50 +1,62 @@
 # Stato corrente
 
-**Versione:** 0.10.0  
+**Versione:** 0.11.0  
 **Data:** 17 luglio 2026  
-**Stato:** contratto sintetico dello Spreadsheet amministrativo completato; nessuna risorsa reale creata  
-**Baseline di partenza:** `7efee42e60201f76675e0de73416ee3b38818246`
+**Stato:** codice pre-produzione completo e disattivato; configurazioni e collaudi esterni ancora mancanti  
+**Baseline di partenza:** `d3aaffe2cbe76da21fd24e9c98c7518e8c8cda4b`
 
 ## Funziona già
 
-- MVP completo in `dry-run` con validazione, selezione, template e registro;
-- adapter Google Sheets testati con fake per lettura di `Operativo` e persistenza di `NOTIFICHE`;
-- intestazioni di `Operativo` configurabili in riga 2 e numeri di riga originali preservati;
-- configurazione tipizzata per Workload Identity Federation senza chiavi permanenti;
-- runbook Google Cloud con trust OIDC basata sugli ID numerici immutabili;
-- contratto tipizzato dello Spreadsheet `Reminder certificati CIA Lazio — Gestione`;
-- tab canoniche `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE` nell'ordine previsto;
-- `CONFIG` inizializzata con sistema e invii reali disabilitati, modalità test e kill switch attivi;
-- apertura email preservata tramite `SALUTO_EMAIL = Ciao {{nome}},` e corpo che inizia con `ricevi questa mail`;
-- `DASHBOARD` inizializzata in stato disattivato con conteggi a zero;
-- `NOTIFICHE` e `ANOMALIE` inizializzate senza righe dati;
-- controlli su nome del file, tab mancanti o fuori ordine, intestazioni duplicate e righe malformate;
+- dominio completo di validazione, selezione, template e stati notifiche;
+- lettura di `Operativo` e persistenza `NOTIFICHE` tramite adapter Google testati con fake;
+- inizializzatore idempotente e non distruttivo del foglio amministrativo;
+- verifica di CONFIG, DASHBOARD, NOTIFICHE e ANOMALIE anche dopo aggiornamenti runtime;
+- parser tipizzato di `CONFIG` con kill switch, limiti, override e barriere multiple;
+- registro persistente con `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+- dashboard aggregata, registro anomalie minimizzato e valutazione salute;
+- orchestratore end-to-end per `DRY_RUN`, `TEST_SMTP` e `PRODUZIONE` protetta;
+- SMTP MDaemon testo/HTML, Message-ID, STARTTLS/SSL, fake e logo CID opzionale;
+- factory Google basata su ADC temporanee prodotte da WIF;
+- comando `check-headers` che legge soltanto la riga 2 di `Operativo`;
+- CLI per inizializzare il foglio, controllare le intestazioni ed eseguire il flusso;
+- workflow manuale pre-produzione disabilitato per default e con `concurrency`;
+- modello di workflow produzione non attivo;
+- runbook operativo, emergenze, handoff, test e deployment;
 - test automatici e CI.
 
-## Sicurezza mantenuta
+## Barriere di sicurezza
 
-- nessuna credenziale, password o chiave permanente nel repository;
-- nessuna configurazione IAM/OIDC reale applicata;
-- nessun accesso reale a `Operativo`;
-- nessun dato personale reale nei test o nella documentazione;
-- nessuna scrittura su Spreadsheet reali;
-- invii reali disabilitati e non modificabili nello schema iniziale;
-- modalità test e kill switch attivi;
-- nessun workflow autenticato o programmato;
-- nessun invio SMTP.
+- nessuna chiave JSON permanente;
+- nessuna credenziale, email reale o PII nel repository;
+- nessun accesso Google finché l'environment non abilita esplicitamente la pre-produzione;
+- nessun invio fuori dal dry-run senza conferma CLI e `ALLOW_EMAIL_DELIVERY=true`;
+- produzione subordinata anche a `PRODUCTION_ACTIVATION_ACK`;
+- `CONFIG` deve essere coerente con modalità ed environment;
+- workflow schedulato presente soltanto come file `.example` non eseguibile;
+- output CLI esclusivamente aggregato;
+- esiti SMTP incerti non vengono ritentati automaticamente.
 
-## Non ancora collegato
+## Da creare o valorizzare esternamente
 
-- provisioning effettivo di progetto, pool, provider e service account Google Cloud;
-- adapter per creare e inizializzare fisicamente le quattro tab;
-- creazione controllata dello Spreadsheet amministrativo separato;
-- prova manuale su Spreadsheet sintetico;
-- collegamento reale in sola lettura a `Operativo`;
-- persistenza reale del registro nel foglio amministrativo;
-- lettura e applicazione runtime di `CONFIG`, `DASHBOARD` e `ANOMALIE`;
-- SMTP MDaemon, firma ufficiale e logo CID;
-- workflow programmato di produzione.
+- progetto Google Cloud, API, service account, pool e provider WIF;
+- GitHub Environments, Variables e binding IAM;
+- condivisione diretta dei due Spreadsheet;
+- creazione controllata del foglio amministrativo tramite workflow manuale;
+- parametri e credenziali MDaemon;
+- mittente, Reply-To, firma ufficiale e logo approvato;
+- seconda identità umana CIA di recupero.
 
-## Prossimo incremento
+## Collaudi ancora necessari
 
-Implementare un inizializzatore strutturale Google Sheets dietro un protocollo testabile con fake, capace di creare e verificare le quattro tab senza dati personali. Solo dopo test e CI verdi potrà essere usato per la creazione controllata dello Spreadsheet amministrativo separato già autorizzata.
+- inizializzazione reale su Spreadsheet sintetico;
+- `check-headers` reale con zero righe dati lette;
+- dry-run aggregato su `Operativo`;
+- append, update e duplicati sul registro sintetico;
+- test SMTP esclusivamente all'override;
+- errori retryable, permanenti e incerti;
+- concorrenza, crash dopo `SENDING` e rerun;
+- prova dei runbook con un responsabile non tecnico.
+
+## Prossimo passo
+
+Creare il progetto Google Cloud e l'environment `preproduction`, inserire gli identificatori pubblici e avviare nell'ordine `check-headers`, `init-admin`, dry-run e test SMTP con override. Nessun invio reale ad arbitri è necessario per questi collaudi.
