@@ -91,6 +91,8 @@ def main() -> int:
                 "notification_id": item.notification_id,
                 "id_arbitro": item.arbitro.id_arbitro,
                 "nome": item.arbitro.nome,
+                "cognome": item.arbitro.cognome,
+                "nome_completo": item.arbitro.nome_completo,
                 "email": item.arbitro.email,
                 "scadenza_certificato": item.arbitro.scadenza_certificato.isoformat(),
                 "giorni_residui": item.giorni_residui,
