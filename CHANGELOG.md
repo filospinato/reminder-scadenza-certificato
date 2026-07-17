@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.10.0] - 2026-07-17
+
+### Aggiunto
+
+- contratto tipizzato dello Spreadsheet amministrativo separato `Reminder certificati CIA Lazio — Gestione`;
+- definizioni canoniche e ordinate delle tab `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`;
+- configurazione iniziale con sistema e invii reali disabilitati, modalità test e kill switch attivi;
+- limite iniziale di 10 invii per esecuzione e finestra predefinita di 30 giorni;
+- saluto fisso `Ciao {{nome}},` e corpo configurabile vincolato all'apertura `ricevi questa mail`;
+- dashboard sintetica disattivata con conteggi a zero;
+- schema delle anomalie senza righe iniziali o payload personali;
+- test per ordine delle tab, intestazioni, larghezza delle righe, valori di sicurezza e apertura del messaggio.
+
+### Modificato
+
+- lo schema `NOTIFICHE` esistente viene riusato come unica fonte delle quattordici colonne canoniche;
+- `README.md`, `LATEST.md`, `ROADMAP.md` e `docs/SCHEMA_FOGLI.md` descrivono ora tutte le quattro tab;
+- versione del pacchetto aggiornata a 0.10.0.
+
+### Sicurezza
+
+- `INVII_REALI_ABILITATI` parte da `false` e non è modificabile nel foglio iniziale;
+- `DESTINATARIO_OVERRIDE` e `CONTATTO_SUPPORTO` restano vuoti, senza email inventate;
+- `NOTIFICHE` e `ANOMALIE` non contengono dati precompilati;
+- nessuno Spreadsheet reale, permesso Google, dato personale, workflow autenticato o invio SMTP è stato creato o attivato.
+
 ## [0.9.0] - 2026-07-17
 
 ### Aggiunto
@@ -131,7 +157,7 @@
 ### Sicurezza
 
 - rifiuto di matrici vuote, intestazioni vuote o duplicate e righe non tabellari;
-- rifiuto di celle non vuote oltre le intestazioni;
+- rifiuto di celle non vuote oltre il numero delle intestazioni;
 - conversione degli errori Google in errori applicativi senza esporre payload o credenziali;
 - nessuna credenziale, dipendenza Google o risorsa reale aggiunta al repository.
 
