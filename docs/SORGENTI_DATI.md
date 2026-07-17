@@ -15,7 +15,7 @@ Questa separazione consente di testare quasi tutto senza rete, credenziali o Spr
 
 ## Struttura attesa
 
-La prima riga della matrice contiene le intestazioni. Le righe successive contengono i dati.
+La prima riga della matrice contiene le intestazioni. Le righe successive contengono i dati. Ogni arbitro occupa una sola riga e le colonne logiche obbligatorie comprendono `id_arbitro`, `nome`, `cognome`, `email`, `scadenza_certificato` e `attivo`.
 
 L'adapter:
 
@@ -71,7 +71,7 @@ diventa:
 
 Gli errori tecnici della libreria Google vengono convertiti in `ErroreSorgenteDati`. Il messaggio conserva il tipo dell'errore, ma non include credenziali, payload completi o dati personali.
 
-Un errore di lettura o di schema è fatale per quella esecuzione: il sistema non deve procedere con una tabella parziale o ambigua.
+Un errore di lettura o di schema è fatale per quella esecuzione: il sistema non deve procedere con una tabella parziale o ambigua. Nome, cognome, email e scadenza non vengono mai ricombinati tra righe diverse.
 
 ## Stato attuale
 
