@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0] - 2026-07-17
+
+### Aggiunto
+
+- compositore puro di messaggi email in versione testo e HTML, senza invio;
+- configurazione tipizzata di oggetto, corpo e firma;
+- placeholder consentiti per nome, nominativo completo, data di scadenza e giorni residui;
+- campo facoltativo `nome_saluto` con fallback alla prima parola del nominativo;
+- escaping HTML dei dati personalizzati;
+- test dedicati a personalizzazione, fallback, placeholder e sicurezza dell'oggetto.
+
+### Sicurezza
+
+- rifiuto dei placeholder sconosciuti, malformati o privi di valore;
+- divieto di ritorni a capo nell'oggetto per prevenire header injection;
+- vincolo esplicito sull'apertura `Ciao {{nome}}, ricevi questa mail...`.
+
 ## [0.2.0] - 2026-07-17
 
 ### Aggiunto
