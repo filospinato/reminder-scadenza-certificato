@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0] - 2026-07-17
+
+### Aggiunto
+
+- registro notifiche in memoria con record immutabili e accesso protetto da lock;
+- stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+- prenotazione atomica precedente al futuro contatto SMTP;
+- retry automatico consentito soltanto da `FAILED_RETRYABLE`;
+- registrazione del `Message-ID`, del numero di tentativi e dell'eventuale errore;
+- documento `docs/REGISTRO_NOTIFICHE.md` con transizioni e comportamento atteso;
+- test di concorrenza e regressione sul ciclo di vita.
+
+### Sicurezza
+
+- `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano nuove prenotazioni automatiche;
+- gli esiti SMTP incerti richiedono revisione umana e non vengono reinviati;
+- identificativi vuoti, timestamp senza fuso orario e dettagli mancanti vengono rifiutati;
+- nessuna persistenza o risorsa reale è stata collegata.
+
 ## [0.4.1] - 2026-07-17
 
 ### Corretto
