@@ -35,7 +35,10 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] retry soltanto da `FAILED_RETRYABLE`;
    - [x] blocco automatico di `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED`;
    - [x] serializzazione prevista nei workflow;
-   - [ ] prova di persistenza e concorrenza su Spreadsheet sintetico.
+   - [x] collaudo automatizzato del ciclo persistente con fake;
+   - [x] comando protetto per ripetere append, rilettura e update sul foglio amministrativo con una sola riga sintetica;
+   - [ ] esecuzione controllata del comando sullo Spreadsheet amministrativo reale;
+   - [ ] prova di concorrenza tra workflow sul foglio reale.
 6. [x] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED` e transizioni sicure nel dominio e nel registro persistente.
 7. [ ] Invio individuale SMTP MDaemon, testo + HTML, firma ufficiale e logo CID facoltativo.
    - [x] composizione testo/HTML con apertura obbligatoria ed escaping;
@@ -54,8 +57,10 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] bootstrap idempotente di un file vuoto creato dall'identit√† umana;
    - [x] registro persistente integrato nell'orchestratore;
    - [x] gestione Message-ID, versione, tentativi ed errori;
+   - [x] collaudo sintetico automatizzato di append, rerun e update;
+   - [x] comando dedicato con doppio consenso, dati `.invalid` e output aggregato;
    - [ ] creazione umana e condivisione dello Spreadsheet amministrativo;
-   - [ ] prova di append, update e blocco duplicati su foglio sintetico.
+   - [ ] esecuzione del collaudo sul foglio reale.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
    - [x] schema di chiave, valore, tipo, descrizione e modificabilit√†;
    - [x] lettura, validazione e applicazione runtime;
@@ -97,5 +102,6 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
 - nessuna chiave JSON permanente per Google Cloud, bloccata anche dalla verifica runtime delle ADC;
 - `dry-run` predefinito;
 - nessun invio reale senza autorizzazione esplicita e barriere multiple;
+- collaudi di scrittura limitati al foglio amministrativo e a dati sintetici esplicitamente riconoscibili;
 - nessun workflow schedulato attivo prima del go-live;
 - semplicit√† operativa per un futuro responsabile poco tecnico.
