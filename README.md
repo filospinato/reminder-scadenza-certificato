@@ -65,6 +65,8 @@ Per sicurezza:
 - i valori inseriti nell'HTML vengono sottoposti a escaping;
 - corpo e firma sono configurabili, ma il corpo deve mantenere l'apertura concordata.
 
+Il contratto completo del messaggio, compresi fallback e configurazione futura della firma, è in [`docs/CONTRATTO_MESSAGGIO.md`](docs/CONTRATTO_MESSAGGIO.md).
+
 ## Contratto dati
 
 Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni reali di `Operativo` saranno collegate tramite configurazione e non verranno inventate nel codice.
