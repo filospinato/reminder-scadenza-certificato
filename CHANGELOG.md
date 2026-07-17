@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.9.0] - 2026-07-17
+
+### Aggiunto
+
+- configurazione tipizzata degli identificatori pubblici per Workload Identity Federation;
+- validazione del formato canonico di provider e service account;
+- runbook di provisioning Google Cloud e GitHub OIDC;
+- trust policy basata sugli ID numerici immutabili di repository e proprietario;
+- indicazioni per limitare l'accesso al branch `main` e, prima della produzione, al workflow o environment autorizzato;
+- test sintetici per configurazioni mancanti, malformate e non sicure;
+- esclusione Git dei file temporanei `gha-creds-*.json` generati dal runner.
+
+### Modificato
+
+- la documentazione usa `google-github-actions/auth@v3`;
+- `README.md`, `ROADMAP.md` e la documentazione delle sorgenti sono allineati al modello WIF/OIDC;
+- gli identificatori Google non sensibili sono trattati come GitHub Actions Variables, non come chiavi permanenti.
+
+### Sicurezza
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_APPLICATION_CREDENTIALS_JSON` e `GCP_SERVICE_ACCOUNT_KEY` vengono rifiutate;
+- gli ID di pool e provider con prefisso riservato `gcp-` vengono rifiutati;
+- nessuna configurazione IAM reale, credenziale, dato personale, risorsa Google operativa o funzione SMTP è stata attivata.
+
 ## [0.8.0] - 2026-07-17
 
 ### Aggiunto

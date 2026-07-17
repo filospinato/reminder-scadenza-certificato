@@ -9,3 +9,6 @@ venv/
 coverage.xml
 htmlcov/
 .DS_Store
+
+# File temporanei generati da google-github-actions/auth.
+gha-creds-*.json

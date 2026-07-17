@@ -13,7 +13,9 @@ Componenti:
 - `LettoreGoogleApi`: ponte verso un servizio Google API già autenticato;
 - `leggi_e_valida`: collega qualsiasi sorgente alla validazione del dominio.
 
-La prima riga della matrice contiene le intestazioni. Le righe successive contengono i dati. Ogni arbitro occupa una sola riga e le colonne logiche obbligatorie comprendono `id_arbitro`, `nome`, `cognome`, `email`, `scadenza_certificato` e `attivo`.
+La prima riga della matrice restituita dall'adapter contiene le intestazioni. La posizione originale nel foglio è configurabile: nella struttura verificata di `Operativo` le intestazioni sono in riga 2 e la prima riga dati è quindi la 3.
+
+Ogni arbitro occupa una sola riga e le colonne logiche obbligatorie comprendono `id_arbitro`, `nome`, `cognome`, `email`, `scadenza_certificato` e `attivo`.
 
 L'adapter:
 
@@ -22,7 +24,8 @@ L'adapter:
 - completa con stringhe vuote le righe più corte;
 - rifiuta celle non vuote oltre il numero delle intestazioni;
 - rifiuta righe che non siano sequenze di celle;
-- conserva il numero di riga coerente con Google Sheets, partendo da 2 per i dati.
+- costruisce l'intervallo A1 dalla riga configurata;
+- conserva il numero di riga originale per le anomalie.
 
 Le regole logiche dei campi sono in [`CONTRATTO_DATI.md`](CONTRATTO_DATI.md).
 
@@ -39,14 +42,19 @@ Il registro amministrativo non modifica mai `Operativo`. Prima di scrivere verif
 
 Append e update usano `valueInputOption=RAW`. Il nome della scheda viene racchiuso tra apici e gli apostrofi interni vengono raddoppiati.
 
-## Configurazione prevista
+## Autenticazione prevista
 
-I valori reali non devono essere scritti nel repository. Saranno forniti tramite GitHub Actions Secrets o Variables:
+GitHub Actions userà Workload Identity Federation e OIDC. Non verranno salvate chiavi JSON permanenti nel repository o nei GitHub Secrets.
+
+Identificatori pubblici previsti come GitHub Actions Variables:
 
 ```text
-GOOGLE_SERVICE_ACCOUNT_JSON
+GCP_PROJECT_ID
+GCP_WORKLOAD_IDENTITY_PROVIDER
+GCP_SERVICE_ACCOUNT
 OPERATIVO_SPREADSHEET_ID
 OPERATIVO_SHEET_NAME
+OPERATIVO_HEADER_ROW
 OPERATIVO_COLUMNS_A1
 ADMIN_SPREADSHEET_ID
 NOTIFICHE_SHEET_NAME
@@ -54,18 +62,28 @@ NOTIFICHE_SHEET_NAME
 
 `OPERATIVO_COLUMNS_A1` potrà avere un valore come `A:Z` o un intervallo più ristretto dopo aver verificato le colonne effettive. `NOTIFICHE_SHEET_NAME` avrà come default `NOTIFICHE`.
 
+Sono vietate variabili che contengano chiavi permanenti, tra cui:
+
+```text
+GOOGLE_SERVICE_ACCOUNT_JSON
+GOOGLE_APPLICATION_CREDENTIALS_JSON
+GCP_SERVICE_ACCOUNT_KEY
+```
+
+Il contratto di configurazione è validato da `ConfigurazioneGoogleWif`. Il provisioning completo e le condizioni di trust sono documentati in [`AUTENTICAZIONE_GOOGLE.md`](AUTENTICAZIONE_GOOGLE.md).
+
 ## Privilegi minimi
 
 Il service account dovrà:
 
-1. avere accesso soltanto agli Spreadsheet necessari;
-2. essere lettore del database `Operativo`;
-3. non possedere ruoli amministrativi sul progetto o sul dominio;
-4. usare accesso in sola lettura per `Operativo`;
+1. essere impersonabile soltanto dal repository GitHub autorizzato tramite WIF/OIDC;
+2. avere accesso soltanto agli Spreadsheet necessari;
+3. essere lettore del database `Operativo`;
+4. non possedere ruoli amministrativi sul progetto, su Drive o sul dominio;
 5. ottenere accesso in scrittura soltanto allo Spreadsheet amministrativo;
 6. durante il collaudo, essere condiviso esclusivamente con uno Spreadsheet sintetico senza dati reali.
 
-La costruzione concreta delle credenziali verrà aggiunta soltanto dopo una prova controllata sul foglio sintetico.
+I permessi sui singoli Spreadsheet saranno concessi tramite condivisione diretta con l'email del service account. Non è necessario assegnare un ruolo generale su Google Drive.
 
 ## Concorrenza
 
@@ -84,10 +102,12 @@ Un errore di lettura, schema o ambiguità è fatale per quella esecuzione: il si
 Sono implementati e testati con fake:
 
 - lettura e validazione tabellare di `Operativo`;
+- supporto alle intestazioni reali in riga 2;
 - ponte di sola lettura verso un servizio Google già autenticato;
 - schema della tab `NOTIFICHE`;
 - ricerca univoca della chiave;
 - append e update controllato;
-- ponte di scrittura verso un servizio Google già autenticato.
+- ponte di scrittura verso un servizio Google già autenticato;
+- validazione degli identificatori WIF e rifiuto delle chiavi permanenti.
 
-Non sono ancora presenti credenziali, dipendenze Google installate in produzione, Spreadsheet ID reali, accesso a `Operativo` o scritture su un foglio amministrativo reale.
+Sono documentati, ma non ancora applicati, il provisioning WIF/OIDC e i privilegi minimi. Non sono ancora presenti configurazione IAM reale, accesso a `Operativo`, scritture su un foglio amministrativo reale o workflow autenticati.
