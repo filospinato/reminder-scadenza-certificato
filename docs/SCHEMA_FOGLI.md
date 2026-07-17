@@ -1,14 +1,26 @@
 # Schema dei fogli amministrativi
 
-Questo documento definisce il contratto logico dello Spreadsheet separato `Reminder certificati CIA Lazio — Gestione`. Il codice produce esclusivamente una struttura iniziale sintetica: non crea ancora lo Spreadsheet, non legge dati personali e non attiva invii.
+Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Non deve essere creato dentro il database operativo né collocato in una cartella con condivisione ereditata ampia.
 
-Le tab devono esistere una sola volta e nell'ordine canonico:
+Le tab devono esistere una sola volta e nell'ordine:
 
 ```text
 CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
 ```
 
-Il modulo `admin_schema` valida nome del file, nomi e ordine delle tab, intestazioni, duplicati e larghezza delle righe iniziali.
+## Inizializzazione e verifica
+
+`InizializzatoreFoglioAmministrativo` opera tramite un protocollo iniettato, con fake in memoria e ponte Google Sheets.
+
+- Se non riceve un ID, crea un nuovo Spreadsheet con le quattro tab.
+- Scrive le matrici canoniche soltanto nelle tab vuote.
+- Rilegge i valori dopo ogni inizializzazione.
+- Non sovrascrive mai una tab già popolata.
+- Verifica ordine delle tab, intestazioni, larghezza delle righe e chiavi strutturali.
+- Accetta i normali aggiornamenti runtime di CONFIG e DASHBOARD e le righe aggiunte a NOTIFICHE e ANOMALIE.
+- Blocca tab duplicate o fuori ordine, intestazioni alterate, chiavi duplicate e strutture incomplete.
+
+L'operazione è idempotente: una seconda esecuzione su un foglio conforme non aggiunge tab o righe.
 
 ## Tab `CONFIG`
 
@@ -18,51 +30,62 @@ Intestazioni:
 chiave | valore | tipo | descrizione | modificabile
 ```
 
-Ogni riga rappresenta una singola impostazione. I tipi previsti sono `BOOLEANO`, `INTERO`, `TESTO`, `EMAIL_OPZIONALE` e `TEMPLATE`.
-
-La configurazione iniziale è deliberatamente bloccata:
+I tipi previsti sono `BOOLEANO`, `INTERO`, `TESTO`, `EMAIL_OPZIONALE` e `TEMPLATE`.
 
 | Chiave | Valore iniziale | Modificabile | Scopo |
 |---|---:|---:|---|
-| `SISTEMA_ATTIVO` | `false` | sì | abilita l'elaborazione soltanto dopo collaudo |
-| `INVII_REALI_ABILITATI` | `false` | no | barriera separata contro invii SMTP accidentali |
-| `MODALITA_TEST` | `true` | sì | forza l'uso del destinatario sostitutivo |
+| `SISTEMA_ATTIVO` | `false` | sì | abilita l'elaborazione dopo il collaudo |
+| `INVII_REALI_ABILITATI` | `false` | no | barriera separata per SMTP reale |
+| `MODALITA_TEST` | `true` | sì | usa il destinatario sostitutivo |
 | `KILL_SWITCH` | `true` | sì | blocco operativo immediato |
-| `GIORNI_PREAVVISO` | `30` | sì | finestra inclusiva dei certificati in scadenza |
-| `LIMITE_INVII_PER_ESECUZIONE` | `10` | sì | limite massimo per singolo avvio |
-| `DESTINATARIO_OVERRIDE` | vuoto | sì | deve essere valorizzato prima di prove di invio |
-| `OGGETTO_EMAIL` | valore sintetico predefinito | sì | oggetto del promemoria |
-| `SALUTO_EMAIL` | `Ciao {{nome}},` | no | saluto fisso dalla colonna `nome` della stessa riga |
+| `GIORNI_PREAVVISO` | `30` | sì | finestra inclusiva |
+| `LIMITE_INVII_PER_ESECUZIONE` | `10` | sì | limite massimo per avvio |
+| `DESTINATARIO_OVERRIDE` | vuoto | sì | destinatario dei test SMTP |
+| `OGGETTO_EMAIL` | predefinito sintetico | sì | oggetto del promemoria |
+| `SALUTO_EMAIL` | `Ciao {{nome}},` | no | saluto fisso dalla colonna Nome |
 | `CORPO_EMAIL` | inizia con `ricevi questa mail` | sì | corpo del messaggio |
-| `FIRMA_TESTO` | firma testuale provvisoria | sì | firma ufficiale e logo richiedono approvazione separata |
-| `CONTATTO_SUPPORTO` | vuoto | sì | contatto da definire prima della produzione |
+| `FIRMA_TESTO` | firma provvisoria | sì | da sostituire dopo approvazione |
+| `CONTATTO_SUPPORTO` | vuoto | sì | contatto organizzativo |
 
-`SALUTO_EMAIL` e `CORPO_EMAIL` preservano insieme l'apertura obbligatoria `Ciao {{nome}}, ricevi questa mail...`. Lo schema non introduce `nome_saluto` e non deduce il nome da un nominativo completo.
+`runtime_config.carica_configurazione` richiede tutte e sole le chiavi canoniche, verifica tipo, descrizione e attributo `modificabile`, rifiuta duplicati e interpreta i valori.
+
+Vincoli principali:
+
+- finestra tra 0 e 365 giorni;
+- limite tra 1 e 500;
+- modalità test attiva con sistema attivo richiede un override valido;
+- `SALUTO_EMAIL` non può cambiare;
+- il corpo deve iniziare con `ricevi questa mail`;
+- l'oggetto non può contenere ritorni a capo;
+- una configurazione dichiarata reale deve avere sistema attivo, modalità test e kill switch disattivati.
+
+La configurazione del foglio non basta da sola per inviare: servono anche il consenso del comando e dell'environment.
 
 ## Tab `NOTIFICHE`
 
-Una riga rappresenta lo stato corrente di una sola notifica, identificata in modo univoco da `notification_id`.
+Intestazioni, nell'ordine:
 
-| Colonna | Contenuto | Regola |
-|---|---|---|
-| `notification_id` | `ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA` | chiave univoca e immutabile |
-| `id_arbitro` | identificativo stabile dell'arbitro | proviene da Operativo |
-| `nome` | nome dell'arbitro | stessa riga di Operativo |
-| `cognome` | cognome dell'arbitro | stessa riga di Operativo |
-| `email` | indirizzo destinatario | stessa riga di Operativo |
-| `scadenza_certificato` | data ISO `YYYY-MM-DD` | immutabile per la chiave |
-| `tipo` | tipo di promemoria | per esempio `REMINDER_30` |
-| `stato` | stato del ciclo di vita | `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED` |
-| `tentativi` | numero progressivo dei tentativi | intero maggiore o uguale a 1 |
-| `creato_il` | primo inserimento UTC | immutabile |
-| `aggiornato_il` | ultima transizione UTC | non può regredire |
-| `message_id` | identificativo SMTP | valorizzato dopo invio accettato |
-| `versione_app` | versione del programma | audit e diagnosi |
-| `errore` | dettaglio tecnico sintetico | privo di segreti e dati superflui |
+```text
+notification_id | id_arbitro | nome | cognome | email | scadenza_certificato | tipo | stato | tentativi | creato_il | aggiornato_il | message_id | versione_app | errore
+```
 
-L'ordine delle quattordici colonne è canonico e viene riusato direttamente dal contratto già implementato in `admin_store`.
+Una riga rappresenta lo stato corrente di una sola chiave:
 
-Lo schema iniziale contiene soltanto le intestazioni: nessuna notifica o dato personale viene precompilato.
+```text
+ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
+```
+
+Regole:
+
+- la prenotazione crea `SENDING` prima della chiamata SMTP;
+- `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano nuovi tentativi;
+- soltanto `FAILED_RETRYABLE` può tornare a `SENDING`;
+- `creato_il` è immutabile e `aggiornato_il` non può regredire;
+- nome, cognome, email, scadenza e tipo devono coincidere con la notifica persistita;
+- più righe con la stessa chiave bloccano l'esecuzione;
+- testo tecnico e Message-ID vengono limitati a lunghezze controllate.
+
+La modalità test usa un tipo `TEST_REMINDER_*`, separato dalle chiavi reali.
 
 ## Tab `DASHBOARD`
 
@@ -72,14 +95,21 @@ Intestazioni:
 metrica | valore | descrizione
 ```
 
-La dashboard iniziale contiene metriche sintetiche e sicure:
+All'inizio la tab contiene stato disattivato, heartbeat vuoto, conteggi a zero e kill switch attivo. Durante l'esecuzione viene sostituita con una fotografia aggregata che comprende:
 
-- `stato_sistema = DISATTIVATO`;
-- `ultima_esecuzione` e `heartbeat` vuoti;
-- `righe_lette`, `candidati`, `invii_tentati`, `invii_riusciti` e `anomalie` uguali a `0`;
-- `kill_switch = ATTIVO`.
+- stato del sistema;
+- ultima esecuzione e heartbeat UTC;
+- righe lette e valide;
+- candidati;
+- notifiche già presenti;
+- invii tentati, riusciti e falliti;
+- esiti incerti;
+- anomalie;
+- stato del kill switch;
+- versione applicativa;
+- codice sintetico dell'eventuale errore fatale.
 
-Questi valori non dichiarano un'esecuzione reale e non devono essere confusi con dati operativi.
+La dashboard non contiene nominativi, email o contenuti delle righe.
 
 ## Tab `ANOMALIE`
 
@@ -89,36 +119,32 @@ Intestazioni:
 anomalia_id | rilevata_il | severita | origine | codice | riga_sorgente | campo | messaggio | versione_app | risolta_il
 ```
 
-La tab nasce vuota. In futuro conterrà problemi di qualità dati o tecnici senza modificare `Operativo`. `messaggio` deve restare sintetico e non deve includere intere righe, certificati, credenziali o dati personali non necessari.
+`anomalia_id` è deterministico per origine, codice, riga, campo e messaggio sintetico. Il fake in memoria evita la duplicazione indefinita della stessa anomalia aperta.
 
-## Comportamento dell'adapter `NOTIFICHE`
+Il messaggio:
 
-`ArchivioNotificheGoogleSheets`:
+- è limitato a 500 caratteri;
+- non contiene intere righe o certificati;
+- rimuove indirizzi email e stringhe simili a token;
+- usa codici stabili per distinguere dati, registro, template, Google e SMTP.
 
-1. legge intestazioni e righe della tab;
-2. converte ogni riga non vuota in `RigaNotifica`;
-3. cerca la `notification_id` esatta;
-4. aggiunge una riga se non esiste alcuna corrispondenza;
-5. aggiorna la stessa riga se esiste una sola corrispondenza;
-6. blocca la scrittura se esistono due o più corrispondenze;
-7. rifiuta intestazioni diverse, timestamp regressivi o modifica di `creato_il`.
+## Scritture Google
 
-Il trasporto usa `valueInputOption=RAW`, quindi date, timestamp e identificativi vengono conservati come stringhe canoniche.
+Tutte le scritture usano `valueInputOption=RAW`.
 
-## Concorrenza
+- L'inizializzatore scrive una matrice soltanto in tab vuote.
+- `NOTIFICHE` usa append per nuove chiavi e update della stessa riga per le transizioni.
+- `DASHBOARD` sostituisce la fotografia aggregata.
+- `ANOMALIE` accoda righe minimizzate.
 
-Google Sheets non offre una transazione atomica che comprenda ricerca della chiave e successiva scrittura. In produzione il controllo applicativo dovrà essere affiancato da un solo workflow attivo alla volta tramite `concurrency` di GitHub Actions.
+Google Sheets non offre una transazione tra ricerca e scrittura. I controlli sul foglio sono quindi affiancati da `concurrency` nei workflow, senza annullare le verifiche di chiavi duplicate.
 
-Il lock del workflow non sostituisce i controlli sul foglio: una chiave duplicata creata manualmente deve comunque bloccare l'esecuzione.
+## Stato operativo
 
-## Stato attuale
+Codice, fake, adapter e test sono presenti. Restano da eseguire esternamente:
 
-Sono implementati e testati:
-
-- il contratto completo delle quattro tab;
-- i valori iniziali sicuri di `CONFIG` e `DASHBOARD`;
-- l'assenza di righe iniziali in `NOTIFICHE` e `ANOMALIE`;
-- i controlli su nome del file, ordine delle tab, intestazioni duplicate e larghezza delle righe;
-- il riuso dello schema `NOTIFICHE` già esistente.
-
-Non sono ancora stati creati Spreadsheet reali, configurati permessi Google, copiati dati da `Operativo` o attivati workflow e invii SMTP.
+- creazione e condivisione del foglio reale;
+- prova idempotente dell'inizializzatore;
+- append, update e duplicati su un foglio sintetico;
+- aggiornamento reale di dashboard e anomalie;
+- collaudo con un responsabile non tecnico.

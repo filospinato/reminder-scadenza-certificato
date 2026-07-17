@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.11.0] - 2026-07-17
+
+### Aggiunto
+
+- inizializzatore idempotente e non distruttivo dello Spreadsheet amministrativo, con fake e ponte Google Sheets;
+- parser runtime tipizzato della tab `CONFIG`, con validazione di chiavi, tipi, limiti, override e template;
+- registro persistente sopra `NOTIFICHE`, con prenotazione preventiva `SENDING` e transizioni conservative;
+- aggiornamento aggregato di `DASHBOARD`, persistenza minimizzata delle anomalie e valutazione dello stato di salute;
+- orchestratore end-to-end per `DRY_RUN`, `TEST_SMTP` e `PRODUZIONE` protetta;
+- trasporto SMTP MDaemon testo/HTML con `Message-ID`, STARTTLS/SSL, Reply-To, fake e logo CID facoltativo;
+- classificazione degli errori SMTP in ritentabili, permanenti ed esiti incerti;
+- factory Google Sheets tramite Application Default Credentials temporanee prodotte da WIF/OIDC;
+- mappatura delle intestazioni reali di `Operativo` e comando `check-headers` limitato alla sola riga 2;
+- CLI pre-produzione per inizializzare/verificare il foglio, controllare le intestazioni ed eseguire il flusso con output aggregato;
+- workflow manuale pre-produzione con environment, WIF, permessi minimi e `concurrency`, disabilitato per default;
+- modello non attivo del workflow schedulato di produzione;
+- runbook operativo, emergenze, handoff, test e checklist di deployment graduale;
+- test sintetici per inizializzazione, CONFIG, monitoraggio, registro persistente, SMTP, orchestrazione, Google runtime e salute.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.0 e aggiunto il comando `reminder-certificati-runtime`;
+- aggiunto l'extra opzionale `google` per installare il client Google soltanto negli ambienti che ne hanno bisogno;
+- l'inizializzatore verifica intestazioni e vincoli strutturali senza pretendere che `CONFIG` e `DASHBOARD` conservino per sempre i valori sintetici iniziali;
+- `LATEST.md` e `ROADMAP.md` distinguono ora il codice già pronto dalle risorse e dai collaudi che devono essere completati esternamente.
+
+### Sicurezza
+
+- l'inserimento di ID Google o credenziali SMTP non abilita automaticamente elaborazione o invii;
+- gli invii fuori dal dry-run richiedono contemporaneamente configurazione coerente, consenso CLI e `ALLOW_EMAIL_DELIVERY=true`;
+- la produzione richiede anche il riconoscimento esatto `PRODUCTION_ACTIVATION_ACK`;
+- la modalità test sostituisce tutti i destinatari con l'override e usa chiavi `TEST_REMINDER_*` separate;
+- il workflow manuale non accede a Google finché `PREPRODUCTION_ENABLED` non viene impostato esplicitamente a `true` in un environment protetto;
+- il workflow schedulato è conservato come file `.example` non eseguibile;
+- `check-headers` non legge righe dati e la CLI runtime non stampa nominativi, email o contenuti delle righe;
+- anomalie e messaggi tecnici vengono sanitizzati per rimuovere email e token;
+- nessun progetto Google Cloud, permesso, Spreadsheet, credenziale SMTP, firma, logo o invio reale è stato creato o attivato.
+
 ## [0.10.0] - 2026-07-17
 
 ### Aggiunto
