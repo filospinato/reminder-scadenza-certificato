@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0] - 2026-07-17
+
+### Aggiunto
+
+- protocollo `SorgenteDati` indipendente dalla tecnologia di origine;
+- sorgente in memoria per test e simulazioni;
+- adapter Google Sheets con lettore di valori iniettato;
+- ponte minimale verso un servizio Google API già autenticato;
+- conversione delle matrici in record mappati;
+- collegamento riutilizzabile tra sorgente e validazione;
+- documentazione di configurazione, privilegi minimi e segreti previsti;
+- test con fake per adapter e trasporto Google API.
+
+### Sicurezza
+
+- rifiuto di matrici vuote, intestazioni vuote o duplicate e righe non tabellari;
+- rifiuto di celle non vuote oltre le intestazioni;
+- conversione degli errori Google in errori applicativi senza esporre payload o credenziali;
+- nessuna credenziale, dipendenza Google o risorsa reale aggiunta al repository.
+
 ## [0.3.0] - 2026-07-17
 
 ### Aggiunto
