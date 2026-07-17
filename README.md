@@ -4,7 +4,7 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 
 ## Stato del progetto
 
-La versione corrente **0.5.0** è un MVP esclusivamente in `dry-run`:
+La versione corrente **0.6.0** è un MVP esclusivamente in `dry-run`:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
 - legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
@@ -15,6 +15,7 @@ La versione corrente **0.5.0** è un MVP esclusivamente in `dry-run`:
 - genera una chiave deterministica anti-duplicazione;
 - modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
 - impedisce prenotazioni concorrenti duplicate nel registro in memoria;
+- definisce lo schema completo della futura tab `NOTIFICHE` e un archivio fake thread-safe che inserisce o aggiorna una sola riga per chiave;
 - compone in memoria versioni testo e HTML del promemoria, senza inviarle;
 - include un adapter Google Sheets testabile con fake, senza credenziali reali;
 - non accede ancora al database reale `Operativo`;
@@ -55,9 +56,11 @@ Il modulo `registry` definisce il ciclo di vita della notifica usando la chiave:
 ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
 ```
 
-La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. La versione corrente usa `RegistroMemoria`, atomico all'interno del processo e testato anche con prenotazioni concorrenti. Non persiste ancora tra esecuzioni.
+La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. La versione corrente usa `RegistroMemoria`, atomico all'interno del processo e testato anche con prenotazioni concorrenti.
 
-Il contratto completo è in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md).
+Il modulo `admin_store` converte candidato e stato in una `RigaNotifica` completa, pronta per la futura tab `NOTIFICHE`. `ArchivioNotificheMemoria` simula inserimento e aggiornamento per chiave, rifiuta duplicati iniziali e regressioni temporali. Non persiste ancora tra esecuzioni e non effettua scritture Google.
+
+I contratti completi sono in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md) e [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md).
 
 ## Composizione del messaggio
 
