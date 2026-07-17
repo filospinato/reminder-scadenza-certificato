@@ -68,12 +68,15 @@ def _render(template: str, valori: Mapping[str, str], *, campo: str) -> str:
     return risultato
 
 
-def _in_html(testo: str) -> str:
-    paragrafi = []
-    for paragrafo in testo.split("\n\n"):
-        righe = "<br>".join(html.escape(riga) for riga in paragrafo.splitlines())
-        paragrafi.append(f"<p>{righe}</p>")
-    return "".join(paragrafi)
+def _contenuto_paragrafo_html(testo: str) -> str:
+    return "<br>".join(html.escape(riga) for riga in testo.splitlines())
+
+
+def _paragrafi_html(testo: str) -> list[str]:
+    return [
+        f"<p>{_contenuto_paragrafo_html(paragrafo)}</p>"
+        for paragrafo in testo.split("\n\n")
+    ]
 
 
 def componi_email(
@@ -102,11 +105,18 @@ def componi_email(
     apertura = f"Ciao {valori['nome']}, {corpo}"
     testo = f"{apertura}\n\n{firma}"
 
-    apertura_html = (
+    paragrafi_corpo = corpo.split("\n\n")
+    primo_paragrafo = (
         f"<p>Ciao {html.escape(valori['nome'])}, "
-        f"{_in_html(corpo)[3:-4]}</p>"
+        f"{_contenuto_paragrafo_html(paragrafi_corpo[0])}</p>"
     )
-    html_completo = apertura_html + _in_html(firma)
+    altri_paragrafi = [
+        f"<p>{_contenuto_paragrafo_html(paragrafo)}</p>"
+        for paragrafo in paragrafi_corpo[1:]
+    ]
+    html_completo = "".join(
+        [primo_paragrafo, *altri_paragrafi, *_paragrafi_html(firma)]
+    )
 
     return MessaggioEmail(
         destinatario=candidato.arbitro.email.strip(),
