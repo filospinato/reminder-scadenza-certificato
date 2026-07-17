@@ -22,7 +22,7 @@ Richiede Python 3.11 o successivo.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e "[dev]"
+python -m pip install -e ".[dev]"
 pytest
 reminder-certificati --today 2026-07-17 --days 30
 ```
