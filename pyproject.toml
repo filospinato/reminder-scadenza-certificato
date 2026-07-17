@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reminder-scadenza-certificato"
-version = "0.11.2"
+version = "0.11.3"
 description = "Reminder automatici per i certificati medici in scadenza"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,6 +20,7 @@ google = [
 [project.scripts]
 reminder-certificati = "reminder_certificati.cli:main"
 reminder-certificati-runtime = "reminder_certificati.runtime_cli:main"
+reminder-certificati-registry-check = "reminder_certificati.registry_probe_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -4,7 +4,7 @@ Sistema per individuare gli arbitri con certificato medico prossimo alla scadenz
 
 ## Stato del progetto
 
-La versione corrente **0.11.2** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
+La versione corrente **0.11.3** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
 
 Sono implementati:
 
@@ -17,6 +17,7 @@ Sono implementati:
 - lettura runtime di `CONFIG` con kill switch, limiti e modalità test;
 - aggiornamento aggregato di `DASHBOARD` e `ANOMALIE`;
 - orchestratore completo per dry-run, test e produzione protetta;
+- comando protetto per collaudare il registro con una sola riga interamente sintetica;
 - email testo e HTML con Message-ID e logo CID facoltativo realmente referenziato;
 - trasporto SMTP con STARTTLS o SSL e fake per i test;
 - autenticazione Google predisposta tramite WIF/OIDC, con blocco runtime dei file JSON `service_account` permanenti;
@@ -51,6 +52,7 @@ Comandi pre-produzione:
 ```bash
 reminder-certificati-runtime init-admin --spreadsheet-id ID
 reminder-certificati-runtime check-headers
+ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati-registry-check --confirm-synthetic-write
 reminder-certificati-runtime run --mode DRY_RUN
 reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
 ```
@@ -58,6 +60,8 @@ reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
 `init-admin` non crea il file: l'amministratore umano crea uno Spreadsheet vuoto, lo condivide con il service account e fornisce l'ID. Il codice trasforma in sicurezza la singola tab vuota in `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`.
 
 `check-headers` legge soltanto la riga delle intestazioni e non legge righe dati. La CLI runtime stampa solo conteggi e stati aggregati e rimuove email, token e chiavi di notifica dagli errori.
+
+`reminder-certificati-registry-check` richiede sia il flag CLI sia la variabile ambiente dedicata. Scrive una sola riga con ID, nome, cognome, email e Message-ID sintetici, la rilegge, la aggiorna da `SENDING` a `SENT` e verifica che la stessa chiave sia rimasta univoca. Non legge `Operativo`, non invia email e non stampa l'ID dello Spreadsheet o la chiave della riga.
 
 ## Flusso applicativo
 
@@ -141,6 +145,7 @@ Il service account avrà sola lettura sul file operativo e modifica sul solo fog
 - output dei workflow aggregati;
 - chiavi duplicate o schema inatteso bloccano l'esecuzione;
 - credenziali Google permanenti bloccate anche a runtime;
+- collaudo del registro limitato a una riga sintetica e protetto da doppio consenso;
 - esiti incerti non ritentati automaticamente;
 - nessuna schedule di produzione attiva prima dell'autorizzazione finale.
 
