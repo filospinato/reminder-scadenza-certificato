@@ -9,6 +9,10 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
 6. [ ] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`.
 7. [ ] Invio individuale SMTP MDaemon, testo + HTML, firma ufficiale e logo CID facoltativo.
+   - [x] composizione pura e testata delle versioni testo e HTML;
+   - [x] apertura personalizzata `Ciao {{nome}}, ricevi questa mail...`;
+   - [x] escaping HTML e validazione sicura dei template;
+   - [ ] firma ufficiale, logo CID, trasporto SMTP e test MDaemon.
 8. [ ] Registro amministrativo completo con Message-ID, versione ed errori.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
 10. [ ] `DASHBOARD`, heartbeat, anomalie, kill switch, runbook e handoff.
