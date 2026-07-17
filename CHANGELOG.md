@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0] - 2026-07-17
+
+### Aggiunto
+
+- schema tipizzato della futura tab amministrativa `NOTIFICHE`;
+- campi per destinatario, nome, cognome, scadenza, tipo, stato, tentativi, timestamp, `Message-ID`, versione ed errore;
+- conversione sicura tra record applicativi e righe tabellari;
+- archivio in memoria thread-safe che inserisce o aggiorna una sola riga per `notification_id`;
+- documento `docs/SCHEMA_FOGLI.md` con schema e vincoli delle tab amministrative;
+- test di round-trip, aggiornamento, duplicati, regressioni temporali e disallineamento delle chiavi.
+
+### Sicurezza
+
+- le chiavi duplicate nella sorgente amministrativa vengono rifiutate;
+- `creato_il` non può cambiare e `aggiornato_il` non può regredire;
+- candidato e record devono condividere la stessa `notification_id`;
+- nessuna scrittura Google o persistenza reale è stata attivata.
+
 ## [0.5.0] - 2026-07-17
 
 ### Aggiunto
