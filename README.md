@@ -1,28 +1,30 @@
 # Reminder scadenza certificato
 
-Sistema automatico per individuare gli arbitri con certificato medico prossimo alla scadenza e, nelle fasi successive, inviare promemoria individuali tramite SMTP MDaemon.
+Sistema per individuare gli arbitri con certificato medico prossimo alla scadenza e preparare promemoria individuali tramite SMTP MDaemon.
 
 ## Stato del progetto
 
-La versione corrente **0.10.0** resta esclusivamente in `dry-run` e definisce anche il contratto completo dello Spreadsheet amministrativo separato:
+La versione corrente **0.11.0** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
 
-- legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
-- legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
-- valida ID, nome, cognome, email, scadenza e stato operativo;
-- raccoglie anomalie senza interrompere le altre righe valide;
-- esclude integralmente gli ID duplicati;
-- seleziona i certificati in scadenza entro una finestra configurabile;
-- genera una chiave deterministica anti-duplicazione;
-- modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
-- impedisce prenotazioni concorrenti duplicate nel registro in memoria;
-- include adapter Google Sheets testati con fake per lettura, append e update;
-- supporta la struttura verificata di `Operativo`, con intestazioni in riga 2;
-- definisce le tab `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`;
-- inizializza configurazione e dashboard in stato disattivato e senza dati personali;
-- compone in memoria versioni testo e HTML del promemoria, senza inviarle;
-- valida gli identificatori pubblici di Workload Identity Federation;
-- rifiuta variabili riconducibili a chiavi JSON permanenti;
-- non accede ancora al database reale `Operativo` e non crea o modifica Spreadsheet reali.
+Sono implementati:
+
+- lettura e validazione di `Operativo`, con intestazioni in riga 2;
+- nome, cognome, email, scadenza e stato letti dalla medesima riga;
+- finestra configurabile e chiave anti-duplicazione;
+- stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
+- registro persistente nella tab `NOTIFICHE`;
+- inizializzazione e verifica non distruttiva del foglio amministrativo;
+- lettura runtime di `CONFIG` con kill switch, limiti e modalità test;
+- aggiornamento aggregato di `DASHBOARD` e `ANOMALIE`;
+- orchestratore completo per dry-run, test e produzione protetta;
+- email testo e HTML con Message-ID e logo CID facoltativo;
+- trasporto SMTP con STARTTLS o SSL e fake per i test;
+- autenticazione Google predisposta tramite WIF/OIDC;
+- workflow manuale pre-produzione disabilitato per default;
+- modello di workflow schedulato conservato come esempio non attivo;
+- test automatici e guide operative.
+
+Restano da creare o valorizzare esternamente il progetto Google Cloud, i permessi, il foglio amministrativo reale, gli ambienti GitHub, i parametri SMTP e i contenuti ufficiali.
 
 ## Avvio locale
 
@@ -36,105 +38,109 @@ pytest
 reminder-certificati --today 2026-07-17 --days 30
 ```
 
-Il comando usa per impostazione predefinita `examples/arbitri.json` e stampa un riepilogo JSON con righe lette, anomalie, candidati e identificativi deterministici delle notifiche.
+Il comando storico usa soltanto i dati anonimi in `examples/arbitri.json`.
 
-## Regola iniziale
+Per i comandi Google installare l'extra opzionale:
 
-Un arbitro è candidato quando:
+```bash
+python -m pip install -e ".[google]"
+```
 
-- è operativo;
-- possiede un identificativo univoco;
-- possiede nome e cognome;
-- possiede un indirizzo email formalmente valido;
-- il certificato scade tra oggi e il limite configurato, estremi inclusi;
-- non presenta anomalie che rendano ambiguo l'invio.
+Comandi pre-produzione:
 
-I certificati già scaduti saranno gestiti in futuro da un promemoria separato.
+```bash
+reminder-certificati-runtime init-admin
+reminder-certificati-runtime init-admin --spreadsheet-id ID
+reminder-certificati-runtime check-headers
+reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
+```
 
-## Registro anti-duplicazione
+`check-headers` legge soltanto la riga delle intestazioni e non legge righe dati. La CLI runtime stampa solo conteggi e stati aggregati.
 
-Il modulo `registry` definisce il ciclo di vita della notifica usando la chiave:
+## Flusso applicativo
+
+L'orchestratore:
+
+1. verifica il foglio amministrativo;
+2. carica e valida `CONFIG`;
+3. controlla sistema attivo e kill switch;
+4. legge e valida la sorgente;
+5. registra anomalie minimizzate;
+6. seleziona i candidati entro finestra e limite;
+7. verifica il registro e prenota `SENDING`;
+8. compone testo e HTML;
+9. applica l'override in modalità test;
+10. esegue dry-run oppure SMTP;
+11. aggiorna lo stato persistente;
+12. aggiorna dashboard e heartbeat.
+
+## Regola e registro
+
+Un arbitro è candidato quando è operativo, ha dati validi e univoci e il certificato scade nella finestra configurata.
+
+La chiave è:
 
 ```text
 ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
 ```
 
-La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. `RegistroMemoria` rende atomica la prenotazione all'interno del singolo processo.
-
-Il modulo `admin_store` converte candidato e stato in una `RigaNotifica` completa. `ArchivioNotificheMemoria` simula il registro tabellare, mentre `ArchivioNotificheGoogleSheets` usa un trasporto iniettato per:
-
-1. leggere intestazioni e righe della tab `NOTIFICHE`;
-2. cercare la chiave esatta;
-3. aggiungere una nuova riga soltanto se la chiave è assente;
-4. aggiornare la riga esistente soltanto se la chiave è presente una volta;
-5. bloccare ogni scrittura quando il foglio è ambiguo o non conforme allo schema.
-
-Il ponte `TrasportoNotificheGoogleApi` è pronto per un servizio Google già autenticato, ma non costruisce credenziali e non viene ancora usato contro Spreadsheet reali. La ricerca seguita da scrittura non è una transazione atomica di Google Sheets: in produzione le esecuzioni saranno anche serializzate tramite `concurrency` di GitHub Actions.
+`SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano altri tentativi automatici. Soltanto `FAILED_RETRYABLE` può essere riprenotato. La modalità test usa chiavi `TEST_REMINDER_*` separate.
 
 ## Foglio amministrativo
 
-Il modulo `admin_schema` definisce lo Spreadsheet canonico `Reminder certificati CIA Lazio — Gestione` e le quattro tab, nell'ordine:
+Il file canonico è `Reminder certificati CIA Lazio — Gestione`, con le tab:
 
 ```text
 CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
 ```
 
-La configurazione iniziale mantiene `SISTEMA_ATTIVO=false`, `INVII_REALI_ABILITATI=false`, `MODALITA_TEST=true` e `KILL_SWITCH=true`. `NOTIFICHE` e `ANOMALIE` nascono senza righe dati; `DASHBOARD` contiene soltanto metriche sintetiche a zero.
+L'inizializzatore crea le tab vuote o verifica un file esistente. Non sovrascrive strutture incompatibili e continua ad accettare i normali aggiornamenti runtime.
 
-Il codice valida nome del file, ordine delle tab, intestazioni duplicate e larghezza delle righe. Non crea ancora il file su Google Drive. Il contratto completo è in [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md).
+La configurazione iniziale mantiene sistema e invii disabilitati, modalità test e kill switch attivi, finestra di 30 giorni e limite di 10 messaggi per esecuzione.
 
-## Composizione del messaggio
+Il contratto completo è in [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md).
 
-Il modulo `email_templates` produce una versione testo e una HTML senza effettuare connessioni SMTP. L'apertura è vincolata alla forma:
+## Messaggi e SMTP
+
+Ogni comunicazione deve iniziare con:
 
 ```text
 Ciao {{nome}}, ricevi questa mail...
 ```
 
-`{{nome}}` viene letto direttamente dalla colonna `nome` della stessa riga di `Operativo` che contiene anche `cognome`, `email`, scadenza e stato. Non vengono usati fallback basati sulla prima parola di un nominativo composto.
+Il nome proviene direttamente dalla colonna `Nome`; i nomi composti restano integri.
 
-I placeholder consentiti sono `{{nome}}`, `{{cognome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`.
+Il trasporto genera un messaggio individuale multipart testo/HTML, assegna un Message-ID, supporta Reply-To e logo inline facoltativo, e distingue errori ritentabili da esiti che richiedono revisione umana. Non crea copie nella Posta inviata.
 
-Placeholder sconosciuti, oggetti con ritorni a capo, valori HTML non sottoposti a escaping e corpi che non rispettano l'apertura concordata vengono rifiutati. Il contratto completo è in [`docs/CONTRATTO_MESSAGGIO.md`](docs/CONTRATTO_MESSAGGIO.md).
+## Barriere di attivazione
 
-## Sorgenti dati
+L'inserimento dei parametri esterni non abilita automaticamente gli invii. Le modalità non dry-run richiedono più consensi separati tra foglio, comando ed environment. La produzione richiede inoltre un riconoscimento esplicito dedicato.
 
-La logica applicativa dipende da protocolli, non direttamente dalla libreria Google. Sono disponibili:
+Il workflow manuale non accede alle risorse finché l'environment di pre-produzione non viene abilitato. Il workflow schedulato resta in `docs/workflows/production.yml.example` e non è eseguito da GitHub Actions.
 
-- `SorgenteMemoria`, per test e simulazioni;
-- `AdapterGoogleSheets`, per la lettura di `Operativo` tramite un lettore iniettato;
-- `LettoreGoogleApi`, ponte di sola lettura verso un servizio Google già autenticato;
-- `ArchivioNotificheGoogleSheets`, per il registro amministrativo;
-- `TrasportoNotificheMemoria`, fake di lettura, append e update;
-- `TrasportoNotificheGoogleApi`, ponte di lettura e scrittura verso un servizio Google già autenticato;
-- `leggi_e_valida`, che collega qualsiasi sorgente degli arbitri alla validazione esistente.
+## Google Cloud
 
-La riga delle intestazioni è configurabile. Per `Operativo` è fissata a 2 e le anomalie mantengono il numero di riga originale del foglio.
+Il collegamento userà token OIDC temporanei e un service account dedicato, senza chiavi permanenti. Il service account avrà sola lettura sul file operativo e modifica sul solo foglio amministrativo.
 
-## Autenticazione Google
+Il runbook è in [`docs/AUTENTICAZIONE_GOOGLE.md`](docs/AUTENTICAZIONE_GOOGLE.md).
 
-Il modulo `google_auth` valida soltanto gli identificatori pubblici necessari a Workload Identity Federation. Il repository non accetta chiavi JSON permanenti.
+## Guide
 
-Il futuro collegamento GitHub–Google userà token OIDC temporanei, un service account dedicato e una trust policy limitata al repository, al proprietario e al branch autorizzato. Il provisioning non è ancora stato applicato.
-
-Il runbook completo è in [`docs/AUTENTICAZIONE_GOOGLE.md`](docs/AUTENTICAZIONE_GOOGLE.md).
-
-## Contratto dati
-
-Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DATI.md`](docs/CONTRATTO_DATI.md). Le intestazioni reali vengono collegate tramite configurazione e non tramite valori personali versionati.
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- [`docs/EMERGENCY.md`](docs/EMERGENCY.md)
+- [`docs/HANDOFF.md`](docs/HANDOFF.md)
+- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)
+- [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md)
 
 ## Sicurezza
 
-- Nessun dato personale reale deve essere versionato.
-- Nessun segreto o chiave permanente deve essere salvato nel repository.
-- `Operativo` sarà accessibile in sola lettura.
-- Il foglio amministrativo riceverà accesso in scrittura separato e limitato.
-- Il foglio iniziale mantiene invii reali disabilitati e kill switch attivo.
-- Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
-- Gli esiti incerti non vengono ritentati automaticamente.
-- Chiavi duplicate o schema errato in `NOTIFICHE` bloccano la scrittura.
-- L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, modalità test e SMTP MDaemon.
+- nessun dato personale o parametro riservato nel repository;
+- `Operativo` sempre di sola lettura;
+- output dei workflow aggregati;
+- chiavi duplicate o schema inatteso bloccano l'esecuzione;
+- esiti incerti non ritentati automaticamente;
+- nessuna schedule di produzione attiva prima dell'autorizzazione finale.
 
 ## Roadmap
 
-La roadmap canonica in dieci passi è in [`ROADMAP.md`](ROADMAP.md); l'avanzamento operativo è tracciato anche nell'issue #1. Il progetto procede per incrementi piccoli, testati e revisionabili tramite pull request.
+La roadmap è in [`ROADMAP.md`](ROADMAP.md), lo stato sintetico in [`LATEST.md`](LATEST.md) e l'avanzamento nell'issue #1.
