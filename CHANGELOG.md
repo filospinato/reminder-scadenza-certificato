@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.11.3] - 2026-07-18
+
+### Aggiunto
+
+- comando separato `reminder-certificati-registry-check` per collaudare la tab `NOTIFICHE` del solo Spreadsheet amministrativo;
+- sequenza sintetica completa di append `SENDING`, rilettura, update a `SENT` e verifica dell'unicità della chiave;
+- test applicativi e CLI con fake per consensi, persistenza, output aggregato e assenza di accessi operativi.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.3;
+- README, stato corrente e roadmap descrivono il collaudo protetto e la futura esecuzione controllata sul foglio reale.
+
+### Sicurezza
+
+- il comando richiede contemporaneamente `--confirm-synthetic-write` e `ALLOW_SYNTHETIC_REGISTRY_WRITE=true`;
+- la prova usa una sola riga con ID, nominativo, email e Message-ID sintetici sul dominio `.invalid`;
+- il comando non legge `Operativo`, non usa SMTP e non stampa ID dello Spreadsheet, chiavi del registro o contenuti delle celle;
+- nessuna credenziale, risorsa Google o scrittura reale è stata attivata durante lo sviluppo.
+
 ## [0.11.2] - 2026-07-17
 
 ### Aggiunto
