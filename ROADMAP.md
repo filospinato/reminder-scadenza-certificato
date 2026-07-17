@@ -13,14 +13,21 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [ ] prova su Spreadsheet sintetico e successivo collegamento a `Operativo`.
 4. [x] Validazione di ID, nome, cognome, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
-6. [ ] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`.
+   - [x] finestra configurabile, estremi inclusi, con scaduti esclusi;
+   - [x] chiave deterministica `ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA`;
+   - [x] prenotazione atomica e blocco dei duplicati nel registro in memoria;
+   - [ ] persistenza e confronto con il foglio amministrativo `NOTIFICHE`.
+6. [x] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED` e transizioni sicure nel dominio.
 7. [ ] Invio individuale SMTP MDaemon, testo + HTML, firma ufficiale e logo CID facoltativo.
    - [x] composizione pura e testata delle versioni testo e HTML;
    - [x] apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando la colonna `nome` della stessa riga;
    - [x] supporto a `{{cognome}}` e `{{nome_completo}}`;
    - [x] escaping HTML e validazione sicura dei template;
    - [ ] firma ufficiale, logo CID, trasporto SMTP e test MDaemon.
-8. [ ] Registro amministrativo completo con Message-ID, versione ed errori.
+8. [ ] Registro amministrativo completo con destinatario, nome, cognome, scadenza, tipo, Message-ID, versione ed errori.
+   - [x] contratto del ciclo di vita e record minimo in memoria;
+   - [ ] schema della tab `NOTIFICHE` e adapter di persistenza testato con fake;
+   - [ ] prova controllata di scrittura su Spreadsheet sintetico.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
 10. [ ] `DASHBOARD`, heartbeat, anomalie, kill switch, runbook e handoff.
 
