@@ -11,12 +11,13 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] test con fake del trasporto Google API;
    - [ ] autenticazione reale con service account in sola lettura;
    - [ ] prova su Spreadsheet sintetico e successivo collegamento a `Operativo`.
-4. [x] Validazione di ID, nominativo, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
+4. [x] Validazione di ID, nome, cognome, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
 6. [ ] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`.
 7. [ ] Invio individuale SMTP MDaemon, testo + HTML, firma ufficiale e logo CID facoltativo.
    - [x] composizione pura e testata delle versioni testo e HTML;
-   - [x] apertura personalizzata `Ciao {{nome}}, ricevi questa mail...`;
+   - [x] apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando la colonna `nome` della stessa riga;
+   - [x] supporto a `{{cognome}}` e `{{nome_completo}}`;
    - [x] escaping HTML e validazione sicura dei template;
    - [ ] firma ufficiale, logo CID, trasporto SMTP e test MDaemon.
 8. [ ] Registro amministrativo completo con Message-ID, versione ed errori.
