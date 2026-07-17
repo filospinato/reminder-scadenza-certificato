@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione:** 0.2.0  
+**Versione:** 0.3.0  
 **Data:** 17 luglio 2026  
 **Branch di sviluppo:** `agent/bootstrap-mvp`  
 **Pull request:** #2, bozza
@@ -15,7 +15,10 @@
 - calcolo dei giorni residui e selezione entro una finestra configurabile;
 - chiave anti-duplicazione deterministica;
 - output JSON completo in `dry-run`;
-- 13 test automatici e CI.
+- composizione sicura in memoria di email testo e HTML;
+- apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` con fallback controllato;
+- validazione dei placeholder, escaping HTML e protezione dell'oggetto da header injection;
+- 20 test automatici e CI.
 
 ## Non ancora collegato
 
@@ -23,12 +26,14 @@
 - foglio amministrativo con `CONFIG`, `DASHBOARD`, `NOTIFICHE` e `ANOMALIE`;
 - registro degli stati di invio;
 - SMTP MDaemon;
-- firma HTML ufficiale;
+- firma HTML ufficiale e logo CID;
 - workflow programmato di produzione.
 
 ## Informazioni esterne ancora necessarie
 
 Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive, i valori reali dello stato operativo e il formato effettivo della data. Il codice non deve inventare questi dati.
+
+Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e testo approvato; nel frattempo il compositore resta disaccoppiato dall'invio e usa dati sintetici nei test.
 
 ## Prossimo incremento
 
