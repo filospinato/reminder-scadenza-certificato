@@ -4,7 +4,7 @@ Sistema automatico per individuare gli arbitri con certificato medico prossimo a
 
 ## Stato del progetto
 
-La versione corrente **0.6.0** è un MVP esclusivamente in `dry-run`:
+La versione corrente **0.7.0** è un MVP esclusivamente in `dry-run`:
 
 - legge dati anonimi da un file JSON o da una sorgente tabellare simulata;
 - legge `nome`, `cognome` ed `email` da colonne separate della stessa riga;
@@ -15,11 +15,13 @@ La versione corrente **0.6.0** è un MVP esclusivamente in `dry-run`:
 - genera una chiave deterministica anti-duplicazione;
 - modella il registro con stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
 - impedisce prenotazioni concorrenti duplicate nel registro in memoria;
-- definisce lo schema completo della futura tab `NOTIFICHE` e un archivio fake thread-safe che inserisce o aggiorna una sola riga per chiave;
+- definisce lo schema completo della tab `NOTIFICHE`;
+- include un archivio in memoria e un adapter Google Sheets testati con fake;
+- cerca la `notification_id` in modo univoco, aggiunge una riga quando è assente e aggiorna la stessa riga quando è già presente;
+- blocca la scrittura se trova chiavi duplicate, intestazioni errate o regressioni temporali;
 - compone in memoria versioni testo e HTML del promemoria, senza inviarle;
-- include un adapter Google Sheets testabile con fake, senza credenziali reali;
 - non accede ancora al database reale `Operativo`;
-- non contiene credenziali e non invia email.
+- non contiene credenziali e non effettua scritture Google o invii email reali.
 
 ## Avvio locale
 
@@ -56,11 +58,19 @@ Il modulo `registry` definisce il ciclo di vita della notifica usando la chiave:
 ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
 ```
 
-La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. La versione corrente usa `RegistroMemoria`, atomico all'interno del processo e testato anche con prenotazioni concorrenti.
+La prenotazione crea `SENDING` prima del futuro contatto SMTP. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano ulteriori tentativi automatici; soltanto `FAILED_RETRYABLE` può tornare a `SENDING`. `RegistroMemoria` rende atomica la prenotazione all'interno del singolo processo.
 
-Il modulo `admin_store` converte candidato e stato in una `RigaNotifica` completa, pronta per la futura tab `NOTIFICHE`. `ArchivioNotificheMemoria` simula inserimento e aggiornamento per chiave, rifiuta duplicati iniziali e regressioni temporali. Non persiste ancora tra esecuzioni e non effettua scritture Google.
+Il modulo `admin_store` converte candidato e stato in una `RigaNotifica` completa. `ArchivioNotificheMemoria` simula il registro tabellare, mentre `ArchivioNotificheGoogleSheets` usa un trasporto iniettato per:
 
-I contratti completi sono in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md) e [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md).
+1. leggere intestazioni e righe della tab `NOTIFICHE`;
+2. cercare la chiave esatta;
+3. aggiungere una nuova riga soltanto se la chiave è assente;
+4. aggiornare la riga esistente soltanto se la chiave è presente una volta;
+5. bloccare ogni scrittura quando il foglio è ambiguo o non conforme allo schema.
+
+Il ponte `TrasportoNotificheGoogleApi` è pronto per un servizio Google già autenticato, ma non costruisce credenziali e non viene ancora usato contro Spreadsheet reali. La ricerca seguita da scrittura non è una transazione atomica di Google Sheets: in produzione le esecuzioni saranno anche serializzate tramite `concurrency` di GitHub Actions.
+
+I contratti completi sono in [`docs/REGISTRO_NOTIFICHE.md`](docs/REGISTRO_NOTIFICHE.md), [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md) e [`docs/SORGENTI_DATI.md`](docs/SORGENTI_DATI.md).
 
 ## Composizione del messaggio
 
@@ -78,14 +88,17 @@ Placeholder sconosciuti, oggetti con ritorni a capo, valori HTML non sottoposti 
 
 ## Sorgenti dati
 
-La logica applicativa dipende dal protocollo `SorgenteDati`, non dalla libreria Google. Sono disponibili:
+La logica applicativa dipende da protocolli, non direttamente dalla libreria Google. Sono disponibili:
 
 - `SorgenteMemoria`, per test e simulazioni;
-- `AdapterGoogleSheets`, che costruisce l'intervallo A1 e usa un lettore iniettato;
-- `LettoreGoogleApi`, ponte verso un servizio Google già autenticato;
-- `leggi_e_valida`, che collega qualsiasi sorgente alla validazione esistente.
+- `AdapterGoogleSheets`, per la lettura di `Operativo` tramite un lettore iniettato;
+- `LettoreGoogleApi`, ponte di sola lettura verso un servizio Google già autenticato;
+- `ArchivioNotificheGoogleSheets`, per il registro amministrativo;
+- `TrasportoNotificheMemoria`, fake di lettura, append e update;
+- `TrasportoNotificheGoogleApi`, ponte di lettura e scrittura verso un servizio Google già autenticato;
+- `leggi_e_valida`, che collega qualsiasi sorgente degli arbitri alla validazione esistente.
 
-Credenziali, Spreadsheet ID e nome reale della scheda restano fuori dal repository. Architettura, controlli tabellari e privilegi minimi sono descritti in [`docs/SORGENTI_DATI.md`](docs/SORGENTI_DATI.md).
+Credenziali, Spreadsheet ID e nomi reali delle schede restano fuori dal repository. Architettura, controlli e privilegi minimi sono descritti in [`docs/SORGENTI_DATI.md`](docs/SORGENTI_DATI.md).
 
 ## Contratto dati
 
@@ -96,9 +109,11 @@ Il formato logico e le anomalie previste sono documentati in [`docs/CONTRATTO_DA
 - Nessun dato personale reale deve essere versionato.
 - Nessun segreto deve essere salvato nei file del repository.
 - `Operativo` sarà accessibile in sola lettura.
+- Il foglio amministrativo riceverà accesso in scrittura separato e limitato.
 - Nome, cognome, email e scadenza devono provenire dalla stessa riga validata.
 - Gli esiti incerti non vengono ritentati automaticamente.
-- L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, registro persistente, modalità test e SMTP MDaemon.
+- Chiavi duplicate o schema errato in `NOTIFICHE` bloccano la scrittura.
+- L'invio reale resterà disabilitato fino alla validazione esplicita di Google Sheets, modalità test e SMTP MDaemon.
 
 ## Roadmap
 
