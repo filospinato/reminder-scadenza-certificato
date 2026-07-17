@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import re
 from datetime import date
 
 from .models import Arbitro, CandidatoNotifica
-
-_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+from .validation import email_valida
 
 
 def notification_id(arbitro: Arbitro, tipo: str) -> str:
@@ -21,7 +19,7 @@ def notification_id(arbitro: Arbitro, tipo: str) -> str:
 
 
 def trova_candidati(
-    arbitri: list[Arbitro],
+    arbitri: list[Arbitro] | tuple[Arbitro, ...],
     *,
     oggi: date,
     giorni_preavviso: int = 30,
@@ -39,7 +37,7 @@ def trova_candidati(
     tipo = f"REMINDER_{giorni_preavviso}"
 
     for arbitro in arbitri:
-        if not arbitro.attivo or not _EMAIL_RE.fullmatch(arbitro.email.strip()):
+        if not arbitro.attivo or not email_valida(arbitro.email):
             continue
 
         giorni_residui = (arbitro.scadenza_certificato - oggi).days
