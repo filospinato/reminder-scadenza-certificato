@@ -18,6 +18,7 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione Ã
    - [x] mappatura delle intestazioni reali;
    - [x] comando `check-headers` limitato alla sola riga delle intestazioni;
    - [x] factory Google basata su ADC temporanee prodotte da WIF;
+   - [x] verifica runtime del file ADC, con accettazione dei soli `external_account` completi e rifiuto dei JSON `service_account` permanenti;
    - [x] runbook di provisioning, trust policy e privilegi minimi;
    - [ ] provisioning reale di progetto, pool, provider e service account;
    - [ ] condivisione diretta in sola lettura;
@@ -93,7 +94,7 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione Ã
 
 - costo zero con runner GitHub standard;
 - nessun segreto o dato personale nel repository;
-- nessuna chiave JSON permanente per Google Cloud;
+- nessuna chiave JSON permanente per Google Cloud, bloccata anche dalla verifica runtime delle ADC;
 - `dry-run` predefinito;
 - nessun invio reale senza autorizzazione esplicita e barriere multiple;
 - nessun workflow schedulato attivo prima del go-live;
