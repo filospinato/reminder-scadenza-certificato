@@ -10,11 +10,11 @@ from reminder_certificati.email_templates import (
 from reminder_certificati.models import Arbitro, CandidatoNotifica
 
 
-def candidato(*, nome: str = "Mario Rossi", nome_saluto: str | None = None) -> CandidatoNotifica:
+def candidato(*, nome: str = "Mario", cognome: str = "Rossi") -> CandidatoNotifica:
     arbitro = Arbitro(
         id_arbitro="A-1",
         nome=nome,
-        nome_saluto=nome_saluto,
+        cognome=cognome,
         email="mario@example.it",
         scadenza_certificato=date(2026, 8, 1),
     )
@@ -26,19 +26,31 @@ def candidato(*, nome: str = "Mario Rossi", nome_saluto: str | None = None) -> C
     )
 
 
-def test_apertura_concordata_usa_nome_personalizzato() -> None:
-    messaggio = componi_email(candidato(nome_saluto="Mario"))
+def test_apertura_concordata_usa_la_colonna_nome() -> None:
+    messaggio = componi_email(candidato(nome="Mario", cognome="Rossi"))
     assert messaggio.testo.startswith("Ciao Mario, ricevi questa mail")
     assert messaggio.html.startswith("<p>Ciao Mario, ricevi questa mail")
 
 
-def test_fallback_usa_prima_parola_del_nominativo() -> None:
-    messaggio = componi_email(candidato(nome="Anna Verdi"))
-    assert messaggio.testo.startswith("Ciao Anna, ricevi questa mail")
+def test_nome_composto_non_viene_troncato() -> None:
+    messaggio = componi_email(candidato(nome="Anna Maria", cognome="Verdi"))
+    assert messaggio.testo.startswith("Ciao Anna Maria, ricevi questa mail")
+
+
+def test_nome_e_cognome_completo_sono_disponibili_nei_template() -> None:
+    config = ConfigurazioneEmail(
+        corpo=(
+            "ricevi questa mail perché il certificato di {{nome_completo}} "
+            "scade il {{data_scadenza}}."
+        ),
+        firma="Cordiali saluti,\nCIA Lazio",
+    )
+    messaggio = componi_email(candidato(nome="Anna", cognome="Verdi"), config)
+    assert "Anna Verdi" in messaggio.testo
 
 
 def test_nome_vuoto_produce_errore_controllato() -> None:
-    with pytest.raises(ErroreTemplate, match="valore mancante"):
+    with pytest.raises(ErroreTemplate, match="nome"):
         componi_email(candidato(nome=""))
 
 
@@ -58,7 +70,7 @@ def test_paragrafi_html_restano_separati() -> None:
 
 
 def test_html_esegue_escape_dei_dati_personalizzati() -> None:
-    messaggio = componi_email(candidato(nome_saluto="Mario <Admin>"))
+    messaggio = componi_email(candidato(nome="Mario <Admin>"))
     assert "Mario &lt;Admin&gt;" in messaggio.html
     assert "Mario <Admin>" not in messaggio.html
 
