@@ -10,7 +10,8 @@ def arbitro(*, offset: int, attivo: bool = True, email: str = "mario@example.it"
     oggi = date(2026, 7, 17)
     return Arbitro(
         id_arbitro=f"A-{offset}",
-        nome="Mario Rossi",
+        nome="Mario",
+        cognome="Rossi",
         email=email,
         scadenza_certificato=oggi + timedelta(days=offset),
         attivo=attivo,
