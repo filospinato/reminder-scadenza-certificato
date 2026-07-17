@@ -90,6 +90,9 @@ def componi_email(
     """
 
     valori = _valori(candidato)
+    if not valori["nome"].strip():
+        raise ErroreTemplate("nome: valore mancante per il saluto personalizzato")
+
     oggetto = _render(configurazione.oggetto, valori, campo="oggetto")
     corpo = _render(configurazione.corpo, valori, campo="corpo")
     firma = _render(configurazione.firma, valori, campo="firma")
