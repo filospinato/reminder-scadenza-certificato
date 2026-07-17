@@ -32,6 +32,20 @@ def test_seconda_esecuzione_e_idempotente() -> None:
     inizializzatore.verifica(spreadsheet_id=prima.spreadsheet_id)
 
 
+def test_accetta_config_e_dashboard_aggiornate_legittimamente() -> None:
+    trasporto = TrasportoStrutturaMemoria()
+    inizializzatore = InizializzatoreFoglioAmministrativo(trasporto)
+    prima = inizializzatore.prepara()
+    config = trasporto.spreadsheet[prima.spreadsheet_id]["CONFIG"]
+    for riga in config[1:]:
+        if riga[0] == "GIORNI_PREAVVISO":
+            riga[1] = "45"
+    dashboard = trasporto.spreadsheet[prima.spreadsheet_id]["DASHBOARD"]
+    dashboard.append(["versione_app", "0.11.0", "Versione corrente"])
+
+    inizializzatore.verifica(spreadsheet_id=prima.spreadsheet_id)
+
+
 def test_rifiuta_contenuto_esistente_incompatibile_senza_sovrascrivere() -> None:
     trasporto = TrasportoStrutturaMemoria()
     inizializzatore = InizializzatoreFoglioAmministrativo(trasporto)
