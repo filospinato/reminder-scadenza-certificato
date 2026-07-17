@@ -9,7 +9,7 @@ from .models import CandidatoNotifica
 
 _PLACEHOLDER_RE = re.compile(r"{{\s*([a-z_]+)\s*}}")
 _PLACEHOLDER_CONSENTITI = frozenset(
-    {"nome", "nome_completo", "data_scadenza", "giorni_residui"}
+    {"nome", "cognome", "nome_completo", "data_scadenza", "giorni_residui"}
 )
 _APERTURA_OBBLIGATORIA = "ricevi questa mail"
 
@@ -42,7 +42,8 @@ def _valori(candidato: CandidatoNotifica) -> dict[str, str]:
     arbitro = candidato.arbitro
     return {
         "nome": arbitro.nome_per_saluto,
-        "nome_completo": arbitro.nome.strip(),
+        "cognome": arbitro.cognome.strip(),
+        "nome_completo": arbitro.nome_completo,
         "data_scadenza": arbitro.scadenza_certificato.strftime("%d/%m/%Y"),
         "giorni_residui": str(candidato.giorni_residui),
     }
@@ -85,12 +86,12 @@ def componi_email(
 ) -> MessaggioEmail:
     """Compone testo e HTML senza effettuare alcun invio.
 
-    L'apertura è intenzionalmente vincolata a
-    ``Ciao {{nome}}, ricevi questa mail...`` per rispettare il tono concordato.
+    L'apertura usa direttamente la colonna ``nome`` della stessa riga di
+    Operativo che fornisce cognome, email e scadenza.
     """
 
     valori = _valori(candidato)
-    if not valori["nome"].strip():
+    if not valori["nome"]:
         raise ErroreTemplate("nome: valore mancante per il saluto personalizzato")
 
     oggetto = _render(configurazione.oggetto, valori, campo="oggetto")
