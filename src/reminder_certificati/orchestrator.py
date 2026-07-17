@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from .data_sources import SorgenteDati, leggi_e_valida
-from .email_templates import ErroreTemplate, MessaggioEmail, componi_email
+from .email_templates import ErroreTemplate, componi_email
 from .models import CandidatoNotifica
 from .monitoring import (
     AnomaliaRuntime,
@@ -17,7 +17,7 @@ from .monitoring import (
     MetricheEsecuzione,
     SeveritaAnomalia,
 )
-from .persistent_registry import ErroreRegistroPersistente, RegistroPersistente
+from .persistent_registry import ErroreRegistroPersistente
 from .rules import trova_candidati
 from .runtime_config import ConfigurazioneRuntime
 from .smtp_transport import (
@@ -107,6 +107,12 @@ class OrchestratoreReminder:
             return esito
 
         self._valida_modalita(modalita, consenso_esterno_invio)
+        if modalita is not ModalitaEsecuzione.DRY_RUN and (
+            self.registro is None or self.trasporto_email is None
+        ):
+            raise ErroreOrchestrazione(
+                "registro e trasporto email obbligatori fuori dal dry-run"
+            )
 
         try:
             validazione = leggi_e_valida(
@@ -155,9 +161,17 @@ class OrchestratoreReminder:
             oggi=oggi,
             giorni_preavviso=self.configurazione.giorni_preavviso,
         )
-        candidati = candidati[: self.configurazione.limite_invii_per_esecuzione]
+        # Un test manuale invia una sola email all'override. In dry-run e
+        # produzione il limite configurato si applica dopo la deduplicazione,
+        # affinché record già presenti non consumino il lotto utile.
+        limite = (
+            1
+            if modalita is ModalitaEsecuzione.TEST_SMTP
+            else self.configurazione.limite_invii_per_esecuzione
+        )
 
         gia_presenti = 0
+        selezionati = 0
         composti = 0
         tentati = 0
         riusciti = 0
@@ -165,31 +179,43 @@ class OrchestratoreReminder:
         incerti = 0
 
         for candidato_originale in candidati:
-            candidato = (
-                _candidato_test(candidato_originale)
-                if modalita is ModalitaEsecuzione.TEST_SMTP
-                else candidato_originale
-            )
-            if modalita is not ModalitaEsecuzione.DRY_RUN:
-                if self.registro is None or self.trasporto_email is None:
+            candidato = candidato_originale
+            if modalita is ModalitaEsecuzione.TEST_SMTP:
+                override = self.configurazione.destinatario_override
+                if override is None:
                     raise ErroreOrchestrazione(
-                        "registro e trasporto email obbligatori fuori dal dry-run"
+                        "destinatario override mancante in modalità test"
                     )
-                if not self.registro.puo_prenotare(candidato.notification_id):
+                candidato = _candidato_test(candidato_originale, override)
+
+            if self.registro is not None:
+                try:
+                    prenotabile = self.registro.puo_prenotare(
+                        candidato.notification_id
+                    )
+                except Exception as exc:
+                    self._registra_anomalia(
+                        severita=SeveritaAnomalia.CRITICAL,
+                        origine="REGISTRO",
+                        codice="REGISTRO_NON_LEGGIBILE",
+                        messaggio=type(exc).__name__,
+                        istante=istante,
+                    )
+                    raise ErroreOrchestrazione(
+                        "verifica del registro non riuscita"
+                    ) from exc
+                if not prenotabile:
                     gia_presenti += 1
                     continue
 
+            if selezionati >= limite:
+                break
+            selezionati += 1
+
             try:
                 messaggio = componi_email(candidato, self.configurazione.email)
-                if modalita is ModalitaEsecuzione.TEST_SMTP:
-                    override = self.configurazione.destinatario_override
-                    if override is None:
-                        raise ErroreOrchestrazione(
-                            "destinatario override mancante in modalità test"
-                        )
-                    messaggio = replace(messaggio, destinatario=override)
                 composti += 1
-            except (ErroreTemplate, ErroreOrchestrazione) as exc:
+            except ErroreTemplate as exc:
                 falliti += 1
                 self._registra_anomalia(
                     severita=SeveritaAnomalia.ERROR,
@@ -263,6 +289,26 @@ class OrchestratoreReminder:
                     severita=SeveritaAnomalia.CRITICAL,
                     origine="REGISTRO",
                     codice="REGISTRO_INCOERENTE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
+            except Exception as exc:
+                # Dopo la prenotazione SENDING un errore non classificato non è
+                # mai ritentato automaticamente: la consegna potrebbe essere
+                # avvenuta e richiede revisione umana.
+                incerti += 1
+                try:
+                    self.registro.segna_esito_incerto(
+                        candidato,
+                        errore=type(exc).__name__,
+                        ora=istante,
+                    )
+                except Exception:
+                    pass
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.CRITICAL,
+                    origine="SMTP",
+                    codice="ERRORE_NON_CLASSIFICATO",
                     messaggio=type(exc).__name__,
                     istante=istante,
                 )
@@ -366,10 +412,18 @@ class OrchestratoreReminder:
         )
 
 
-def _candidato_test(candidato: CandidatoNotifica) -> CandidatoNotifica:
+def _candidato_test(
+    candidato: CandidatoNotifica,
+    destinatario_override: str,
+) -> CandidatoNotifica:
     tipo = f"TEST_{candidato.tipo}"
+    arbitro_test = replace(
+        candidato.arbitro,
+        email=destinatario_override.strip(),
+    )
     return replace(
         candidato,
+        arbitro=arbitro_test,
         tipo=tipo,
         notification_id="|".join(
             (
