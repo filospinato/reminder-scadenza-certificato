@@ -21,12 +21,16 @@ class Arbitro:
 
         Quando la sorgente espone un nome breve esplicito viene preferito.
         In assenza di quel dato, usa la prima parola del nominativo completo.
+        Se anche il nominativo è vuoto restituisce una stringa vuota, che il
+        compositore del messaggio rifiuterà con un errore di configurazione.
         """
 
         esplicito = (self.nome_saluto or "").strip()
         if esplicito:
             return esplicito
-        return self.nome.strip().split(maxsplit=1)[0]
+
+        parti = self.nome.strip().split()
+        return parti[0] if parti else ""
 
 
 @dataclass(frozen=True, slots=True)
