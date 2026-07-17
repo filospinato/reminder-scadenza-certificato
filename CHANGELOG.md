@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0] - 2026-07-17
+
+### Aggiunto
+
+- configurazione `riga_intestazioni` nell'adapter Google Sheets;
+- costruzione sicura dell'intervallo A1 a partire dalla riga effettiva delle intestazioni;
+- conservazione del numero della prima riga dati nella tabella normalizzata;
+- test specifici per la struttura reale di `Operativo`, che usa le intestazioni in riga 2.
+
+### Corretto
+
+- le anomalie riportano ora il numero di riga originale del foglio anche quando le intestazioni non sono in riga 1;
+- l'adapter non legge più accidentalmente eventuali righe informative poste sopra le intestazioni.
+
+### Sicurezza
+
+- nessun dato personale reale, credenziale o collegamento operativo è stato introdotto;
+- gli intervalli di colonna ambigui o già contenenti numeri di riga vengono rifiutati.
+
 ## [0.7.0] - 2026-07-17
 
 ### Aggiunto
