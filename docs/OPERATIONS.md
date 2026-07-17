@@ -15,23 +15,27 @@ L'inserimento di ID Google o credenziali SMTP non modifica automaticamente quest
 
 ## Sequenza di preparazione
 
-1. Creare il progetto Google Cloud e WIF seguendo `AUTENTICAZIONE_GOOGLE.md`.
-2. Impostare le GitHub Variables pubbliche del solo environment `preproduction`.
-3. Impostare `PREPRODUCTION_ENABLED=true` soltanto quando WIF è pronto.
-4. Eseguire manualmente `check-headers`: legge esclusivamente la riga 2 di `Operativo`.
-5. Eseguire `init-admin`: crea o verifica lo Spreadsheet amministrativo senza PII.
-6. Salvare l'ID restituito come `ADMIN_SPREADSHEET_ID`.
-7. Eseguire un `dry-run` con data nota e controllare soltanto i conteggi aggregati.
-8. Inserire un destinatario sintetico in `DESTINATARIO_OVERRIDE`.
-9. Inserire i parametri SMTP nei GitHub Secrets dell'environment `preproduction`.
-10. Eseguire `test-smtp` con conferma manuale. Tutti i destinatari sono sostituiti dall'override.
+1. Creare con l'account Google umano lo Spreadsheet vuoto `Reminder certificati CIA Lazio — Gestione`, fuori da cartelle con condivisione ampia.
+2. Creare il progetto Google Cloud e WIF seguendo `AUTENTICAZIONE_GOOGLE.md`.
+3. Condividere il file operativo con il service account come lettore e il file amministrativo vuoto come editor.
+4. Creare l'Environment GitHub `preproduction` e impostare gli identificatori pubblici.
+5. Salvare l'ID del file vuoto come `ADMIN_SPREADSHEET_ID`.
+6. Impostare `PREPRODUCTION_ENABLED=true` soltanto quando WIF e condivisioni sono pronti.
+7. Eseguire manualmente `check-headers`: legge esclusivamente la riga 2 di `Operativo`.
+8. Eseguire `init-admin`: rinomina la singola tab vuota, crea le altre tre e inserisce solo struttura sintetica.
+9. Eseguire un `dry-run` con data corrente o una data controllata e verificare i conteggi aggregati.
+10. Inserire un destinatario sintetico in `DESTINATARIO_OVERRIDE`.
+11. Inserire i parametri SMTP nei GitHub Secrets dell'Environment `preproduction`.
+12. Eseguire `test-smtp` con conferma manuale: viene inviata al massimo una email, sempre all'override.
+
+Un service account non viene usato per creare o possedere il file. La proprietà resta all'identità umana e l'accesso applicativo deriva dalla condivisione diretta.
 
 ## Comandi locali
 
 ```bash
-reminder-certificati-runtime init-admin
 reminder-certificati-runtime init-admin --spreadsheet-id ID
 reminder-certificati-runtime check-headers
+reminder-certificati-runtime run --mode DRY_RUN
 reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
 reminder-certificati-runtime run --mode TEST_SMTP --today 2026-07-17 --confirm-email-delivery
 ```
@@ -57,7 +61,7 @@ La modalità test attiva richiede un `DESTINATARIO_OVERRIDE` formalmente valido.
 
 ## Lettura della dashboard
 
-- `DRY_RUN_OK`: lettura e composizione completate senza invio;
+- `DRY_RUN_OK`: lettura, deduplicazione e composizione completate senza scritture nel registro e senza invio;
 - `OK`: invii confermati dal trasporto;
 - `ATTENZIONE`: uno o più errori ritentabili o di composizione;
 - `REVISIONE_RICHIESTA`: esito SMTP incerto o errore permanente; non ritentare automaticamente;
@@ -65,11 +69,13 @@ La modalità test attiva richiede un `DESTINATARIO_OVERRIDE` formalmente valido.
 - `BLOCCATO_KILL_SWITCH`: barriera di emergenza attiva;
 - `ERRORE`: lettura o schema non disponibile.
 
-La dashboard contiene solo conteggi e codici aggregati, non nominativi o email.
+La dashboard contiene solo conteggi e codici aggregati, non nominativi o email. Viene aggiornata con una sola richiesta, senza essere prima svuotata.
 
 ## Registro NOTIFICHE
 
 Non modificare manualmente le righe salvo procedura di emergenza documentata. Una chiave duplicata blocca il sistema. Gli stati `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` impediscono nuovi tentativi automatici; soltanto `FAILED_RETRYABLE` è riprenotabile.
+
+Il dry-run consulta il registro per mostrare quanti candidati sono già presenti, ma non aggiunge o aggiorna righe. Il limite viene applicato dopo la deduplicazione.
 
 ## Modalità test
 
@@ -80,8 +86,16 @@ La modalità `TEST_SMTP`:
 - richiede la conferma del workflow;
 - usa chiavi `TEST_REMINDER_*`, separate dalle notifiche reali;
 - non invia ai destinatari di `Operativo`;
+- invia al massimo una email per esecuzione;
+- registra nel campo email l'override realmente contattato;
 - continua a registrare Message-ID ed esiti per verificare il ciclo completo.
+
+## Workflow
+
+Il gate `PREPRODUCTION_ENABLED` viene letto dentro il job dopo la dichiarazione dell'Environment. Se non vale `true`, nessuno step di checkout, autenticazione, installazione o accesso esterno viene eseguito.
+
+Il campo data del workflow manuale è facoltativo: se vuoto viene usata la data corrente del runner. Pre-produzione e produzione condividono lo stesso gruppo `concurrency`, perché scrivono sulle stesse tab. I segreti SMTP sono disponibili soltanto allo step di invio.
 
 ## Produzione
 
-Il file `docs/workflows/production.yml.example` è soltanto un modello. Prima di copiarlo in `.github/workflows` devono essere completati tutti i punti della checklist di deployment, inclusi approvazione dei contenuti, test SMTP, WIF ristretto al workflow ed environment protetto.
+Il file `docs/workflows/production.yml.example` è soltanto un modello. Prima di copiarlo in `.github/workflows` devono essere completati tutti i punti della checklist di deployment, inclusi approvazione dei contenuti, test SMTP, WIF ristretto al workflow ed Environment protetto. Gli orari cron sono UTC e devono essere ricontrollati rispetto all'ora locale e all'ora legale.
