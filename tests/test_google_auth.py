@@ -44,6 +44,27 @@ def test_rifiuta_configurazione_mancante_o_malformata(
 
 
 @pytest.mark.parametrize(
+    "provider",
+    [
+        (
+            "projects/123456789/locations/global/"
+            "workloadIdentityPools/gcp-pool/providers/github-actions"
+        ),
+        (
+            "projects/123456789/locations/global/"
+            "workloadIdentityPools/github-cia/providers/gcp-provider"
+        ),
+    ],
+)
+def test_rifiuta_prefisso_wif_riservato(provider: str) -> None:
+    ambiente = dict(AMBIENTE_VALIDO)
+    ambiente["GCP_WORKLOAD_IDENTITY_PROVIDER"] = provider
+
+    with pytest.raises(ErroreConfigurazioneGoogle, match="prefisso riservato"):
+        ConfigurazioneGoogleWif.da_ambiente(ambiente)
+
+
+@pytest.mark.parametrize(
     "nome_chiave",
     [
         "GOOGLE_SERVICE_ACCOUNT_JSON",
@@ -57,3 +78,10 @@ def test_rifiuta_chiavi_json_permanenti(nome_chiave: str) -> None:
 
     with pytest.raises(ErroreConfigurazioneGoogle, match="non consentite"):
         ConfigurazioneGoogleWif.da_ambiente(ambiente)
+
+
+def test_segnala_la_chiave_permanente_anche_se_manca_la_configurazione_wif() -> None:
+    with pytest.raises(ErroreConfigurazioneGoogle, match="non consentite"):
+        ConfigurazioneGoogleWif.da_ambiente(
+            {"GOOGLE_SERVICE_ACCOUNT_JSON": "{\"type\": \"service_account\"}"}
+        )
