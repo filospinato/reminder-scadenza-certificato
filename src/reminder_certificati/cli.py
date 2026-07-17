@@ -4,10 +4,10 @@ import argparse
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
-from .models import Arbitro
 from .rules import trova_candidati
+from .validation import SchemaError, valida_righe
 
 
 def _parse_date(value: str) -> date:
@@ -17,30 +17,17 @@ def _parse_date(value: str) -> date:
         raise argparse.ArgumentTypeError("usa il formato YYYY-MM-DD") from exc
 
 
-def _load_arbitri(path: Path) -> list[Arbitro]:
+def _load_rows(path: Path) -> list[Mapping[str, Any]]:
     raw: Any = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):
         raise ValueError("il file di input deve contenere una lista JSON")
 
-    records: list[Arbitro] = []
+    rows: list[Mapping[str, Any]] = []
     for index, item in enumerate(raw, start=1):
         if not isinstance(item, dict):
             raise ValueError(f"riga {index}: atteso un oggetto JSON")
-        try:
-            records.append(
-                Arbitro(
-                    id_arbitro=str(item["id_arbitro"]),
-                    nome=str(item["nome"]),
-                    email=str(item["email"]),
-                    scadenza_certificato=date.fromisoformat(
-                        str(item["scadenza_certificato"])
-                    ),
-                    attivo=bool(item.get("attivo", True)),
-                )
-            )
-        except (KeyError, ValueError) as exc:
-            raise ValueError(f"riga {index}: dati mancanti o non validi") from exc
-    return records
+        rows.append(item)
+    return rows
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -71,18 +58,33 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     try:
+        esito = valida_righe(_load_rows(args.input), prima_riga_dati=1)
         candidati = trova_candidati(
-            _load_arbitri(args.input),
+            esito.arbitri,
             oggi=args.today,
             giorni_preavviso=args.days,
         )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, SchemaError, json.JSONDecodeError) as exc:
         raise SystemExit(f"Errore di input: {exc}") from exc
 
     output = {
         "mode": "dry-run",
         "today": args.today.isoformat(),
         "days_before_expiry": args.days,
+        "input_row_count": esito.righe_totali,
+        "valid_record_count": len(esito.arbitri),
+        "ignored_empty_row_count": esito.righe_vuote_ignorate,
+        "anomaly_count": len(esito.anomalie),
+        "anomalies": [
+            {
+                "row": item.numero_riga,
+                "code": item.codice,
+                "field": item.campo,
+                "id_arbitro": item.id_arbitro,
+                "message": item.messaggio,
+            }
+            for item in esito.anomalie
+        ],
         "candidate_count": len(candidati),
         "candidates": [
             {
