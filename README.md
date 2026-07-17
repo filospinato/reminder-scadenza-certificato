@@ -12,6 +12,7 @@ La versione corrente è un **MVP esclusivamente in dry-run**:
 - esclude integralmente gli ID duplicati;
 - seleziona i certificati in scadenza entro una finestra configurabile;
 - genera una chiave deterministica anti-duplicazione;
+- compone in memoria versioni testo e HTML del promemoria, senza inviarle;
 - non accede ancora a Google Sheets;
 - non contiene credenziali e non invia email.
 
@@ -46,6 +47,23 @@ Un arbitro è candidato quando:
 - non presenta anomalie che rendano ambiguo l'invio.
 
 I certificati già scaduti saranno gestiti in futuro da un promemoria separato.
+
+## Composizione del messaggio
+
+Il modulo `email_templates` produce una versione testo e una HTML senza effettuare connessioni SMTP. L'apertura è vincolata alla forma:
+
+```text
+Ciao {{nome}}, ricevi questa mail...
+```
+
+Il nome può essere fornito esplicitamente come `nome_saluto`; in assenza di tale valore viene usata la prima parola del nominativo completo. I placeholder consentiti sono `{{nome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`.
+
+Per sicurezza:
+
+- placeholder sconosciuti o non chiusi vengono rifiutati;
+- l'oggetto non accetta ritorni a capo, prevenendo header injection;
+- i valori inseriti nell'HTML vengono sottoposti a escaping;
+- corpo e firma sono configurabili, ma il corpo deve mantenere l'apertura concordata.
 
 ## Contratto dati
 
