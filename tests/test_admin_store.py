@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date, datetime, timezone
 
 import pytest
@@ -71,7 +72,9 @@ def test_salva_inserisce_e_aggiorna_senza_duplicare() -> None:
     archivio.salva(RigaNotifica.da_record(candidato(), inviato, versione_app="0.6.0"))
 
     assert len(archivio.snapshot()) == 1
-    assert archivio.ottieni(iniziale.notification_id).stato is StatoNotifica.SENT
+    salvata = archivio.ottieni(iniziale.notification_id)
+    assert salvata is not None
+    assert salvata.stato is StatoNotifica.SENT
 
 
 def test_rifiuta_chiavi_duplicate_nella_sorgente() -> None:
@@ -84,11 +87,9 @@ def test_rifiuta_regressione_temporale() -> None:
     archivio = ArchivioNotificheMemoria()
     riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
     archivio.salva(riga)
-    precedente = RigaNotifica(
-        **{
-            **riga.__dict__,
-            "aggiornato_il": datetime(2026, 7, 17, 9, 59, tzinfo=timezone.utc),
-        }
+    precedente = replace(
+        riga,
+        aggiornato_il=datetime(2026, 7, 17, 9, 59, tzinfo=timezone.utc),
     )
     with pytest.raises(ErroreArchivioNotifiche, match="precedere"):
         archivio.salva(precedente)
