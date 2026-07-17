@@ -84,12 +84,14 @@ def test_mappatura_colonne_personalizzata() -> None:
         email="Email",
         scadenza_certificato="Scadenza",
         attivo="Stato",
+        nome_saluto="Nome",
     )
     esito = valida_righe(
         [
             {
                 "ID": "A-9",
-                "Nominativo": "Anna Verdi",
+                "Nominativo": "Anna Maria Verdi",
+                "Nome": "Anna Maria",
                 "Email": "anna@example.it",
                 "Scadenza": "2026-09-01",
                 "Stato": "Sì",
@@ -98,6 +100,15 @@ def test_mappatura_colonne_personalizzata() -> None:
         mappatura=mapping,
     )
     assert esito.arbitri[0].id_arbitro == "A-9"
+    assert esito.arbitri[0].nome_per_saluto == "Anna Maria"
+
+
+def test_nome_saluto_opzionale_non_diventa_colonna_obbligatoria() -> None:
+    mapping = MappaturaColonne(nome_saluto="Nome")
+    valida_intestazioni(
+        ["id_arbitro", "nome", "email", "scadenza_certificato", "attivo"],
+        mapping,
+    )
 
 
 def test_intestazioni_mancanti_sono_errore_fatale() -> None:
