@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.2] - 2026-07-17
+
+### Aggiunto
+
+- barriera runtime che verifica il file indicato da `GOOGLE_APPLICATION_CREDENTIALS` prima di costruire il client Google Sheets;
+- validazione del formato WIF/OIDC `external_account`, inclusi `audience`, `subject_token_type` e `credential_source`;
+- test sintetici per credenziali federate valide, chiavi permanenti, file mancanti, JSON malformati e configurazioni incomplete.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.2;
+- README, stato corrente, roadmap e guida Google Cloud descrivono il controllo effettivo delle Application Default Credentials.
+
+### Sicurezza
+
+- i file JSON di tipo `service_account` vengono rifiutati esplicitamente prima di qualsiasi chiamata alle API Google;
+- il contenuto delle credenziali non viene stampato né incluso negli errori;
+- nessuna credenziale o risorsa Google reale è stata creata, letta o attivata.
+
 ## [0.11.1] - 2026-07-17
 
 ### Corretto
