@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione:** 0.6.0  
+**Versione:** 0.7.0  
 **Data:** 17 luglio 2026  
 **Branch di sviluppo:** `agent/bootstrap-mvp`  
 **Pull request:** #2, bozza
@@ -9,7 +9,7 @@
 
 - caricamento di righe anonime da JSON o da sorgente tabellare simulata;
 - protocollo indipendente `SorgenteDati`;
-- adapter Google Sheets con trasporto iniettato e ponte verso un servizio Google già autenticato;
+- adapter Google Sheets di lettura con trasporto iniettato;
 - conversione sicura di matrici con controlli su intestazioni, righe e celle eccedenti;
 - contratto dati con mappatura configurabile delle colonne;
 - lettura separata di nome, cognome ed email dalla stessa riga;
@@ -19,10 +19,14 @@
 - calcolo dei giorni residui e selezione entro una finestra configurabile;
 - chiave anti-duplicazione deterministica;
 - registro in memoria con stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED`;
-- prenotazione atomica e blocco dei duplicati concorrenti;
+- prenotazione atomica e blocco dei duplicati concorrenti nel singolo processo;
 - retry consentito soltanto dopo un errore esplicitamente retryable;
-- schema tipizzato completo della futura tab `NOTIFICHE`;
-- archivio fake thread-safe con insert/update per chiave, round-trip tabellare e controlli temporali;
+- schema tipizzato completo della tab `NOTIFICHE`;
+- archivio fake thread-safe con insert/update per chiave e controlli temporali;
+- adapter `ArchivioNotificheGoogleSheets` con ricerca univoca, append e update controllato;
+- fake `TrasportoNotificheMemoria` e ponte `TrasportoNotificheGoogleApi`;
+- rifiuto di intestazioni errate, chiavi duplicate e regressioni temporali prima della scrittura;
+- escaping corretto dei nomi delle schede negli intervalli A1;
 - output JSON completo in `dry-run`;
 - composizione sicura in memoria di email testo e HTML;
 - apertura personalizzata `Ciao {{nome}}, ricevi questa mail...` usando direttamente la colonna `nome`;
@@ -34,8 +38,9 @@
 
 - credenziali Google e accesso reale al database `Operativo`;
 - intestazioni effettive e valori reali dello stato operativo;
+- prova di lettura/scrittura su Spreadsheet sintetico;
 - persistenza reale del registro nel foglio `NOTIFICHE`;
-- ricerca e aggiornamento concorrente della riga su Google Sheets;
+- serializzazione del workflow di produzione tramite `concurrency`;
 - foglio amministrativo con `CONFIG`, `DASHBOARD` e `ANOMALIE`;
 - SMTP MDaemon;
 - firma HTML ufficiale e logo CID;
@@ -45,8 +50,8 @@
 
 Per il collegamento reale a `Operativo` servono il nome della scheda, le intestazioni effettive delle colonne, i valori reali dello stato operativo e il formato effettivo della data. È confermato che ogni arbitro occupa una riga e che nome, cognome ed email sono in colonne separate.
 
-Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e testo approvato; nel frattempo il compositore resta disaccoppiato dall'invio e usa dati sintetici nei test.
+Per la prova del registro serve uno Spreadsheet sintetico con una tab `NOTIFICHE` e le quattordici intestazioni canoniche. Non deve contenere dati reali. Per il messaggio definitivo serviranno inoltre firma ufficiale, eventuale logo e testo approvato.
 
 ## Prossimo incremento
 
-Definire il contratto di trasporto della tab `NOTIFICHE` e l'adapter Google Sheets con fake, inclusi ricerca univoca della chiave e aggiornamento controllato, senza credenziali o Spreadsheet reali.
+Eseguire una prova controllata su uno Spreadsheet sintetico, costruire l'autenticazione del service account con privilegi minimi e verificare append, update e blocco dei duplicati senza collegare ancora `Operativo` o MDaemon.
