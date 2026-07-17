@@ -17,7 +17,9 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] chiave deterministica `ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA`;
    - [x] prenotazione atomica e blocco dei duplicati nel registro in memoria;
    - [x] schema e archivio fake della tab `NOTIFICHE`;
-   - [ ] persistenza e confronto con il foglio amministrativo reale.
+   - [x] adapter Sheets con ricerca univoca, append e update controllato;
+   - [ ] persistenza e confronto su Spreadsheet sintetico;
+   - [ ] serializzazione delle esecuzioni di produzione tramite `concurrency`.
 6. [x] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `UNKNOWN_REVIEW_REQUIRED` e transizioni sicure nel dominio.
 7. [ ] Invio individuale SMTP MDaemon, testo + HTML, firma ufficiale e logo CID facoltativo.
    - [x] composizione pura e testata delle versioni testo e HTML;
@@ -29,8 +31,9 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] contratto del ciclo di vita e record minimo in memoria;
    - [x] schema tipizzato della tab `NOTIFICHE`;
    - [x] archivio fake con insert/update per chiave e controlli di coerenza;
-   - [ ] adapter Google Sheets per ricerca e aggiornamento controllato della riga;
-   - [ ] prova controllata di scrittura su Spreadsheet sintetico.
+   - [x] adapter Google Sheets e ponte verso un servizio già autenticato;
+   - [ ] prova controllata di scrittura su Spreadsheet sintetico;
+   - [ ] integrazione nel flusso applicativo completo.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
 10. [ ] `DASHBOARD`, heartbeat, anomalie, kill switch, runbook e handoff.
 
