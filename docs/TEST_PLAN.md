@@ -18,6 +18,8 @@
 - kill switch prima della lettura e dell'invio;
 - bootstrap di una singola tab vuota, idempotenza e blocco dei file già usati;
 - registro con `SENDING` preventivo;
+- persistenza del ciclo `SENDING` → `SENT` attraverso la ricreazione dell'adapter;
+- percorso `FAILED_RETRYABLE` → nuova prenotazione sulla stessa riga con incremento dei tentativi;
 - dry-run che consulta il registro senza scrivere;
 - limite applicato dopo la deduplicazione;
 - retry soltanto da `FAILED_RETRYABLE`;
@@ -32,6 +34,18 @@
 - segreti SMTP limitati allo step di invio;
 - assenza di copie nella Posta inviata.
 
+## Collaudo persistente sintetico automatizzato
+
+`tests/test_notifications_sheets_lifecycle.py` usa esclusivamente `TrasportoNotificheMemoria` e dati sintetici con dominio `.invalid`. Il test deve dimostrare che:
+
+1. la prima prenotazione aggiunge una sola riga `SENDING`;
+2. un nuovo adapter, equivalente a un nuovo processo dopo un crash, rilegge la prenotazione persistita;
+3. la transizione finale a `SENT` aggiorna la medesima riga e conserva il `Message-ID`;
+4. una riga `FAILED_RETRYABLE` può tornare a `SENDING` con `tentativi=2`;
+5. nessuno dei passaggi crea righe duplicate.
+
+Questo collaudo non sostituisce la successiva prova controllata sullo Spreadsheet amministrativo reale: verifica in CI il contratto applicativo e il comportamento del fake tabellare senza rete, credenziali o PII.
+
 ## Collaudo Google sintetico
 
 1. creare con l'account umano il foglio amministrativo vuoto;
@@ -40,11 +54,13 @@
 4. rieseguire l'inizializzatore e verificare idempotenza;
 5. alterare una intestazione su una copia e verificare il blocco;
 6. verificare che una singola tab non vuota non venga rinominata o sovrascritta;
-7. aggiungere una notifica sintetica;
-8. aggiornare la stessa notifica;
-9. creare un duplicato su una copia e verificare il blocco;
-10. simulare revoca accesso e verificare errore aggregato;
-11. verificare che i log non contengano celle, righe o notification ID.
+7. ripetere sul foglio la prenotazione sintetica `SENDING` già coperta dal test automatico;
+8. simulare un nuovo processo e verificare che la stessa chiave venga riletta senza append;
+9. aggiornare la stessa notifica a `SENT` e verificare che rimanga una sola riga;
+10. provare il percorso `FAILED_RETRYABLE` e il secondo tentativo sulla stessa riga;
+11. creare un duplicato su una copia e verificare il blocco;
+12. simulare revoca accesso e verificare errore aggregato;
+13. verificare che i log non contengano celle, righe o notification ID.
 
 ## Collaudo intestazioni Operativo
 
