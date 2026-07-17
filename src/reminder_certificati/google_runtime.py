@@ -6,11 +6,13 @@ richiedono dipendenze Google. Il modulo non accetta chiavi JSON permanenti.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from .admin_initializer import TrasportoStrutturaGoogleApi
 from .data_sources import AdapterGoogleSheets, LettoreGoogleApi
+from .google_credentials_guard import verifica_credenziali_google_temporanee
 from .monitoring import (
     AnomalieGoogleSheets,
     DashboardGoogleSheets,
@@ -80,8 +82,9 @@ MAPPATURA_OPERATIVO_REALE = MappaturaColonne(
 
 
 def costruisci_servizio_sheets() -> Any:
-    """Costruisce il client con Application Default Credentials temporanee."""
+    """Costruisce il client soltanto con ADC temporanee prodotte da WIF/OIDC."""
 
+    verifica_credenziali_google_temporanee(os.environ)
     try:
         from googleapiclient.discovery import build
     except ImportError as exc:
