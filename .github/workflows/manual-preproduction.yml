@@ -14,9 +14,9 @@ on:
           - dry-run
           - test-smtp
       today:
-        description: Data simulata YYYY-MM-DD
-        required: true
-        default: "2026-07-17"
+        description: Data simulata YYYY-MM-DD; lascia vuoto per usare la data corrente
+        required: false
+        default: ""
         type: string
       confirm_email_delivery:
         description: Conferma aggiuntiva per il solo test SMTP
@@ -29,20 +29,11 @@ permissions:
   id-token: write
 
 concurrency:
-  group: reminder-certificati-preproduction
+  group: reminder-certificati-runtime
   cancel-in-progress: false
 
 jobs:
-  disabled:
-    if: vars.PREPRODUCTION_ENABLED != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Environment non abilitato
-        run: |
-          echo "PREPRODUCTION_ENABLED non è true. Nessun accesso Google o SMTP eseguito."
-
   run:
-    if: vars.PREPRODUCTION_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: preproduction
@@ -56,10 +47,26 @@ jobs:
       OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
     steps:
+      - name: Verifica abilitazione environment
+        id: gate
+        shell: bash
+        env:
+          PREPRODUCTION_ENABLED: ${{ vars.PREPRODUCTION_ENABLED }}
+        run: |
+          set -euo pipefail
+          if [[ "${PREPRODUCTION_ENABLED:-}" == "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "PREPRODUCTION_ENABLED non è true. Nessun accesso Google o SMTP sarà eseguito."
+          fi
+
       - name: Checkout
+        if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Autenticazione Google temporanea
+        if: steps.gate.outputs.enabled == 'true'
         id: auth
         uses: google-github-actions/auth@v3
         with:
@@ -69,36 +76,49 @@ jobs:
           create_credentials_file: true
 
       - name: Set up Python
+        if: steps.gate.outputs.enabled == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install
+        if: steps.gate.outputs.enabled == 'true'
         run: python -m pip install --upgrade pip && pip install -e ".[google]"
 
       - name: Controlla intestazioni
-        if: inputs.operation == 'check-headers'
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'check-headers'
         run: reminder-certificati-runtime check-headers
 
       - name: Inizializza o verifica il foglio amministrativo
-        if: inputs.operation == 'init-admin'
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'init-admin'
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${ADMIN_SPREADSHEET_ID:-}" ]]; then
-            reminder-certificati-runtime init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
-          else
-            reminder-certificati-runtime init-admin
+          if [[ -z "${ADMIN_SPREADSHEET_ID:-}" ]]; then
+            echo "ADMIN_SPREADSHEET_ID mancante: crea e condividi prima uno Spreadsheet vuoto." >&2
+            exit 2
           fi
+          reminder-certificati-runtime init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
 
       - name: Esegui dry-run aggregato
-        if: inputs.operation == 'dry-run'
-        run: reminder-certificati-runtime run --mode DRY_RUN --today "${{ inputs.today }}"
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'dry-run'
+        shell: bash
+        env:
+          INPUT_TODAY: ${{ inputs.today }}
+        run: |
+          set -euo pipefail
+          args=(run --mode DRY_RUN)
+          if [[ -n "${INPUT_TODAY:-}" ]]; then
+            args+=(--today "$INPUT_TODAY")
+          fi
+          reminder-certificati-runtime "${args[@]}"
 
       - name: Esegui test SMTP all'override
-        if: inputs.operation == 'test-smtp' && inputs.confirm_email_delivery
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && inputs.confirm_email_delivery
+        shell: bash
         env:
+          INPUT_TODAY: ${{ inputs.today }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
@@ -108,10 +128,16 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           ALLOW_EMAIL_DELIVERY: "true"
-        run: reminder-certificati-runtime run --mode TEST_SMTP --today "${{ inputs.today }}" --confirm-email-delivery
+        run: |
+          set -euo pipefail
+          args=(run --mode TEST_SMTP --confirm-email-delivery)
+          if [[ -n "${INPUT_TODAY:-}" ]]; then
+            args+=(--today "$INPUT_TODAY")
+          fi
+          reminder-certificati-runtime "${args[@]}"
 
       - name: Rifiuta test SMTP senza conferma
-        if: inputs.operation == 'test-smtp' && !inputs.confirm_email_delivery
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && !inputs.confirm_email_delivery
         run: |
           echo "Conferma email non fornita" >&2
           exit 2
