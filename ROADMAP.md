@@ -9,8 +9,12 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] adapter Google Sheets con lettore iniettato;
    - [x] conversione e validazione strutturale delle matrici;
    - [x] test con fake del trasporto Google API;
-   - [ ] autenticazione reale con service account in sola lettura;
-   - [ ] prova su Spreadsheet sintetico e successivo collegamento a `Operativo`.
+   - [x] supporto alle intestazioni di `Operativo` in riga 2;
+   - [x] contratto software WIF/OIDC senza chiavi permanenti;
+   - [x] runbook di provisioning, trust policy e privilegi minimi;
+   - [ ] provisioning reale di progetto, pool, provider e service account;
+   - [ ] prova su Spreadsheet sintetico;
+   - [ ] successivo collegamento controllato a `Operativo` in sola lettura.
 4. [x] Validazione di ID, nome, cognome, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
    - [x] finestra configurabile, estremi inclusi, con scaduti esclusi;
@@ -32,6 +36,7 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
    - [x] schema tipizzato della tab `NOTIFICHE`;
    - [x] archivio fake con insert/update per chiave e controlli di coerenza;
    - [x] adapter Google Sheets e ponte verso un servizio già autenticato;
+   - [ ] schema completo del nuovo Spreadsheet amministrativo separato;
    - [ ] prova controllata di scrittura su Spreadsheet sintetico;
    - [ ] integrazione nel flusso applicativo completo.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
@@ -41,6 +46,7 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
 
 - fondazioni e regole pure;
 - contratto dati e adapter Google Sheets;
+- autenticazione WIF/OIDC e collaudo sintetico;
 - registro, configurazione e dashboard;
 - composizione messaggi e firma;
 - SMTP MDaemon;
@@ -51,6 +57,7 @@ Il progetto segue il contratto funzionale concordato. Ogni fase deve essere impl
 
 - costo zero con runner GitHub standard;
 - nessun segreto o dato personale nel repository;
+- nessuna chiave JSON permanente per Google Cloud;
 - `dry-run` predefinito;
 - nessun invio reale senza autorizzazione esplicita;
 - semplicità operativa per un futuro responsabile poco tecnico.
