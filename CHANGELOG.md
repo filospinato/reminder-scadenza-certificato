@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.11.4] - 2026-07-18
+
+### Aggiunto
+
+- comando separato `reminder-certificati-google-preflight` per verificare le risorse Google prima dei collaudi esterni;
+- controllo che `Operativo` e il foglio amministrativo siano Spreadsheet distinti;
+- verifica dell'ordine delle quattro tab amministrative e delle sole righe delle intestazioni;
+- lettura limitata alla riga 2 delle intestazioni di `Operativo`;
+- test sintetici per configurazione conforme, file coincidenti, tab fuori ordine e intestazioni mancanti.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.4;
+- README, stato corrente, roadmap e checklist di deployment descrivono il nuovo preflight in sola lettura.
+
+### Sicurezza
+
+- il preflight non legge righe operative, non scrive celle e non usa SMTP;
+- l'output contiene soltanto booleani e conteggi aggregati e non espone ID degli Spreadsheet o contenuti delle celle;
+- il permesso di modifica del foglio amministrativo resta esplicitamente non verificato finché non viene eseguito il collaudo sintetico separato;
+- nessuna credenziale, risorsa Google reale o dato personale è stato usato durante lo sviluppo.
+
 ## [0.11.3] - 2026-07-18
 
 ### Aggiunto
