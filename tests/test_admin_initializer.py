@@ -40,6 +40,19 @@ def test_seconda_esecuzione_e_idempotente() -> None:
     inizializzatore.verifica(spreadsheet_id=spreadsheet_id)
 
 
+def test_verifica_legge_solo_la_riga_delle_intestazioni() -> None:
+    trasporto = TrasportoStrutturaMemoria()
+    spreadsheet_id = _file_vuoto(trasporto)
+    inizializzatore = InizializzatoreFoglioAmministrativo(trasporto)
+    inizializzatore.prepara(spreadsheet_id=spreadsheet_id)
+    trasporto.letture.clear()
+
+    inizializzatore.verifica(spreadsheet_id=spreadsheet_id)
+
+    assert len(trasporto.letture) == 4
+    assert all(intervallo.endswith("A1:ZZ1") for intervallo in trasporto.letture)
+
+
 def test_accetta_config_e_dashboard_aggiornate_legittimamente() -> None:
     trasporto = TrasportoStrutturaMemoria()
     spreadsheet_id = _file_vuoto(trasporto)
@@ -50,7 +63,7 @@ def test_accetta_config_e_dashboard_aggiornate_legittimamente() -> None:
         if riga[0] == "GIORNI_PREAVVISO":
             riga[1] = "45"
     dashboard = trasporto.spreadsheet[spreadsheet_id]["DASHBOARD"]
-    dashboard.append(["versione_app", "0.11.1", "Versione corrente"])
+    dashboard.append(["versione_app", "0.12.0", "Versione corrente"])
 
     inizializzatore.verifica(spreadsheet_id=spreadsheet_id)
 
@@ -68,15 +81,17 @@ def test_rifiuta_contenuto_esistente_incompatibile_senza_sovrascrivere() -> None
     assert trasporto.spreadsheet[spreadsheet_id]["CONFIG"][0][0] == "alterato"
 
 
-def test_rifiuta_tab_fuori_ordine() -> None:
+def test_accetta_tab_riordinate_dopo_l_inizializzazione() -> None:
     trasporto = TrasportoStrutturaMemoria()
     spreadsheet_id = _file_vuoto(trasporto)
     inizializzatore = InizializzatoreFoglioAmministrativo(trasporto)
     inizializzatore.prepara(spreadsheet_id=spreadsheet_id)
     trasporto.ordine_tab[spreadsheet_id] = list(reversed(NOMI_TAB_AMMINISTRATIVE))
 
-    with pytest.raises(ErroreInizializzazioneFoglio, match="fuori ordine"):
-        inizializzatore.verifica(spreadsheet_id=spreadsheet_id)
+    inizializzatore.verifica(spreadsheet_id=spreadsheet_id)
+    seconda = inizializzatore.prepara(spreadsheet_id=spreadsheet_id)
+
+    assert seconda.tab_configurate is False
 
 
 def test_rifiuta_file_con_singola_tab_non_vuota() -> None:
