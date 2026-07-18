@@ -26,6 +26,8 @@
 - esiti incerti e imprevisti non ritentati;
 - doppia esecuzione bloccata tramite `concurrency` condivisa;
 - messaggi di errore senza email, token, notification ID o payload completi;
+- contratto dei codici diagnostici del preflight e dello schema JSON pubblico;
+- corrispondenza esatta tra codici nel sorgente e guida diagnostica;
 - MIME testo/HTML, Message-ID e logo CID referenziato;
 - nome mittente e CID protetti da header injection;
 - test SMTP limitato a una sola email all'override;
@@ -33,6 +35,18 @@
 - workflow senza data fissa e senza gate basato prematuramente su variabili Environment;
 - segreti SMTP limitati allo step di invio;
 - assenza di copie nella Posta inviata.
+
+## Contratto della diagnostica preflight
+
+`tests/test_preflight_diagnostics_contract.py` rende non regressiva l'interfaccia pubblica del comando `reminder-certificati-google-preflight`. Il test deve dimostrare che:
+
+1. i sette codici applicativi restano esattamente quelli pubblicati e mantengono il prefisso `PREFLIGHT_`;
+2. non esistono codici duplicati;
+3. `docs/PREFLIGHT_DIAGNOSTICA.md` elenca una sola volta tutti i codici applicativi e `PREFLIGHT_UNEXPECTED_ERROR`, senza codici aggiuntivi non implementati;
+4. l'output JSON di successo mantiene le chiavi pubbliche previste;
+5. l'output JSON per errore inatteso mantiene le chiavi pubbliche previste, dichiara zero righe operative e zero scritture e non propaga il dettaglio sensibile originario.
+
+Ogni modifica futura a un codice o allo schema JSON deve quindi essere intenzionale, accompagnata dall'aggiornamento della guida e trattata come cambiamento del contratto operativo.
 
 ## Collaudo persistente sintetico automatizzato
 
