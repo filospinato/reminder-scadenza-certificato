@@ -36,6 +36,9 @@
 - preflight e collaudo sintetico esposti come operazioni manuali distinte;
 - doppio consenso richiesto per la scrittura sintetica del registro;
 - preflight privo di flag di scrittura, consenso email e segreti SMTP;
+- modello schedulato mantenuto fuori da `.github/workflows`;
+- secondo acknowledgement esterno richiesto prima di autenticazione e produzione schedulata;
+- assenza di comandi di bootstrap, preflight, collaudo o modalità non produttive nel modello schedulato;
 - segreti SMTP limitati allo step di invio;
 - assenza di copie nella Posta inviata.
 
@@ -50,6 +53,20 @@
 5. il gate dell'Environment e il gruppo `concurrency` condiviso restano presenti.
 
 Le modifiche future al workflow devono mantenere separate le operazioni di sola lettura, scrittura sintetica e invio SMTP. Un nuovo consenso non può essere riutilizzato implicitamente per un'operazione diversa.
+
+## Contratto del modello schedulato
+
+`tests/test_production_workflow_contract.py` rende non regressivo il modello `docs/workflows/production.yml.example`. Il test deve dimostrare che:
+
+1. il file resta sotto `docs/workflows` e non esiste un workflow attivo `.github/workflows/production.yml`;
+2. il modello dichiara esplicitamente di non essere attivo, usa l'Environment `production`, WIF temporaneo e lo stesso gruppo `concurrency` del workflow manuale;
+3. il gate richiede contemporaneamente `PRODUCTION_ENABLED=true` e l'acknowledgement esterno `PRODUCTION_WORKFLOW_APPROVED=REMINDER_CERTIFICATI_SCHEDULE_V1` prima del checkout e dell'autenticazione;
+4. il modello non contiene `init-admin`, `check-headers`, preflight, collaudo del registro, `DRY_RUN` o `TEST_SMTP`;
+5. esiste una sola esecuzione applicativa, in modalità `PRODUZIONE`, con conferma email e acknowledgement applicativo dedicato;
+6. tutti i Secrets SMTP, `ALLOW_EMAIL_DELIVERY` e `PRODUCTION_ACTIVATION_ACK` restano limitati allo step produttivo;
+7. schedule, vincolo WIF e checklist pre-go-live restano documentati.
+
+La copia futura del modello in `.github/workflows` dovrà essere una modifica esplicita e revisionata. Il semplice spostamento del file non deve bastare ad avviare il sistema: il gate esterno, l'Environment, WIF, CONFIG e gli acknowledgement applicativi devono essere configurati separatamente.
 
 ## Contratto della diagnostica preflight
 
