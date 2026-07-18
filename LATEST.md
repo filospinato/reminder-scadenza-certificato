@@ -1,9 +1,9 @@
 # Stato corrente
 
-**Versione:** 0.11.3  
+**Versione:** 0.11.4  
 **Data:** 18 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; risorse e collaudi esterni ancora mancanti  
-**Baseline di partenza:** `22691e45bff4dd04558607636419575be553cfcc`
+**Baseline di partenza:** `8fbba881b08fbba53b5d7d5fff74d8eb3870918e`
 
 ## Funziona già
 
@@ -16,6 +16,7 @@
 - dry-run consapevole delle notifiche già registrate, senza scritture;
 - limite applicato dopo la deduplicazione;
 - comando protetto per collaudare append, rilettura e update della tab `NOTIFICHE` con una sola riga sintetica;
+- preflight Google in sola lettura che verifica file distinti, ordine delle tab e sole righe delle intestazioni;
 - test SMTP limitato a un messaggio e audit dell'override effettivo;
 - dashboard aggregata aggiornata con una singola scrittura, senza clear preventivo;
 - anomalie e errori CLI con rimozione di email, token e chiavi di notifica;
@@ -31,6 +32,8 @@
 - nessuna chiave JSON permanente: le configurazioni note sono vietate e il file ADC viene verificato prima di costruire il client Google;
 - nessuna credenziale, email reale o PII nel repository;
 - nessun accesso Google finché l'environment non abilita esplicitamente la pre-produzione;
+- il preflight legge soltanto metadati e intestazioni, non legge righe operative, non scrive e non usa SMTP;
+- il preflight rifiuta configurazioni nelle quali `Operativo` e amministrazione indicano lo stesso Spreadsheet;
 - il collaudo del registro richiede `--confirm-synthetic-write` e `ALLOW_SYNTHETIC_REGISTRY_WRITE=true`;
 - il collaudo usa soltanto dati `.invalid`, non legge `Operativo` e non abilita email;
 - nessun invio fuori dal dry-run senza conferma CLI e `ALLOW_EMAIL_DELIVERY=true`;
@@ -53,7 +56,7 @@
 ## Collaudi ancora necessari
 
 - inizializzazione reale del file amministrativo vuoto;
-- `check-headers` reale con zero righe dati lette;
+- preflight Google reale con zero righe operative lette e zero scritture;
 - esecuzione controllata del comando sintetico sulla tab `NOTIFICHE` reale;
 - dry-run aggregato su `Operativo`;
 - test SMTP esclusivamente all'override;
@@ -63,4 +66,4 @@
 
 ## Prossimo passo
 
-Creare con l'account umano lo Spreadsheet amministrativo vuoto, quindi predisporre progetto Google Cloud ed environment `preproduction`. Dopo la condivisione con il service account, eseguire nell'ordine `check-headers`, `init-admin --spreadsheet-id ID`, `reminder-certificati-registry-check --confirm-synthetic-write`, dry-run e test SMTP con override. Nessun invio reale ad arbitri è necessario per questi collaudi.
+Creare con l'account umano lo Spreadsheet amministrativo vuoto, quindi predisporre progetto Google Cloud ed environment `preproduction`. Dopo la condivisione con il service account, eseguire nell'ordine `init-admin --spreadsheet-id ID`, `reminder-certificati-google-preflight`, `reminder-certificati-registry-check --confirm-synthetic-write`, dry-run e test SMTP con override. Nessun invio reale ad arbitri è necessario per questi collaudi.
