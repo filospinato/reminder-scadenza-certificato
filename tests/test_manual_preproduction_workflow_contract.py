@@ -58,8 +58,8 @@ def test_segreti_smtp_restano_limitati_al_solo_step_test_smtp():
     testo = _testo_workflow()
     blocco_smtp = _blocco_step(testo, "Esegui test SMTP all'override", "Rifiuta test SMTP senza conferma")
 
-    assert testo.count("${{ secrets.") == 7
-    assert blocco_smtp.count("${{ secrets.") == 7
+    assert testo.count("${{ secrets.") == 6
+    assert blocco_smtp.count("${{ secrets.") == 6
     assert 'ALLOW_EMAIL_DELIVERY: "true"' in blocco_smtp
 
 
