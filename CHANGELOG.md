@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.11.5] - 2026-07-18
+
+### Aggiunto
+
+- codici diagnostici stabili per gli errori prevedibili del preflight Google;
+- struttura tipizzata con codice, messaggio pubblico e azione operativa di runbook;
+- documento `docs/PREFLIGHT_DIAGNOSTICA.md` con significato e gestione dei codici;
+- test applicativi e CLI contro la propagazione di ID, email e dettagli tecnici.
+
+### Modificato
+
+- versione del pacchetto aggiornata a 0.11.5;
+- il comando `reminder-certificati-google-preflight` restituisce JSON aggregato anche in caso di errore;
+- README, stato corrente e roadmap descrivono il contratto diagnostico stabile.
+
+### Sicurezza
+
+- le eccezioni del trasporto Google restano collegate internamente ma non vengono riportate nell'output pubblico;
+- gli errori inattesi espongono soltanto il nome della classe, non il messaggio originale;
+- messaggi e azioni non includono ID degli Spreadsheet, celle, email, token o payload Google;
+- il preflight mantiene zero righe operative lette, zero scritture e SMTP disabilitato.
+
 ## [0.11.4] - 2026-07-18
 
 ### Aggiunto
