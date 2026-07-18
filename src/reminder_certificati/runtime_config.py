@@ -28,7 +28,6 @@ class ConfigurazioneRuntime:
     limite_invii_per_esecuzione: int
     destinatario_override: str | None
     email: ConfigurazioneEmail
-    contatto_supporto: str | None
 
     @property
     def elaborazione_consentita(self) -> bool:
@@ -116,25 +115,12 @@ def carica_configurazione(
         massimo=500,
     )
 
+    # L'override è necessario soltanto quando viene realmente eseguito TEST_SMTP.
+    # Un dry-run può quindi funzionare senza configurazione SMTP.
     override = _email_opzionale(
         righe["DESTINATARIO_OVERRIDE"]["valore"],
         "DESTINATARIO_OVERRIDE",
     )
-    supporto = _email_opzionale(
-        righe["CONTATTO_SUPPORTO"]["valore"],
-        "CONTATTO_SUPPORTO",
-    )
-    if modalita_test and sistema_attivo and override is None:
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: DESTINATARIO_OVERRIDE obbligatorio quando il sistema è "
-            "attivo in MODALITA_TEST"
-        )
-
-    saluto = righe["SALUTO_EMAIL"]["valore"]
-    if saluto != "Ciao {{nome}},":
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: SALUTO_EMAIL deve restare 'Ciao {{nome}},'"
-        )
 
     oggetto = righe["OGGETTO_EMAIL"]["valore"]
     corpo = righe["CORPO_EMAIL"]["valore"]
@@ -151,8 +137,6 @@ def carica_configurazione(
         raise ErroreConfigurazioneRuntime("CONFIG: FIRMA_TESTO non può essere vuota")
 
     if invii_reali and (modalita_test or kill_switch or not sistema_attivo):
-        # È lecito preparare la chiave, ma non dichiarare una configurazione
-        # contraddittoria che sembri operativa quando una barriera è attiva.
         raise ErroreConfigurazioneRuntime(
             "CONFIG: INVII_REALI_ABILITATI richiede sistema attivo, modalità test "
             "disattivata e kill switch disattivato"
@@ -167,7 +151,6 @@ def carica_configurazione(
         limite_invii_per_esecuzione=limite,
         destinatario_override=override,
         email=ConfigurazioneEmail(oggetto=oggetto, corpo=corpo, firma=firma),
-        contatto_supporto=supporto,
     )
 
 
