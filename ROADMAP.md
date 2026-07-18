@@ -17,12 +17,13 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] supporto alle intestazioni di `Operativo` in riga 2;
    - [x] mappatura delle intestazioni reali;
    - [x] comando `check-headers` limitato alla sola riga delle intestazioni;
+   - [x] preflight Google in sola lettura per file distinti, metadati delle tab e sole righe delle intestazioni;
    - [x] factory Google basata su ADC temporanee prodotte da WIF;
    - [x] verifica runtime del file ADC, con accettazione dei soli `external_account` completi e rifiuto dei JSON `service_account` permanenti;
    - [x] runbook di provisioning, trust policy e privilegi minimi;
    - [ ] provisioning reale di progetto, pool, provider e service account;
    - [ ] condivisione diretta in sola lettura;
-   - [ ] esecuzione reale di `check-headers`;
+   - [ ] esecuzione reale del preflight con zero righe dati lette e zero scritture;
    - [ ] dry-run controllato su righe reali con output aggregato.
 4. [x] Validazione di ID, nome, cognome, email, scadenza e stato; anomalie e duplicati esclusi in sicurezza.
 5. [ ] Controllo della finestra di scadenza e del registro anti-duplicazione.
@@ -59,8 +60,9 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
    - [x] gestione Message-ID, versione, tentativi ed errori;
    - [x] collaudo sintetico automatizzato di append, rerun e update;
    - [x] comando dedicato con doppio consenso, dati `.invalid` e output aggregato;
+   - [x] preflight non distruttivo di tab e intestazioni amministrative;
    - [ ] creazione umana e condivisione dello Spreadsheet amministrativo;
-   - [ ] esecuzione del collaudo sul foglio reale.
+   - [ ] esecuzione del preflight e del collaudo sul foglio reale.
 9. [ ] Foglio `CONFIG` modificabile da un responsabile non tecnico.
    - [x] schema di chiave, valore, tipo, descrizione e modificabilit√†;
    - [x] lettura, validazione e applicazione runtime;
@@ -102,6 +104,7 @@ Il progetto segue il contratto funzionale concordato. Il codice pre-produzione √
 - nessuna chiave JSON permanente per Google Cloud, bloccata anche dalla verifica runtime delle ADC;
 - `dry-run` predefinito;
 - nessun invio reale senza autorizzazione esplicita e barriere multiple;
+- preflight esterni limitati a metadati e intestazioni, senza letture di righe operative o scritture;
 - collaudi di scrittura limitati al foglio amministrativo e a dati sintetici esplicitamente riconoscibili;
 - nessun workflow schedulato attivo prima del go-live;
 - semplicit√† operativa per un futuro responsabile poco tecnico.
