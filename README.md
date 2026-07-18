@@ -4,7 +4,7 @@ Sistema per individuare gli arbitri con certificato medico prossimo alla scadenz
 
 ## Stato del progetto
 
-La versione corrente **0.11.4** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
+La versione corrente **0.11.5** contiene il codice necessario ai collaudi pre-produzione, ma non attiva risorse o invii reali.
 
 Sono implementati:
 
@@ -19,6 +19,7 @@ Sono implementati:
 - orchestratore completo per dry-run, test e produzione protetta;
 - comando protetto per collaudare il registro con una sola riga interamente sintetica;
 - preflight Google in sola lettura per verificare file distinti, tab e intestazioni prima dei collaudi esterni;
+- codici diagnostici stabili del preflight, con JSON aggregato e azioni operative senza payload Google;
 - email testo e HTML con Message-ID e logo CID facoltativo realmente referenziato;
 - trasporto SMTP con STARTTLS o SSL e fake per i test;
 - autenticazione Google predisposta tramite WIF/OIDC, con blocco runtime dei file JSON `service_account` permanenti;
@@ -61,7 +62,9 @@ reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
 
 `init-admin` non crea il file: l'amministratore umano crea uno Spreadsheet vuoto, lo condivide con il service account e fornisce l'ID. Il codice trasforma in sicurezza la singola tab vuota in `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`.
 
-`reminder-certificati-google-preflight` verifica che `Operativo` e il foglio amministrativo siano file distinti, controlla l'ordine delle quattro tab amministrative e legge soltanto le righe delle intestazioni. Non legge righe operative, non scrive celle, non usa SMTP e stampa esclusivamente esiti booleani e conteggi aggregati. Il permesso di modifica del foglio amministrativo resta intenzionalmente non verificato finché non viene eseguito il collaudo sintetico separato.
+`reminder-certificati-google-preflight` verifica che `Operativo` e il foglio amministrativo siano file distinti, controlla l'ordine delle quattro tab amministrative e legge soltanto le righe delle intestazioni. Non legge righe operative, non scrive celle e non usa SMTP. In caso di errore restituisce JSON con un codice stabile, un messaggio pubblico breve e l'azione operativa da seguire, senza ID, email, celle o payload Google. Il permesso di modifica del foglio amministrativo resta intenzionalmente non verificato finché non viene eseguito il collaudo sintetico separato.
+
+I codici e le azioni del preflight sono documentati in [`docs/PREFLIGHT_DIAGNOSTICA.md`](docs/PREFLIGHT_DIAGNOSTICA.md).
 
 `check-headers` legge soltanto la riga delle intestazioni e non legge righe dati. La CLI runtime stampa solo conteggi e stati aggregati e rimuove email, token e chiavi di notifica dagli errori.
 
@@ -141,6 +144,7 @@ Il service account avrà sola lettura sul file operativo e modifica sul solo fog
 - [`docs/HANDOFF.md`](docs/HANDOFF.md)
 - [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)
 - [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md)
+- [`docs/PREFLIGHT_DIAGNOSTICA.md`](docs/PREFLIGHT_DIAGNOSTICA.md)
 
 ## Sicurezza
 
@@ -150,6 +154,7 @@ Il service account avrà sola lettura sul file operativo e modifica sul solo fog
 - chiavi duplicate o schema inatteso bloccano l'esecuzione;
 - credenziali Google permanenti bloccate anche a runtime;
 - preflight Google limitato a metadati e righe delle intestazioni, senza scritture;
+- errori del preflight esposti con codici stabili e messaggi senza identificatori o payload tecnici;
 - collaudo del registro limitato a una riga sintetica e protetto da doppio consenso;
 - esiti incerti non ritentati automaticamente;
 - nessuna schedule di produzione attiva prima dell'autorizzazione finale.
