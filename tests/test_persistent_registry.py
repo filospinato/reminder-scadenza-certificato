@@ -10,6 +10,8 @@ from reminder_certificati.persistent_registry import (
 )
 from reminder_certificati.registry import StatoNotifica
 
+ORA = datetime(2026, 7, 17, 10, tzinfo=timezone.utc)
+
 
 def _candidato(nome: str = "Anna Maria") -> CandidatoNotifica:
     arbitro = Arbitro(
@@ -27,17 +29,20 @@ def _candidato(nome: str = "Anna Maria") -> CandidatoNotifica:
     )
 
 
-def test_prenota_e_conclude_in_sent() -> None:
+def _registro() -> tuple[RegistroPersistente, ArchivioNotificheMemoria]:
     archivio = ArchivioNotificheMemoria()
-    registro = RegistroPersistente(archivio, versione_app="0.11.0")
-    candidato = _candidato()
-    ora = datetime(2026, 7, 17, 10, tzinfo=timezone.utc)
+    return RegistroPersistente(archivio, versione_app="0.12.0"), archivio
 
-    sending = registro.prenota(candidato, ora=ora)
+
+def test_prenota_e_conclude_in_sent() -> None:
+    registro, _ = _registro()
+    candidato = _candidato()
+
+    sending = registro.prenota(candidato, ora=ORA)
     sent = registro.segna_inviata(
         candidato,
         message_id="<test@example.invalid>",
-        ora=ora + timedelta(seconds=1),
+        ora=ORA + timedelta(seconds=1),
     )
 
     assert sending.stato is StatoNotifica.SENDING
@@ -46,36 +51,105 @@ def test_prenota_e_conclude_in_sent() -> None:
     assert registro.puo_prenotare(candidato.notification_id) is False
 
 
-def test_retry_solo_da_failed_retryable() -> None:
-    archivio = ArchivioNotificheMemoria()
-    registro = RegistroPersistente(archivio, versione_app="0.11.0")
+def test_sent_e_sending_bloccano_nuove_prenotazioni() -> None:
+    registro, _ = _registro()
     candidato = _candidato()
-    ora = datetime(2026, 7, 17, 10, tzinfo=timezone.utc)
 
-    registro.prenota(candidato, ora=ora)
+    registro.prenota(candidato, ora=ORA)
+    assert registro.puo_prenotare(candidato.notification_id) is False
+    with pytest.raises(ErroreRegistroPersistente, match="non prenotabile"):
+        registro.prenota(candidato, ora=ORA + timedelta(seconds=1))
+
+    registro.segna_inviata(
+        candidato,
+        message_id="<test@example.invalid>",
+        ora=ORA + timedelta(seconds=2),
+    )
+    assert registro.puo_prenotare(candidato.notification_id) is False
+
+
+def test_retry_solo_da_failed_retryable() -> None:
+    registro, _ = _registro()
+    candidato = _candidato()
+
+    registro.prenota(candidato, ora=ORA)
     failed = registro.segna_errore_retryable(
         candidato,
         errore="timeout",
-        ora=ora + timedelta(seconds=1),
+        ora=ORA + timedelta(seconds=1),
     )
-    retry = registro.prenota(candidato, ora=ora + timedelta(seconds=2))
+    retry = registro.prenota(candidato, ora=ORA + timedelta(seconds=2))
 
     assert failed.stato is StatoNotifica.FAILED_RETRYABLE
     assert retry.stato is StatoNotifica.SENDING
     assert retry.tentativi == 2
+    assert retry.errore is None
+
+
+def test_unknown_richiede_revisione_e_blocca_retry() -> None:
+    registro, _ = _registro()
+    candidato = _candidato()
+
+    registro.prenota(candidato, ora=ORA)
+    incerto = registro.segna_esito_incerto(
+        candidato,
+        errore="consegna incerta",
+        ora=ORA + timedelta(seconds=1),
+    )
+
+    assert incerto.stato is StatoNotifica.UNKNOWN_REVIEW_REQUIRED
+    assert registro.puo_prenotare(candidato.notification_id) is False
+    with pytest.raises(ErroreRegistroPersistente, match="non prenotabile"):
+        registro.prenota(candidato, ora=ORA + timedelta(seconds=2))
+
+
+def test_non_conclude_una_notifica_non_registrata_o_gia_conclusa() -> None:
+    registro, _ = _registro()
+    candidato = _candidato()
+
+    with pytest.raises(ErroreRegistroPersistente, match="non registrata"):
+        registro.segna_inviata(
+            candidato,
+            message_id="<test@example.invalid>",
+            ora=ORA,
+        )
+
+    registro.prenota(candidato, ora=ORA)
+    registro.segna_errore_retryable(
+        candidato,
+        errore="timeout",
+        ora=ORA + timedelta(seconds=1),
+    )
+    with pytest.raises(ErroreRegistroPersistente, match="transizione"):
+        registro.segna_inviata(
+            candidato,
+            message_id="<test@example.invalid>",
+            ora=ORA + timedelta(seconds=2),
+        )
 
 
 def test_blocca_dati_diversi_per_la_stessa_chiave() -> None:
-    archivio = ArchivioNotificheMemoria()
-    registro = RegistroPersistente(archivio, versione_app="0.11.0")
-    ora = datetime(2026, 7, 17, 10, tzinfo=timezone.utc)
-    registro.prenota(_candidato(), ora=ora)
+    registro, _ = _registro()
+    registro.prenota(_candidato(), ora=ORA)
     registro.segna_errore_retryable(
-        _candidato(), errore="timeout", ora=ora + timedelta(seconds=1)
+        _candidato(), errore="timeout", ora=ORA + timedelta(seconds=1)
     )
 
     with pytest.raises(ErroreRegistroPersistente, match="non coincide"):
         registro.prenota(
             _candidato(nome="Nome Alterato"),
-            ora=ora + timedelta(seconds=2),
+            ora=ORA + timedelta(seconds=2),
+        )
+
+
+def test_rifiuta_istanti_regressivi() -> None:
+    registro, _ = _registro()
+    candidato = _candidato()
+    registro.prenota(candidato, ora=ORA)
+
+    with pytest.raises(ErroreRegistroPersistente, match="precedere"):
+        registro.segna_errore_retryable(
+            candidato,
+            errore="timeout",
+            ora=ORA - timedelta(seconds=1),
         )
