@@ -21,12 +21,13 @@ L'inserimento di ID Google o credenziali SMTP non modifica automaticamente quest
 4. Creare l'Environment GitHub `preproduction` e impostare gli identificatori pubblici.
 5. Salvare l'ID del file vuoto come `ADMIN_SPREADSHEET_ID`.
 6. Impostare `PREPRODUCTION_ENABLED=true` soltanto quando WIF e condivisioni sono pronti.
-7. Eseguire manualmente `check-headers`: legge esclusivamente la riga 2 di `Operativo`.
-8. Eseguire `init-admin`: rinomina la singola tab vuota, crea le altre tre e inserisce solo struttura sintetica.
-9. Eseguire un `dry-run` con data corrente o una data controllata e verificare i conteggi aggregati.
-10. Inserire un destinatario sintetico in `DESTINATARIO_OVERRIDE`.
-11. Inserire i parametri SMTP nei GitHub Secrets dell'Environment `preproduction`.
-12. Eseguire `test-smtp` con conferma manuale: viene inviata al massimo una email, sempre all'override.
+7. Eseguire `init-admin`: rinomina la singola tab vuota, crea le altre tre e inserisce solo struttura sintetica.
+8. Eseguire `google-preflight`: verifica file distinti, ordine delle tab e sole righe delle intestazioni, senza leggere righe operative o scrivere celle.
+9. Eseguire `registry-check` con la conferma sintetica dedicata: scrive e aggiorna una sola riga `.invalid` nella tab `NOTIFICHE`, senza leggere `Operativo` o usare SMTP.
+10. Eseguire un `dry-run` con data corrente o una data controllata e verificare i conteggi aggregati. `check-headers` resta disponibile come diagnostica mirata della sola riga 2 di `Operativo`.
+11. Inserire un destinatario sintetico in `DESTINATARIO_OVERRIDE`.
+12. Inserire i parametri SMTP nei GitHub Secrets dell'Environment `preproduction`.
+13. Eseguire `test-smtp` con conferma manuale: viene inviata al massimo una email, sempre all'override.
 
 Un service account non viene usato per creare o possedere il file. La proprietà resta all'identità umana e l'accesso applicativo deriva dalla condivisione diretta.
 
@@ -34,6 +35,8 @@ Un service account non viene usato per creare o possedere il file. La proprietà
 
 ```bash
 reminder-certificati-runtime init-admin --spreadsheet-id ID
+reminder-certificati-google-preflight
+ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati-registry-check --confirm-synthetic-write
 reminder-certificati-runtime check-headers
 reminder-certificati-runtime run --mode DRY_RUN
 reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
