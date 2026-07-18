@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from .admin_store import (
@@ -29,8 +30,8 @@ class TrasportoNotificheSheets(Protocol):
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> None:
-        """Accoda una riga al registro."""
+    ) -> int:
+        """Accoda una riga e restituisce il numero assegnato da Sheets."""
 
     def aggiorna_riga(
         self,
@@ -58,20 +59,24 @@ def _valori_riga(riga: RigaNotifica) -> tuple[str, ...]:
     return tuple(valori[colonna] for colonna in COLONNE_NOTIFICHE)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class ArchivioNotificheGoogleSheets:
-    """Adapter della tab NOTIFICHE, testabile senza credenziali reali.
+    """Adapter del registro con una sola lettura completa per esecuzione.
 
-    Ogni salvataggio rilegge il registro, cerca la chiave esatta e accetta
-    esclusivamente zero o una corrispondenza. Più corrispondenze bloccano la
-    scrittura perché il foglio è ambiguo. La serializzazione tra esecuzioni
-    resta responsabilità del workflow GitHub Actions tramite ``concurrency``.
+    Il workflow serializza le esecuzioni che scrivono sullo stesso foglio. Dopo
+    il primo accesso l'adapter mantiene un indice locale e lo aggiorna dopo ogni
+    append o update, evitando di rileggere NOTIFICHE per ogni transizione.
     """
 
     trasporto: TrasportoNotificheSheets
     spreadsheet_id: str
     nome_scheda: str = "NOTIFICHE"
     colonne_a1: str = "A:N"
+    _indice: dict[str, tuple[int, RigaNotifica]] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def _configurazione(self) -> tuple[str, str, str]:
         spreadsheet_id = _obbligatorio(self.spreadsheet_id, "spreadsheet_id")
@@ -80,7 +85,10 @@ class ArchivioNotificheGoogleSheets:
         scheda = _nome_scheda_a1(nome_scheda)
         return spreadsheet_id, nome_scheda, f"'{scheda}'!{colonne}"
 
-    def _leggi_righe_numerate(self) -> tuple[tuple[int, RigaNotifica], ...]:
+    def _carica_indice(self) -> dict[str, tuple[int, RigaNotifica]]:
+        if self._indice is not None:
+            return self._indice
+
         spreadsheet_id, nome_scheda, intervallo = self._configurazione()
         try:
             matrice = self.trasporto.leggi_valori(
@@ -103,50 +111,47 @@ class ArchivioNotificheGoogleSheets:
                 "NOTIFICHE: intestazioni diverse dallo schema canonico"
             )
 
-        risultato: list[tuple[int, RigaNotifica]] = []
+        indice: dict[str, tuple[int, RigaNotifica]] = {}
         for numero_riga, valori in enumerate(tabella.righe, start=2):
             if all(not str(value).strip() for value in valori.values()):
                 continue
-            risultato.append((numero_riga, RigaNotifica.da_mappa(valori)))
-        return tuple(risultato)
+            riga = RigaNotifica.da_mappa(valori)
+            if riga.notification_id in indice:
+                raise ErroreArchivioNotifiche(
+                    f"NOTIFICHE: notification_id duplicato: {riga.notification_id}"
+                )
+            indice[riga.notification_id] = (numero_riga, riga)
+
+        self._indice = indice
+        return indice
 
     def ottieni(self, notification_id: str) -> RigaNotifica | None:
         chiave = _obbligatorio(notification_id, "notification_id")
-        corrispondenze = [
-            riga
-            for _, riga in self._leggi_righe_numerate()
-            if riga.notification_id == chiave
-        ]
-        if len(corrispondenze) > 1:
-            raise ErroreArchivioNotifiche(
-                f"NOTIFICHE: notification_id duplicato: {chiave}"
-            )
-        return corrispondenze[0] if corrispondenze else None
+        elemento = self._carica_indice().get(chiave)
+        return elemento[1] if elemento is not None else None
 
     def salva(self, riga: RigaNotifica) -> RigaNotifica:
         spreadsheet_id, nome_scheda, _ = self._configurazione()
-        corrispondenze = [
-            (numero_riga, esistente)
-            for numero_riga, esistente in self._leggi_righe_numerate()
-            if esistente.notification_id == riga.notification_id
-        ]
-        if len(corrispondenze) > 1:
-            raise ErroreArchivioNotifiche(
-                f"NOTIFICHE: notification_id duplicato: {riga.notification_id}"
-            )
-
+        indice = self._carica_indice()
+        esistente = indice.get(riga.notification_id)
         valori = _valori_riga(riga)
         scheda = _nome_scheda_a1(nome_scheda)
+
         try:
-            if not corrispondenze:
-                self.trasporto.aggiungi_riga(
+            if esistente is None:
+                numero_riga = self.trasporto.aggiungi_riga(
                     spreadsheet_id=spreadsheet_id,
                     intervallo_a1=f"'{scheda}'!A:N",
                     valori=valori,
                 )
+                if numero_riga < 2:
+                    raise ErroreArchivioNotifiche(
+                        "NOTIFICHE: numero della riga aggiunta non valido"
+                    )
+                indice[riga.notification_id] = (numero_riga, riga)
                 return riga
 
-            numero_riga, precedente = corrispondenze[0]
+            numero_riga, precedente = esistente
             if riga.creato_il != precedente.creato_il:
                 raise ErroreArchivioNotifiche(
                     "NOTIFICHE: creato_il non può cambiare durante una transizione"
@@ -160,6 +165,7 @@ class ArchivioNotificheGoogleSheets:
                 intervallo_a1=f"'{scheda}'!A{numero_riga}:N{numero_riga}",
                 valori=valori,
             )
+            indice[riga.notification_id] = (numero_riga, riga)
             return riga
         except ErroreArchivioNotifiche:
             raise
@@ -174,6 +180,7 @@ class TrasportoNotificheMemoria:
     """Fake tabellare che riproduce lettura, append e update di Sheets."""
 
     matrice: list[list[Any]]
+    letture: int = 0
 
     def leggi_valori(
         self,
@@ -183,6 +190,7 @@ class TrasportoNotificheMemoria:
     ) -> Sequence[Sequence[Any]]:
         _obbligatorio(spreadsheet_id, "spreadsheet_id")
         _obbligatorio(intervallo_a1, "intervallo_a1")
+        self.letture += 1
         return [list(riga) for riga in self.matrice]
 
     def aggiungi_riga(
@@ -191,10 +199,11 @@ class TrasportoNotificheMemoria:
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> None:
+    ) -> int:
         _obbligatorio(spreadsheet_id, "spreadsheet_id")
         _obbligatorio(intervallo_a1, "intervallo_a1")
         self.matrice.append(list(valori))
+        return len(self.matrice)
 
     def aggiorna_riga(
         self,
@@ -205,12 +214,12 @@ class TrasportoNotificheMemoria:
     ) -> None:
         _obbligatorio(spreadsheet_id, "spreadsheet_id")
         riferimento = _obbligatorio(intervallo_a1, "intervallo_a1")
-        try:
-            numero_riga = int(riferimento.rsplit("A", maxsplit=1)[1].split(":", maxsplit=1)[0])
-        except (IndexError, ValueError) as exc:
+        match = re.search(r"!A(\d+):N\d+$", riferimento)
+        if match is None:
             raise ErroreArchivioNotifiche(
                 f"intervallo di aggiornamento non valido: {riferimento}"
-            ) from exc
+            )
+        numero_riga = int(match.group(1))
         if numero_riga < 2 or numero_riga > len(self.matrice):
             raise ErroreArchivioNotifiche(
                 f"riga di aggiornamento inesistente: {numero_riga}"
@@ -253,8 +262,8 @@ class TrasportoNotificheGoogleApi:
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> None:
-        (
+    ) -> int:
+        risposta = (
             self.servizio.spreadsheets()
             .values()
             .append(
@@ -266,6 +275,20 @@ class TrasportoNotificheGoogleApi:
             )
             .execute()
         )
+        if not isinstance(risposta, Mapping):
+            raise ErroreArchivioNotifiche("Google Sheets: risposta append non valida")
+        aggiornamenti = risposta.get("updates", {})
+        intervallo = (
+            aggiornamenti.get("updatedRange", "")
+            if isinstance(aggiornamenti, Mapping)
+            else ""
+        )
+        match = re.search(r"![A-Z]+(\d+):[A-Z]+\d+$", str(intervallo))
+        if match is None:
+            raise ErroreArchivioNotifiche(
+                "Google Sheets: riga aggiunta non determinabile"
+            )
+        return int(match.group(1))
 
     def aggiorna_riga(
         self,
