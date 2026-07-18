@@ -80,6 +80,12 @@ MAPPATURA_OPERATIVO_REALE = MappaturaColonne(
     attivo="Fa attività quest'anno",
 )
 
+# Unica fonte di verità per le colonne che il programma usa davvero. Le altre
+# colonne del foglio possono cambiare senza bloccare preflight o runtime.
+COLONNE_OPERATIVO_OBBLIGATORIE: tuple[str, ...] = (
+    MAPPATURA_OPERATIVO_REALE.obbligatorie
+)
+
 
 def costruisci_servizio_sheets() -> Any:
     """Costruisce il client soltanto con ADC temporanee prodotte da WIF/OIDC."""
