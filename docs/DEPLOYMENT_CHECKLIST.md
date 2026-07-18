@@ -29,7 +29,8 @@
 - [ ] bootstrap dalla singola tab vuota riuscito;
 - [ ] quattro tab verificate e inizializzatore idempotente;
 - [ ] service account lettore di `Operativo`;
-- [ ] `check-headers` riuscito con zero righe dati lette;
+- [ ] preflight Google riuscito con file distinti, tab e intestazioni conformi;
+- [ ] preflight confermato con zero righe operative lette e zero scritture;
 - [ ] scrittura sintetica, update e duplicati collaudati;
 - [ ] dry-run confermato senza scritture nel registro;
 - [ ] CONFIG ancora in stato sicuro.
@@ -49,6 +50,7 @@
 
 ## E. Attivazione a livelli
 
+- [ ] preflight Google in sola lettura;
 - [ ] dry-run sintetico;
 - [ ] scrittura sintetica sul foglio amministrativo;
 - [ ] dry-run su `Operativo` con output aggregato e deduplicazione verificata;
