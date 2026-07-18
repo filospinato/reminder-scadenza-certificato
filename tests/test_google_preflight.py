@@ -10,7 +10,10 @@ from reminder_certificati.google_preflight import (
     ErrorePreflightGoogle,
     PreflightGoogle,
 )
-from reminder_certificati.google_runtime import ConfigurazioneRisorseGoogle
+from reminder_certificati.google_runtime import (
+    COLONNE_OPERATIVO_OBBLIGATORIE,
+    ConfigurazioneRisorseGoogle,
+)
 
 
 @dataclass
@@ -35,14 +38,8 @@ class TrasportoFake:
 
 def _scenario():
     schema = crea_schema_amministrativo()
-    headers_operativo = (
-        "Tessera", "Cognome", "Nome", "Qualifica", "Stato Rinnovo",
-        "Data Scadenza Certificato", "e-Mail", "Certificato medico",
-        "Rinnovato senza lista", "Lista effettiva di appartenenza",
-        "Esordiente", "Note", "Fa attività quest'anno",
-    )
     intestazioni = {
-        ("operativo-id", "Operativo", 2): headers_operativo,
+        ("operativo-id", "Operativo", 2): COLONNE_OPERATIVO_OBBLIGATORIE,
         **{
             ("admin-id", definizione.nome, 1): definizione.intestazioni
             for definizione in schema.tab
@@ -92,14 +89,23 @@ def test_preflight_rifiuta_lo_stesso_file_con_codice_stabile():
     assert trasporto.letture == []
 
 
-def test_preflight_rifiuta_tab_amministrative_fuori_ordine_con_codice_stabile():
+def test_preflight_accetta_le_tab_amministrative_riordinate():
     trasporto, risorse = _scenario()
     trasporto.tab["admin-id"] = ("NOTIFICHE", "CONFIG", "DASHBOARD", "ANOMALIE")
 
-    with pytest.raises(ErrorePreflightGoogle) as exc_info:
-        PreflightGoogle(trasporto).esegui(risorse=risorse)
+    esito = PreflightGoogle(trasporto).esegui(risorse=risorse)
 
-    assert _diagnostica(exc_info).codice is CodiceErrorePreflight.ADMIN_TAB_NON_CONFORMI
+    assert esito.admin_tabs_ok is True
+
+
+def test_preflight_non_dipende_da_colonne_non_usate():
+    trasporto, risorse = _scenario()
+    trasporto.intestazioni[("operativo-id", "Operativo", 2)] = (
+        *COLONNE_OPERATIVO_OBBLIGATORIE,
+        "Colonna libera",
+    )
+
+    assert PreflightGoogle(trasporto).esegui(risorse=risorse).operativo_headers_ok
 
 
 def test_preflight_rifiuta_intestazioni_operativo_incomplete_senza_elencarle():

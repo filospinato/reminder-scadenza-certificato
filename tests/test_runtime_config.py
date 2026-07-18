@@ -26,19 +26,23 @@ def test_configurazione_iniziale_e_disattivata() -> None:
     assert config.sistema_attivo is False
     assert config.kill_switch is True
     assert config.modalita_test is True
+    assert config.destinatario_override is None
     assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_modalita_test_attiva_richiede_override() -> None:
+def test_dry_run_puo_essere_preparato_senza_override_smtp() -> None:
     matrice = _matrice_config()
     _imposta(matrice, "SISTEMA_ATTIVO", "true")
     _imposta(matrice, "KILL_SWITCH", "false")
 
-    with pytest.raises(ErroreConfigurazioneRuntime, match="DESTINATARIO_OVERRIDE"):
-        carica_configurazione(matrice)
+    config = carica_configurazione(matrice)
+
+    assert config.elaborazione_consentita is True
+    assert config.destinatario_override is None
+    assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_modalita_test_attiva_accetta_override_sintetico() -> None:
+def test_modalita_test_accetta_override_sintetico_quando_configurato() -> None:
     matrice = _matrice_config()
     _imposta(matrice, "SISTEMA_ATTIVO", "true")
     _imposta(matrice, "KILL_SWITCH", "false")
@@ -64,7 +68,7 @@ def test_invii_reali_richiedono_configurazione_coerente_e_consenso_esterno() -> 
     assert config.invio_reale_consentito(consenso_esterno=True) is True
 
 
-def test_rifiuta_chiavi_duplicate_sconosciute_e_saluto_alterato() -> None:
+def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:
     matrice = _matrice_config()
     matrice.append(list(matrice[1]))
     with pytest.raises(ErroreConfigurazioneRuntime, match="duplicata"):
@@ -75,13 +79,13 @@ def test_rifiuta_chiavi_duplicate_sconosciute_e_saluto_alterato() -> None:
     with pytest.raises(ErroreConfigurazioneRuntime, match="mancanti"):
         carica_configurazione(matrice)
 
+
+def test_rifiuta_corpo_non_conforme_e_limiti_fuori_intervallo() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "SALUTO_EMAIL", "Salve {{nome}}")
-    with pytest.raises(ErroreConfigurazioneRuntime, match="SALUTO_EMAIL"):
+    _imposta(matrice, "CORPO_EMAIL", "Testo non conforme")
+    with pytest.raises(ErroreConfigurazioneRuntime, match="CORPO_EMAIL"):
         carica_configurazione(matrice)
 
-
-def test_rifiuta_limiti_fuori_intervallo() -> None:
     matrice = _matrice_config()
     _imposta(matrice, "LIMITE_INVII_PER_ESECUZIONE", "10000")
     with pytest.raises(ErroreConfigurazioneRuntime, match="compreso"):

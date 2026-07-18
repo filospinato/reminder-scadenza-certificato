@@ -91,7 +91,7 @@ jobs:
 
       - name: Install
         if: steps.gate.outputs.enabled == 'true'
-        run: python -m pip install --upgrade pip && pip install -e ".[google]"
+        run: pip install -e ".[google]"
 
       - name: Esegui preflight Google in sola lettura
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'google-preflight'

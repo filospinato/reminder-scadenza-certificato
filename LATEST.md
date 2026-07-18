@@ -1,49 +1,47 @@
 # Stato corrente
 
-**Versione:** 0.11.5  
+**Versione di pacchetto:** 0.11.5  
 **Data:** 18 luglio 2026  
-**Stato:** codice pre-produzione rafforzato e disattivato; risorse e collaudi esterni ancora mancanti  
-**Baseline di partenza:** `29aa14504f652c0547a893f5799763641c4d65ed`
+**Stato:** codice pre-produzione semplificato e disattivato; risorse e collaudi esterni ancora mancanti
 
 ## Funziona già
 
-- dominio completo di validazione, selezione, template e stati notifiche;
-- lettura di `Operativo` e persistenza `NOTIFICHE` tramite adapter Google testati con fake;
-- inizializzazione idempotente di un file vuoto creato dall'amministratore umano;
-- bootstrap sicuro dalla singola tab vuota alle quattro tab canoniche;
-- parser tipizzato di `CONFIG` con kill switch, limiti, override e barriere multiple;
-- registro persistente con `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
-- dry-run consapevole delle notifiche già registrate, senza scritture;
-- limite applicato dopo la deduplicazione;
-- comando protetto per collaudare append, rilettura e update della tab `NOTIFICHE` con una sola riga sintetica;
-- preflight Google in sola lettura che verifica file distinti, ordine delle tab e sole righe delle intestazioni;
-- codici diagnostici stabili del preflight, con messaggio pubblico, azione di runbook e JSON aggregato anche in errore;
-- test SMTP limitato a un messaggio e audit dell'override effettivo;
-- dashboard aggregata aggiornata con una singola scrittura, senza clear preventivo;
-- anomalie e errori CLI con rimozione di email, token e chiavi di notifica;
-- SMTP MDaemon testo/HTML, Message-ID, STARTTLS/SSL e logo CID visibile;
-- workflow manuale con gate Environment corretto, data corrente predefinita e lock condiviso;
-- segreti SMTP limitati allo step di invio;
-- barriera runtime che accetta soltanto credenziali Google WIF `external_account` complete e rifiuta file JSON `service_account` permanenti;
-- CI che installa e verifica anche l'extra Google;
-- test automatici e runbook.
+- validazione e selezione lineari dei record di `Operativo`;
+- una sola fonte di verità per le sei colonne effettivamente utilizzate;
+- preflight in sola lettura che non dipende dall'ordine visuale delle tab o da colonne estranee al reminder;
+- inizializzazione sicura del foglio amministrativo e verifica runtime limitata a metadati e intestazioni;
+- `CONFIG` ridotta ai campi realmente usati;
+- dry-run eseguibile senza destinatario override o configurazione SMTP;
+- registro persistente con una sola lettura completa per esecuzione e indice locale aggiornato dopo le scritture;
+- stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED` gestiti da una sola macchina a stati;
+- anomalie persistenti deduplicate per ID aperto;
+- test SMTP limitato a un messaggio all'override;
+- dashboard aggregata, SMTP MDaemon, WIF/OIDC e workflow manuale protetto;
+- modello schedulato conservato come esempio non attivo;
+- test automatici concentrati sulle proprietà di sicurezza e sul comportamento, non sulla forma testuale dei file.
+
+## Semplificazioni applicate
+
+- rimossa la CLI storica che elaborava e stampava record completi; il vecchio comando mostra soltanto un avviso;
+- eliminata la versione duplicata da `__init__.py`;
+- eliminati `SALUTO_EMAIL` e `CONTATTO_SUPPORTO` dalla CONFIG perché non influenzavano il runtime;
+- reso modificabile `INVII_REALI_ABILITATI`, mantenendo le altre barriere di go-live;
+- rimosso il modulo di salute non collegato a CLI o workflow;
+- rimossa la macchina a stati in memoria duplicata;
+- eliminati gli acknowledgement produttivi statici ridondanti;
+- eliminato l'upgrade dinamico di pip dai workflow.
 
 ## Barriere di sicurezza
 
-- nessuna chiave JSON permanente: le configurazioni note sono vietate e il file ADC viene verificato prima di costruire il client Google;
 - nessuna credenziale, email reale o PII nel repository;
-- nessun accesso Google finché l'environment non abilita esplicitamente la pre-produzione;
-- il preflight legge soltanto metadati e intestazioni, non legge righe operative, non scrive e non usa SMTP;
-- il preflight rifiuta configurazioni nelle quali `Operativo` e amministrazione indicano lo stesso Spreadsheet;
-- gli errori del preflight usano codici stabili e non riportano ID, email, celle, token o payload Google;
-- il collaudo del registro richiede `--confirm-synthetic-write` e `ALLOW_SYNTHETIC_REGISTRY_WRITE=true`;
-- il collaudo usa soltanto dati `.invalid`, non legge `Operativo` e non abilita email;
-- nessun invio fuori dal dry-run senza conferma CLI e `ALLOW_EMAIL_DELIVERY=true`;
-- produzione subordinata anche a `PRODUCTION_ACTIVATION_ACK`;
-- `CONFIG` deve essere coerente con modalità ed environment;
-- workflow schedulato presente soltanto come file `.example` non eseguibile;
-- output CLI esclusivamente aggregato;
-- esiti SMTP incerti non vengono ritentati automaticamente.
+- `Operativo` sempre in sola lettura;
+- credenziali Google permanenti rifiutate a runtime;
+- preflight e check delle intestazioni senza lettura di righe operative;
+- collaudo del registro protetto da flag e variabile dedicata;
+- segreti SMTP disponibili soltanto nello step di invio;
+- produzione subordinata a Environment, `PRODUCTION_ENABLED`, CONFIG coerente, kill switch disattivato e consenso esplicito dello step;
+- esiti SMTP incerti non ritentati automaticamente;
+- workflow schedulato assente da `.github/workflows`.
 
 ## Da creare o valorizzare esternamente
 
@@ -58,9 +56,8 @@
 ## Collaudi ancora necessari
 
 - inizializzazione reale del file amministrativo vuoto;
-- preflight Google reale con zero righe operative lette e zero scritture;
-- verifica pratica dei codici diagnostici e delle azioni del runbook su errori controllati;
-- esecuzione controllata del comando sintetico sulla tab `NOTIFICHE` reale;
+- preflight Google reale;
+- collaudo sintetico di `NOTIFICHE`;
 - dry-run aggregato su `Operativo`;
 - test SMTP esclusivamente all'override;
 - errori retryable, permanenti e incerti;
@@ -69,4 +66,4 @@
 
 ## Prossimo passo
 
-Creare con l'account umano lo Spreadsheet amministrativo vuoto, quindi predisporre progetto Google Cloud ed environment `preproduction`. Dopo la condivisione con il service account, eseguire nell'ordine `init-admin --spreadsheet-id ID`, `reminder-certificati-google-preflight`, `reminder-certificati-registry-check --confirm-synthetic-write`, dry-run e test SMTP con override. Nessun invio reale ad arbitri è necessario per questi collaudi.
+Creare con l'account umano lo Spreadsheet amministrativo vuoto, predisporre Google Cloud e l'Environment `preproduction`, quindi eseguire `init-admin`, preflight, collaudo sintetico, dry-run e test SMTP all'override. Nessun invio reale agli arbitri è necessario durante questi collaudi.

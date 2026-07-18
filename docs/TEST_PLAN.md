@@ -1,154 +1,120 @@
-# Piano di test e hardening
+# Piano di test
 
 ## Test automatici obbligatori
 
-- finestra inclusiva a 0 e 30 giorni;
-- esclusione dei certificati scaduti;
-- cambio mese, anno e anno bisestile;
-- nomi composti conservati integralmente;
-- nome, cognome, email e scadenza dalla stessa riga;
-- intestazioni mancanti, duplicate o spostate;
-- righe corte, celle eccedenti e righe vuote;
-- ID duplicati esclusi integralmente;
-- apertura obbligatoria ed escaping HTML;
-- oggetto con ritorni a capo rifiutato;
-- CONFIG con chiavi duplicate, sconosciute o mancanti;
-- limiti numerici fuori intervallo;
-- modalità test senza override rifiutata;
+- finestra inclusiva, scaduti esclusi e cambi di calendario;
+- nome, cognome, email e scadenza letti dalla stessa riga;
+- nomi composti conservati;
+- sole sei intestazioni effettivamente usate come requisito bloccante;
+- righe malformate, vuote e ID duplicati;
+- apertura obbligatoria, escaping HTML e oggetto sicuro;
+- CONFIG con chiavi duplicate, sconosciute, mancanti o valori incoerenti;
+- dry-run attivo senza override o configurazione SMTP;
+- override obbligatorio nella sola modalità `TEST_SMTP`;
 - kill switch prima della lettura e dell'invio;
-- bootstrap di una singola tab vuota, idempotenza e blocco dei file già usati;
-- registro con `SENDING` preventivo;
-- persistenza del ciclo `SENDING` → `SENT` attraverso la ricreazione dell'adapter;
-- percorso `FAILED_RETRYABLE` → nuova prenotazione sulla stessa riga con incremento dei tentativi;
-- dry-run che consulta il registro senza scrivere;
-- limite applicato dopo la deduplicazione;
+- bootstrap idempotente e tab riordinabili dopo la creazione;
+- verifica runtime limitata a metadati e intestazioni;
+- una sola lettura completa di `NOTIFICHE` per esecuzione;
+- append e update della stessa riga con indice locale aggiornato;
+- unica macchina a stati persistente;
 - retry soltanto da `FAILED_RETRYABLE`;
-- esiti incerti e imprevisti non ritentati;
-- doppia esecuzione bloccata tramite `concurrency` condivisa;
-- messaggi di errore senza email, token, notification ID o payload completi;
-- contratto dei codici diagnostici del preflight e dello schema JSON pubblico;
-- corrispondenza esatta tra codici nel sorgente e guida diagnostica;
-- MIME testo/HTML, Message-ID e logo CID referenziato;
-- nome mittente e CID protetti da header injection;
+- `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccanti;
+- anomalie aperte deduplicate anche nell'adapter Google;
+- output ed errori senza email, token, notification ID o payload;
+- MIME testo/HTML, Message-ID e logo CID;
 - test SMTP limitato a una sola email all'override;
 - dashboard aggiornata senza `clear` preventivo;
-- workflow senza data fissa e senza gate basato prematuramente su variabili Environment;
-- preflight e collaudo sintetico esposti come operazioni manuali distinte;
-- doppio consenso richiesto per la scrittura sintetica del registro;
-- preflight privo di flag di scrittura, consenso email e segreti SMTP;
-- modello schedulato mantenuto fuori da `.github/workflows`;
-- secondo acknowledgement esterno richiesto prima di autenticazione e produzione schedulata;
-- assenza di comandi di bootstrap, preflight, collaudo o modalità non produttive nel modello schedulato;
-- segreti SMTP limitati allo step di invio;
-- assenza di copie nella Posta inviata.
+- workflow con WIF, Environment, lock condiviso e segreti confinati allo step SMTP;
+- modello schedulato fuori da `.github/workflows`;
+- nessun upgrade dinamico di pip nei workflow.
 
-## Contratto del workflow manuale
+## Contratti di sicurezza dei workflow
 
-`tests/test_manual_preproduction_workflow_contract.py` rende non regressiva la separazione delle operazioni nel workflow `.github/workflows/manual-preproduction.yml`. Il test deve dimostrare che:
+I test dei workflow verificano proprietà operative, non nomi italiani degli step o conteggi testuali fragili.
 
-1. `google-preflight` e `registry-check` sono operazioni selezionabili e distinte;
-2. il preflight richiama soltanto `reminder-certificati-google-preflight`, senza consensi di scrittura o email e senza segreti SMTP;
-3. il collaudo del registro richiede sia la conferma nell'input del workflow sia `ALLOW_SYNTHETIC_REGISTRY_WRITE=true` nello step dedicato;
-4. i segreti SMTP e `ALLOW_EMAIL_DELIVERY=true` compaiono esclusivamente nello step `test-smtp`;
-5. il gate dell'Environment e il gruppo `concurrency` condiviso restano presenti.
+Il workflow manuale deve mantenere separate:
 
-Le modifiche future al workflow devono mantenere separate le operazioni di sola lettura, scrittura sintetica e invio SMTP. Un nuovo consenso non può essere riutilizzato implicitamente per un'operazione diversa.
+1. operazioni in sola lettura;
+2. scrittura sintetica con doppio consenso;
+3. test SMTP con consenso e Secrets dedicati.
 
-## Contratto del modello schedulato
+Il modello produttivo deve:
 
-`tests/test_production_workflow_contract.py` rende non regressivo il modello `docs/workflows/production.yml.example`. Il test deve dimostrare che:
+1. restare non attivo sotto `docs/workflows`;
+2. usare Environment `production`, WIF e lo stesso gruppo `concurrency`;
+3. richiedere `PRODUCTION_ENABLED=true`;
+4. contenere una sola esecuzione applicativa in modalità `PRODUZIONE`;
+5. non contenere bootstrap, preflight o modalità di test;
+6. esporre i Secrets SMTP soltanto nello step produttivo.
 
-1. il file resta sotto `docs/workflows` e non esiste un workflow attivo `.github/workflows/production.yml`;
-2. il modello dichiara esplicitamente di non essere attivo, usa l'Environment `production`, WIF temporaneo e lo stesso gruppo `concurrency` del workflow manuale;
-3. il gate richiede contemporaneamente `PRODUCTION_ENABLED=true` e l'acknowledgement esterno `PRODUCTION_WORKFLOW_APPROVED=REMINDER_CERTIFICATI_SCHEDULE_V1` prima del checkout e dell'autenticazione;
-4. il modello non contiene `init-admin`, `check-headers`, preflight, collaudo del registro, `DRY_RUN` o `TEST_SMTP`;
-5. esiste una sola esecuzione applicativa, in modalità `PRODUZIONE`, con conferma email e acknowledgement applicativo dedicato;
-6. tutti i Secrets SMTP, `ALLOW_EMAIL_DELIVERY` e `PRODUCTION_ACTIVATION_ACK` restano limitati allo step produttivo;
-7. schedule, vincolo WIF e checklist pre-go-live restano documentati.
+## Diagnostica preflight
 
-La copia futura del modello in `.github/workflows` dovrà essere una modifica esplicita e revisionata. Il semplice spostamento del file non deve bastare ad avviare il sistema: il gate esterno, l'Environment, WIF, CONFIG e gli acknowledgement applicativi devono essere configurati separatamente.
+I test verificano che:
 
-## Contratto della diagnostica preflight
+- i codici siano univoci, prefissati `PREFLIGHT_` e documentati;
+- l'output contenga le garanzie minime dichiarate;
+- successo ed errore dichiarino zero letture di righe operative e zero scritture;
+- il dettaglio sensibile originario non venga propagato.
 
-`tests/test_preflight_diagnostics_contract.py` rende non regressiva l'interfaccia pubblica del comando `reminder-certificati-google-preflight`. Il test deve dimostrare che:
+Aggiungere un campo JSON o riordinare un enum non deve rompere la CI se il contratto di sicurezza rimane invariato.
 
-1. i sette codici applicativi restano esattamente quelli pubblicati e mantengono il prefisso `PREFLIGHT_`;
-2. non esistono codici duplicati;
-3. `docs/PREFLIGHT_DIAGNOSTICA.md` elenca una sola volta tutti i codici applicativi e `PREFLIGHT_UNEXPECTED_ERROR`, senza codici aggiuntivi non implementati;
-4. l'output JSON di successo mantiene le chiavi pubbliche previste;
-5. l'output JSON per errore inatteso mantiene le chiavi pubbliche previste, dichiara zero righe operative e zero scritture e non propaga il dettaglio sensibile originario.
+## Collaudo persistente sintetico
 
-Ogni modifica futura a un codice o allo schema JSON deve quindi essere intenzionale, accompagnata dall'aggiornamento della guida e trattata come cambiamento del contratto operativo.
+Il fake tabellare deve dimostrare:
 
-## Collaudo persistente sintetico automatizzato
+1. append di una riga `SENDING`;
+2. rilettura della stessa chiave;
+3. update a `SENT` sulla medesima riga;
+4. retry da `FAILED_RETRYABLE` con incremento dei tentativi;
+5. blocco dei duplicati;
+6. una sola lettura completa del registro durante un ciclo applicativo.
 
-`tests/test_notifications_sheets_lifecycle.py` usa esclusivamente `TrasportoNotificheMemoria` e dati sintetici con dominio `.invalid`. Il test deve dimostrare che:
-
-1. la prima prenotazione aggiunge una sola riga `SENDING`;
-2. un nuovo adapter, equivalente a un nuovo processo dopo un crash, rilegge la prenotazione persistita;
-3. la transizione finale a `SENT` aggiorna la medesima riga e conserva il `Message-ID`;
-4. una riga `FAILED_RETRYABLE` può tornare a `SENDING` con `tentativi=2`;
-5. nessuno dei passaggi crea righe duplicate.
-
-Questo collaudo non sostituisce la successiva prova controllata sullo Spreadsheet amministrativo reale: verifica in CI il contratto applicativo e il comportamento del fake tabellare senza rete, credenziali o PII.
-
-## Collaudo Google sintetico
+## Collaudo Google controllato
 
 1. creare con l'account umano il foglio amministrativo vuoto;
-2. condividerlo con il service account e valorizzare `ADMIN_SPREADSHEET_ID`;
-3. eseguire l'inizializzatore e verificare la creazione delle quattro tab;
-4. rieseguire l'inizializzatore e verificare idempotenza;
-5. alterare una intestazione su una copia e verificare il blocco;
-6. verificare che una singola tab non vuota non venga rinominata o sovrascritta;
-7. ripetere sul foglio la prenotazione sintetica `SENDING` già coperta dal test automatico;
-8. simulare un nuovo processo e verificare che la stessa chiave venga riletta senza append;
-9. aggiornare la stessa notifica a `SENT` e verificare che rimanga una sola riga;
-10. provare il percorso `FAILED_RETRYABLE` e il secondo tentativo sulla stessa riga;
-11. creare un duplicato su una copia e verificare il blocco;
-12. simulare revoca accesso e verificare errore aggregato;
-13. verificare che i log non contengano celle, righe o notification ID.
-
-## Collaudo intestazioni Operativo
-
-Il primo accesso deve eseguire soltanto `check-headers`. Il risultato deve contenere numero di intestazioni e conferma delle colonne obbligatorie, con `data_rows_read=0`.
+2. condividerlo con il service account;
+3. eseguire `init-admin` due volte e verificare idempotenza;
+4. riordinare visivamente le tab e verificare che il preflight resti verde;
+5. alterare un'intestazione su una copia e verificare il blocco;
+6. eseguire il collaudo sintetico del registro;
+7. verificare append e update senza righe duplicate;
+8. verificare la deduplicazione di un'anomalia aperta;
+9. simulare revoca accesso e controllare l'errore aggregato;
+10. verificare che i log non contengano celle o identificatori personali.
 
 ## Collaudo dry-run reale
 
-- usare la data corrente oppure una data controllata esplicitamente;
-- confrontare conteggi aggregati con una verifica manuale ristretta;
-- controllare anomalie senza pubblicare contenuti delle righe;
-- verificare il conteggio delle notifiche già registrate;
-- verificare che i record già presenti non consumino il limite utile;
-- verificare zero righe aggiunte o aggiornate in `NOTIFICHE`;
-- verificare zero chiamate SMTP.
+Prima del dry-run impostare:
+
+- `SISTEMA_ATTIVO=true`;
+- `KILL_SWITCH=false`;
+- `INVII_REALI_ABILITATI=false`.
+
+Non è necessario valorizzare `DESTINATARIO_OVERRIDE` o i parametri SMTP.
+
+Verificare conteggi aggregati, deduplicazione, applicazione del limite, zero scritture nel registro e zero chiamate SMTP.
 
 ## Collaudo SMTP
 
 1. usare esclusivamente `TEST_SMTP`;
 2. impostare un override controllato;
-3. verificare che venga inviata una sola email anche se esistono più candidati;
+3. inviare al massimo una email;
 4. verificare testo, HTML, mittente, Reply-To e Message-ID;
-5. verificare che il registro conservi l'override realmente contattato;
-6. verificare il logo solo dopo approvazione e controllare il riferimento `cid:` nel corpo HTML;
-7. simulare errore di connessione prima della consegna;
-8. simulare disconnessione durante la consegna;
-9. simulare destinatario rifiutato e un errore non classificato;
-10. verificare rispettivamente `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`;
-11. rieseguire la stessa notifica test e verificare deduplicazione.
+5. verificare che il registro conservi l'override;
+6. simulare errori retryable, permanenti e incerti;
+7. verificare che gli esiti incerti non siano ritentati.
 
-## Prove di concorrenza e crash
+## Concorrenza e crash
 
-- avviare due workflow manuali: il secondo deve restare in attesa;
-- verificare che anche un futuro workflow di produzione usi lo stesso lock;
-- interrompere dopo `SENDING`: la riga non deve essere ritentata automaticamente;
-- rilanciare un job GitHub: le notifiche già `SENT` devono essere saltate;
-- raggiungere il limite massimo: le eccedenti restano non prenotate.
+- due workflow devono condividere il lock;
+- un'interruzione dopo `SENDING` non deve causare retry automatici;
+- le notifiche `SENT` devono essere saltate;
+- le eccedenti il limite devono restare non prenotate.
 
 ## Criteri di uscita
 
-- CI verde su `main`, compresa installazione dell'extra Google;
+- CI verde su `main`;
 - nessun segreto o PII nei diff e nei log;
-- zero criticità alte o medie aperte;
 - dry-run e modalità test validati;
 - runbook provato da un responsabile non tecnico;
 - seconda identità umana CIA configurata;

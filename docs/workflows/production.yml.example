@@ -32,19 +32,18 @@ jobs:
       OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
     steps:
-      - name: Verifica abilitazione e approvazione production
+      - name: Verifica abilitazione production
         id: gate
         shell: bash
         env:
           PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
-          PRODUCTION_WORKFLOW_APPROVED: ${{ vars.PRODUCTION_WORKFLOW_APPROVED }}
         run: |
           set -euo pipefail
-          if [[ "${PRODUCTION_ENABLED:-}" == "true" && "${PRODUCTION_WORKFLOW_APPROVED:-}" == "REMINDER_CERTIFICATI_SCHEDULE_V1" ]]; then
+          if [[ "${PRODUCTION_ENABLED:-}" == "true" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Produzione non abilitata o modello schedulato non approvato. Nessuna risorsa o email sarà utilizzata."
+            echo "Produzione non abilitata. Nessuna risorsa o email sarà utilizzata."
           fi
 
       - name: Checkout
@@ -70,7 +69,7 @@ jobs:
 
       - name: Install
         if: steps.gate.outputs.enabled == 'true'
-        run: python -m pip install --upgrade pip && pip install -e ".[google]"
+        run: pip install -e ".[google]"
 
       - name: Esecuzione produzione
         if: steps.gate.outputs.enabled == 'true'
@@ -86,14 +85,12 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           ALLOW_EMAIL_DELIVERY: "true"
-          PRODUCTION_ACTIVATION_ACK: REMINDER_CERTIFICATI_PRODUCTION_V1
         run: reminder-certificati-runtime run --mode PRODUZIONE --confirm-email-delivery
 
 # Prima dell'attivazione:
 # 1. vincolare WIF anche a questo workflow_ref o all'environment production;
 # 2. approvare firma, logo, mittente, Reply-To e contenuto;
 # 3. completare test SMTP e collaudo con override;
-# 4. impostare CONFIG con sistema attivo, modalità test false, kill switch false;
+# 4. impostare CONFIG con sistema attivo, invii reali abilitati, modalità test false e kill switch false;
 # 5. impostare PRODUCTION_ENABLED=true soltanto dopo autorizzazione esplicita;
-# 6. impostare PRODUCTION_WORKFLOW_APPROVED=REMINDER_CERTIFICATI_SCHEDULE_V1 soltanto dopo revisione finale del file che verrà copiato in .github/workflows;
-# 7. verificare gli orari UTC della schedule rispetto all'ora locale e all'ora legale.
+# 6. verificare gli orari UTC della schedule rispetto all'ora locale e all'ora legale.

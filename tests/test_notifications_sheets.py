@@ -44,7 +44,7 @@ def riga_notifica(
         aggiornato_il=aggiornato_il,
         message_id="<test@example.it>" if stato is StatoNotifica.SENT else None,
     )
-    return RigaNotifica.da_record(candidato, record, versione_app="0.7.0")
+    return RigaNotifica.da_record(candidato, record, versione_app="0.12.0")
 
 
 def matrice_con(*righe: RigaNotifica) -> list[list[str]]:
@@ -57,16 +57,22 @@ def matrice_con(*righe: RigaNotifica) -> list[list[str]]:
     ]
 
 
-def archivio(matrice: list[list[str]]) -> ArchivioNotificheGoogleSheets:
-    return ArchivioNotificheGoogleSheets(
-        trasporto=TrasportoNotificheMemoria(matrice),
-        spreadsheet_id="spreadsheet-test",
+def archivio(
+    matrice: list[list[str]],
+) -> tuple[ArchivioNotificheGoogleSheets, TrasportoNotificheMemoria]:
+    trasporto = TrasportoNotificheMemoria(matrice)
+    return (
+        ArchivioNotificheGoogleSheets(
+            trasporto=trasporto,
+            spreadsheet_id="spreadsheet-test",
+        ),
+        trasporto,
     )
 
 
 def test_chiave_assente_aggiunge_una_sola_riga() -> None:
     matrice = matrice_con()
-    adapter = archivio(matrice)
+    adapter, _ = archivio(matrice)
     nuova = riga_notifica()
 
     adapter.salva(nuova)
@@ -78,7 +84,7 @@ def test_chiave_assente_aggiunge_una_sola_riga() -> None:
 def test_chiave_presente_aggiorna_la_stessa_riga() -> None:
     iniziale = riga_notifica()
     matrice = matrice_con(iniziale)
-    adapter = archivio(matrice)
+    adapter, _ = archivio(matrice)
     inviata = riga_notifica(
         stato=StatoNotifica.SENT,
         aggiornato_il=ORA + timedelta(minutes=1),
@@ -90,30 +96,48 @@ def test_chiave_presente_aggiorna_la_stessa_riga() -> None:
     assert adapter.ottieni(inviata.notification_id) == inviata
 
 
+def test_un_intero_ciclo_usa_una_sola_lettura_del_registro() -> None:
+    matrice = matrice_con()
+    adapter, trasporto = archivio(matrice)
+    sending = riga_notifica()
+    sent = riga_notifica(
+        stato=StatoNotifica.SENT,
+        aggiornato_il=ORA + timedelta(seconds=1),
+    )
+
+    assert adapter.ottieni(sending.notification_id) is None
+    adapter.salva(sending)
+    assert adapter.ottieni(sending.notification_id) == sending
+    adapter.salva(sent)
+    assert adapter.ottieni(sent.notification_id) == sent
+
+    assert trasporto.letture == 1
+
+
 def test_chiave_duplicata_blocca_senza_scrivere() -> None:
     riga = riga_notifica()
     matrice = matrice_con(riga, riga)
     prima = [list(valori) for valori in matrice]
-    adapter = archivio(matrice)
+    adapter, _ = archivio(matrice)
 
     with pytest.raises(ErroreArchivioNotifiche, match="duplicato"):
         adapter.salva(riga)
-
     assert matrice == prima
 
 
 def test_intestazioni_diverse_bloccano_la_lettura() -> None:
     matrice = matrice_con()
     matrice[0][0] = "chiave_sbagliata"
+    adapter, _ = archivio(matrice)
 
     with pytest.raises(ErroreArchivioNotifiche, match="intestazioni"):
-        archivio(matrice).ottieni("A-1|2026-08-01|REMINDER_30")
+        adapter.ottieni("A-1|2026-08-01|REMINDER_30")
 
 
 def test_rifiuta_regressione_temporale() -> None:
     iniziale = riga_notifica(aggiornato_il=ORA + timedelta(minutes=1))
     matrice = matrice_con(iniziale)
-    adapter = archivio(matrice)
+    adapter, _ = archivio(matrice)
     precedente = riga_notifica(aggiornato_il=ORA)
 
     with pytest.raises(ErroreArchivioNotifiche, match="precedere"):
@@ -152,3 +176,4 @@ def test_configurazione_mancante_non_contatta_il_trasporto() -> None:
 
     with pytest.raises(ErroreArchivioNotifiche, match="spreadsheet_id"):
         adapter.ottieni("chiave")
+    assert trasporto.letture == 0

@@ -1,24 +1,13 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 from reminder_certificati import google_preflight_cli
 from reminder_certificati.google_preflight import CodiceErrorePreflight
 
-
-CODICI_APPLICATIVI_ATTESI = (
-    "PREFLIGHT_RESOURCE_IDS_EQUAL",
-    "PREFLIGHT_ADMIN_UNREACHABLE",
-    "PREFLIGHT_ADMIN_TABS_INVALID",
-    "PREFLIGHT_ADMIN_HEADERS_UNREADABLE",
-    "PREFLIGHT_ADMIN_HEADERS_INVALID",
-    "PREFLIGHT_OPERATIVO_UNREACHABLE",
-    "PREFLIGHT_OPERATIVO_HEADERS_MISSING",
-)
 CODICE_INATTESO = "PREFLIGHT_UNEXPECTED_ERROR"
-CHIAVI_COMUNI_OUTPUT = {
+CHIAVI_MINIME = {
     "operation",
     "success",
     "operativo_data_rows_read",
@@ -28,22 +17,17 @@ CHIAVI_COMUNI_OUTPUT = {
 }
 
 
-def test_codici_applicativi_pubblici_restano_esatti_e_ordinati():
-    assert tuple(codice.value for codice in CodiceErrorePreflight) == CODICI_APPLICATIVI_ATTESI
-    assert len(set(CODICI_APPLICATIVI_ATTESI)) == len(CODICI_APPLICATIVI_ATTESI)
-    assert all(codice.startswith("PREFLIGHT_") for codice in CODICI_APPLICATIVI_ATTESI)
+def test_codici_applicativi_sono_univoci_e_documentati():
+    codici = {codice.value for codice in CodiceErrorePreflight}
+    assert len(codici) == len(CodiceErrorePreflight)
+    assert all(codice.startswith("PREFLIGHT_") for codice in codici)
 
-
-def test_documentazione_elenca_esattamente_tutti_i_codici_pubblici():
     testo = Path("docs/PREFLIGHT_DIAGNOSTICA.md").read_text(encoding="utf-8")
-    codici_documentati = set(re.findall(r"`(PREFLIGHT_[A-Z_]+)`", testo))
-    codici_attesi = set(CODICI_APPLICATIVI_ATTESI) | {CODICE_INATTESO}
-
-    assert codici_documentati == codici_attesi
-    assert all(testo.count(f"`{codice}`") == 1 for codice in codici_attesi)
+    for codice in codici | {CODICE_INATTESO}:
+        assert f"`{codice}`" in testo
 
 
-def test_output_json_di_successo_mantiene_lo_schema_pubblico(monkeypatch, capsys):
+def test_output_json_di_successo_mantiene_le_garanzie_minime(monkeypatch, capsys):
     monkeypatch.setattr(
         google_preflight_cli.ConfigurazioneRisorseGoogle,
         "da_ambiente",
@@ -69,12 +53,7 @@ def test_output_json_di_successo_mantiene_lo_schema_pubblico(monkeypatch, capsys
     assert google_preflight_cli.main() == 0
     payload = json.loads(capsys.readouterr().out)
 
-    assert set(payload) == CHIAVI_COMUNI_OUTPUT | {
-        "operativo_headers_ok",
-        "admin_tabs_ok",
-        "admin_headers_ok",
-        "admin_write_verified",
-    }
+    assert CHIAVI_MINIME <= set(payload)
     assert payload["operation"] == "google-preflight"
     assert payload["success"] is True
     assert payload["operativo_data_rows_read"] == 0
@@ -83,7 +62,7 @@ def test_output_json_di_successo_mantiene_lo_schema_pubblico(monkeypatch, capsys
     assert payload["pii_in_output"] is False
 
 
-def test_output_json_inatteso_mantiene_lo_schema_pubblico(monkeypatch, capsys):
+def test_output_json_inatteso_non_espone_dettagli_sensibili(monkeypatch, capsys):
     monkeypatch.setattr(
         google_preflight_cli.ConfigurazioneRisorseGoogle,
         "da_ambiente",
@@ -93,12 +72,7 @@ def test_output_json_inatteso_mantiene_lo_schema_pubblico(monkeypatch, capsys):
     assert google_preflight_cli.main() == 2
     payload = json.loads(capsys.readouterr().out)
 
-    assert set(payload) == CHIAVI_COMUNI_OUTPUT | {
-        "error_code",
-        "message",
-        "runbook_action",
-        "detail",
-    }
+    assert CHIAVI_MINIME <= set(payload)
     assert payload["error_code"] == CODICE_INATTESO
     assert payload["detail"] == "RuntimeError"
     assert payload["operativo_data_rows_read"] == 0

@@ -120,10 +120,11 @@ class SchemaFoglioAmministrativo:
                 "nome dello Spreadsheet amministrativo non canonico"
             )
         nomi = tuple(definizione.nome for definizione in self.tab)
-        if nomi != NOMI_TAB_AMMINISTRATIVE:
+        if len(nomi) != len(NOMI_TAB_AMMINISTRATIVE) or set(nomi) != set(
+            NOMI_TAB_AMMINISTRATIVE
+        ):
             raise ErroreSchemaAmministrativo(
-                "le tab devono essere presenti una sola volta e nell'ordine: "
-                + ", ".join(NOMI_TAB_AMMINISTRATIVE)
+                "le quattro tab amministrative devono essere presenti una sola volta"
             )
 
     def ottieni_tab(self, nome: str) -> DefinizioneTab:
@@ -143,21 +144,21 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "SISTEMA_ATTIVO",
             "false",
             TipoValoreConfig.BOOLEANO,
-            "Abilita l'elaborazione; resta disattivato durante il collaudo.",
+            "Abilita l'elaborazione dopo il collaudo.",
             True,
         ),
         VoceConfig(
             "INVII_REALI_ABILITATI",
             "false",
             TipoValoreConfig.BOOLEANO,
-            "Barriera separata per l'invio SMTP reale.",
-            False,
+            "Barriera modificabile soltanto durante il go-live controllato.",
+            True,
         ),
         VoceConfig(
             "MODALITA_TEST",
             "true",
             TipoValoreConfig.BOOLEANO,
-            "Sostituisce i destinatari con l'override di test.",
+            "Sostituisce i destinatari con l'override nei soli test SMTP.",
             True,
         ),
         VoceConfig(
@@ -185,7 +186,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "DESTINATARIO_OVERRIDE",
             "",
             TipoValoreConfig.EMAIL_OPZIONALE,
-            "Indirizzo sostitutivo obbligatorio prima di una prova di invio.",
+            "Indirizzo sostitutivo richiesto soltanto per una prova SMTP.",
             True,
         ),
         VoceConfig(
@@ -194,13 +195,6 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             TipoValoreConfig.TEMPLATE,
             "Oggetto del promemoria.",
             True,
-        ),
-        VoceConfig(
-            "SALUTO_EMAIL",
-            "Ciao {{nome}},",
-            TipoValoreConfig.TEMPLATE,
-            "Apertura fissa costruita dal nome della stessa riga di Operativo.",
-            False,
         ),
         VoceConfig(
             "CORPO_EMAIL",
@@ -214,13 +208,6 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             email.firma,
             TipoValoreConfig.TEMPLATE,
             "Firma testuale; logo e firma ufficiale richiedono approvazione separata.",
-            True,
-        ),
-        VoceConfig(
-            "CONTATTO_SUPPORTO",
-            "",
-            TipoValoreConfig.EMAIL_OPZIONALE,
-            "Contatto organizzativo da definire prima della produzione.",
             True,
         ),
     )
@@ -270,16 +257,10 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
                 f"CONFIG deve inizializzare {chiave} a {valore}"
             )
 
-    if per_chiave["INVII_REALI_ABILITATI"].modificabile:
-        raise ErroreSchemaAmministrativo(
-            "INVII_REALI_ABILITATI non può essere modificabile nel foglio iniziale"
-        )
     if per_chiave["DESTINATARIO_OVERRIDE"].valore:
         raise ErroreSchemaAmministrativo(
             "DESTINATARIO_OVERRIDE deve essere vuoto nello schema iniziale"
         )
-    if per_chiave["SALUTO_EMAIL"].valore != "Ciao {{nome}},":
-        raise ErroreSchemaAmministrativo("il saluto iniziale non è conforme")
     if not per_chiave["CORPO_EMAIL"].valore.casefold().startswith(
         "ricevi questa mail"
     ):

@@ -1,9 +1,7 @@
 """Inizializzazione non distruttiva dello Spreadsheet amministrativo.
 
 Il file deve essere creato da un'identità umana e condiviso con il service
-account. Il service account non crea né possiede file: può soltanto trasformare
-un singolo foglio vuoto nelle quattro tab canoniche e inizializzarne la struttura.
-Il modulo non legge mai ``Operativo`` e non inserisce dati personali.
+account. Il service account non crea né possiede file e non legge Operativo.
 """
 
 from __future__ import annotations
@@ -12,7 +10,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from .admin_schema import SchemaFoglioAmministrativo, crea_schema_amministrativo
+from .admin_schema import (
+    SchemaFoglioAmministrativo,
+    configurazione_iniziale_sicura,
+    crea_schema_amministrativo,
+)
 
 
 class ErroreInizializzazioneFoglio(RuntimeError):
@@ -27,8 +29,7 @@ class TrasportoStrutturaSheets(Protocol):
         *,
         spreadsheet_id: str,
         nomi_tab: Sequence[str],
-    ) -> None:
-        """Trasforma l'unica tab vuota nelle tab canoniche ordinate."""
+    ) -> None: ...
 
     def leggi_valori(
         self,
@@ -60,18 +61,7 @@ class InizializzatoreFoglioAmministrativo:
     schema: SchemaFoglioAmministrativo = field(default_factory=crea_schema_amministrativo)
 
     def prepara(self, *, spreadsheet_id: str) -> EsitoInizializzazione:
-        """Configura e inizializza un file esistente senza sovrascrivere dati.
-
-        Sono accettati soltanto:
-
-        * un file con un'unica tab completamente vuota, che viene rinominata e
-          completata con le altre tre tab canoniche;
-        * un file che possiede già le quattro tab nell'ordine esatto.
-
-        Una tab vuota viene inizializzata. Una tab già usata viene verificata per
-        intestazioni, larghezza e vincoli minimi, senza richiedere che i valori
-        runtime coincidano ancora con quelli sintetici iniziali.
-        """
+        """Inizializza tab vuote e verifica senza sovrascrivere tab usate."""
 
         identificativo = spreadsheet_id.strip()
         if not identificativo:
@@ -113,34 +103,32 @@ class InizializzatoreFoglioAmministrativo:
         )
 
     def verifica(self, *, spreadsheet_id: str) -> None:
+        """Verifica presenza e sole intestazioni, senza leggere intere tab."""
+
         identificativo = spreadsheet_id.strip()
         if not identificativo:
             raise ErroreInizializzazioneFoglio("spreadsheet_id mancante")
-        self._verifica_tab_esatte(identificativo)
+        self._verifica_tab_presenti(identificativo)
         for definizione in self.schema.tab:
             attuale = self._leggi(
                 identificativo,
-                _intervallo_tab(definizione.nome),
+                _intervallo_intestazioni(definizione.nome),
             )
-            if _matrice_vuota(attuale):
+            intestazioni = _prima_riga(attuale)
+            if intestazioni != definizione.intestazioni:
                 raise ErroreInizializzazioneFoglio(
-                    f"{definizione.nome}: tab non inizializzata"
+                    f"{definizione.nome}: intestazioni diverse dallo schema canonico"
                 )
-            _verifica_matrice_esistente(
-                definizione.nome,
-                definizione.intestazioni,
-                attuale,
-            )
 
     def _prepara_tab(self, spreadsheet_id: str) -> bool:
         nomi = self._elenca_tab(spreadsheet_id)
         attesi = tuple(tab.nome for tab in self.schema.tab)
-        if nomi == attesi:
+        if _stesse_tab(nomi, attesi):
             return False
 
         if len(nomi) != 1:
             raise ErroreInizializzazioneFoglio(
-                "tab mancanti, duplicate o fuori ordine; il bootstrap automatico "
+                "tab amministrative mancanti o non conformi; il bootstrap automatico "
                 "è consentito soltanto su un file con una singola tab vuota"
             )
 
@@ -162,15 +150,15 @@ class InizializzatoreFoglioAmministrativo:
                 f"configurazione tab non riuscita: {type(exc).__name__}"
             ) from exc
 
-        self._verifica_tab_esatte(spreadsheet_id)
+        self._verifica_tab_presenti(spreadsheet_id)
         return True
 
-    def _verifica_tab_esatte(self, spreadsheet_id: str) -> None:
+    def _verifica_tab_presenti(self, spreadsheet_id: str) -> None:
         nomi = self._elenca_tab(spreadsheet_id)
         attesi = tuple(tab.nome for tab in self.schema.tab)
-        if nomi != attesi:
+        if not _stesse_tab(nomi, attesi):
             raise ErroreInizializzazioneFoglio(
-                "tab mancanti, duplicate o fuori ordine; attese: "
+                "tab amministrative mancanti o duplicate; attese: "
                 + ", ".join(attesi)
             )
 
@@ -220,6 +208,20 @@ class InizializzatoreFoglioAmministrativo:
             ) from exc
 
 
+def _stesse_tab(attuali: Sequence[str], attese: Sequence[str]) -> bool:
+    return len(attuali) == len(attese) and set(attuali) == set(attese)
+
+
+def _prima_riga(matrice: Sequence[Sequence[Any]]) -> tuple[str, ...]:
+    if not matrice:
+        return ()
+    valori = tuple("" if cella is None else str(cella).strip() for cella in matrice[0])
+    fine = len(valori)
+    while fine and not valori[fine - 1]:
+        fine -= 1
+    return valori[:fine]
+
+
 def _verifica_matrice_esistente(
     nome_tab: str,
     intestazioni_attese: Sequence[str],
@@ -251,21 +253,9 @@ def _verifica_matrice_esistente(
                     f"{nome_tab}: chiave duplicata: {chiave}"
                 )
             chiavi.add(chiave)
+
     if nome_tab == "CONFIG":
-        richieste = {
-            "SISTEMA_ATTIVO",
-            "INVII_REALI_ABILITATI",
-            "MODALITA_TEST",
-            "KILL_SWITCH",
-            "GIORNI_PREAVVISO",
-            "LIMITE_INVII_PER_ESECUZIONE",
-            "DESTINATARIO_OVERRIDE",
-            "OGGETTO_EMAIL",
-            "SALUTO_EMAIL",
-            "CORPO_EMAIL",
-            "FIRMA_TESTO",
-            "CONTATTO_SUPPORTO",
-        }
+        richieste = {voce.chiave for voce in configurazione_iniziale_sicura()}
         mancanti = richieste - chiavi
         if mancanti:
             raise ErroreInizializzazioneFoglio(
@@ -283,6 +273,11 @@ def _verifica_matrice_esistente(
 def _intervallo_tab(nome: str) -> str:
     escaped = nome.replace("'", "''")
     return f"'{escaped}'!A1:ZZ"
+
+
+def _intervallo_intestazioni(nome: str) -> str:
+    escaped = nome.replace("'", "''")
+    return f"'{escaped}'!A1:ZZ1"
 
 
 def _normalizza_matrice(
@@ -317,6 +312,7 @@ class TrasportoStrutturaMemoria:
     titoli: dict[str, str] = field(default_factory=dict)
     ordine_tab: dict[str, list[str]] = field(default_factory=dict)
     prossimo_id: int = 1
+    letture: list[str] = field(default_factory=list)
 
     def crea_spreadsheet_vuoto(
         self,
@@ -358,8 +354,12 @@ class TrasportoStrutturaMemoria:
         spreadsheet_id: str,
         intervallo_a1: str,
     ) -> Sequence[Sequence[Any]]:
+        self.letture.append(intervallo_a1)
         nome = _nome_tab_da_intervallo(intervallo_a1)
-        return [list(riga) for riga in self.spreadsheet[spreadsheet_id][nome]]
+        righe = [list(riga) for riga in self.spreadsheet[spreadsheet_id][nome]]
+        if intervallo_a1.endswith("1:ZZ1"):
+            return righe[:1]
+        return righe
 
     def scrivi_valori(
         self,

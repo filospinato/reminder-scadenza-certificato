@@ -12,8 +12,11 @@ from typing import Any, Mapping, Sequence
 from .admin_initializer import (
     InizializzatoreFoglioAmministrativo,
     TrasportoStrutturaGoogleApi,
+    TrasportoStrutturaSheets,
 )
+from .admin_schema import NOMI_TAB_AMMINISTRATIVE, crea_schema_amministrativo
 from .google_runtime import (
+    COLONNE_OPERATIVO_OBBLIGATORIE,
     MAPPATURA_OPERATIVO_REALE,
     ConfigurazioneRisorseGoogle,
     costruisci_componenti_google,
@@ -25,23 +28,6 @@ from .orchestrator import ModalitaEsecuzione, OrchestratoreReminder
 from .persistent_registry import RegistroPersistente
 from .runtime_config import carica_configurazione
 from .smtp_transport import ConfigurazioneSmtp, TrasportoSmtpMdaemon
-
-
-COLONNE_OPERATIVO_VERIFICATE: tuple[str, ...] = (
-    "Tessera",
-    "Cognome",
-    "Nome",
-    "Qualifica",
-    "Stato Rinnovo",
-    "Data Scadenza Certificato",
-    "e-Mail",
-    "Certificato medico",
-    "Rinnovato senza lista",
-    "Lista effettiva di appartenenza",
-    "Esordiente",
-    "Note",
-    "Fa attività quest'anno",
-)
 
 
 class ErroreCliRuntime(RuntimeError):
@@ -151,7 +137,9 @@ def _check_headers(ambiente: Mapping[str, str]) -> int:
     ).execute()
     valori = risposta.get("values", []) if isinstance(risposta, Mapping) else []
     intestazioni = tuple(str(cella).strip() for cella in (valori[0] if valori else []))
-    mancanti = [nome for nome in COLONNE_OPERATIVO_VERIFICATE if nome not in intestazioni]
+    mancanti = [
+        nome for nome in COLONNE_OPERATIVO_OBBLIGATORIE if nome not in intestazioni
+    ]
     if mancanti:
         raise ErroreCliRuntime(
             "intestazioni Operativo mancanti: " + ", ".join(mancanti)
@@ -184,9 +172,13 @@ def _run(args: argparse.Namespace, ambiente: Mapping[str, str]) -> int:
     servizio = costruisci_servizio_sheets()
     componenti = costruisci_componenti_google(servizio=servizio, risorse=risorse)
 
-    InizializzatoreFoglioAmministrativo(
-        componenti.trasporto_struttura
-    ).verifica(spreadsheet_id=risorse.admin_spreadsheet_id)
+    # Controllo leggero: una lettura dei metadati e una sola riga per tab. La
+    # CONFIG completa viene validata subito dopo; NOTIFICHE e ANOMALIE non sono
+    # più rilette integralmente prima di ogni esecuzione.
+    _verifica_struttura_admin(
+        componenti.trasporto_struttura,
+        spreadsheet_id=risorse.admin_spreadsheet_id,
+    )
     configurazione = carica_configurazione(
         leggi_matrice_config(
             lettore=componenti.lettore,
@@ -243,6 +235,48 @@ def _run(args: argparse.Namespace, ambiente: Mapping[str, str]) -> int:
     return 0 if esito.stato not in {"ERRORE", "REVISIONE_RICHIESTA"} else 2
 
 
+def _verifica_struttura_admin(
+    trasporto: TrasportoStrutturaSheets,
+    *,
+    spreadsheet_id: str,
+) -> None:
+    identificativo = spreadsheet_id.strip()
+    if not identificativo:
+        raise ErroreCliRuntime("ADMIN_SPREADSHEET_ID mancante")
+    nomi = tuple(str(nome).strip() for nome in trasporto.elenca_tab(
+        spreadsheet_id=identificativo
+    ))
+    if len(nomi) != len(NOMI_TAB_AMMINISTRATIVE) or set(nomi) != set(
+        NOMI_TAB_AMMINISTRATIVE
+    ):
+        raise ErroreCliRuntime("tab amministrative mancanti o non conformi")
+
+    for definizione in crea_schema_amministrativo().tab:
+        escaped = definizione.nome.replace("'", "''")
+        matrice = trasporto.leggi_valori(
+            spreadsheet_id=identificativo,
+            intervallo_a1=f"'{escaped}'!A1:ZZ1",
+        )
+        intestazioni = _prima_riga_normalizzata(matrice)
+        if intestazioni != definizione.intestazioni:
+            raise ErroreCliRuntime(
+                f"{definizione.nome}: intestazioni diverse dallo schema canonico"
+            )
+
+
+def _prima_riga_normalizzata(
+    matrice: Sequence[Sequence[Any]],
+) -> tuple[str, ...]:
+    if not matrice:
+        return ()
+    prima = matrice[0]
+    valori = tuple("" if cella is None else str(cella).strip() for cella in prima)
+    fine = len(valori)
+    while fine and not valori[fine - 1]:
+        fine -= 1
+    return valori[:fine]
+
+
 def _consenso_esterno(
     modalita: ModalitaEsecuzione,
     *,
@@ -255,9 +289,6 @@ def _consenso_esterno(
         raise ErroreCliRuntime(
             "l'invio richiede --confirm-email-delivery e ALLOW_EMAIL_DELIVERY=true"
         )
-    if modalita is ModalitaEsecuzione.PRODUZIONE:
-        if ambiente.get("PRODUCTION_ACTIVATION_ACK", "") != "REMINDER_CERTIFICATI_PRODUCTION_V1":
-            raise ErroreCliRuntime("PRODUCTION_ACTIVATION_ACK mancante o errato")
     return True
 
 

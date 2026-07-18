@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 
 from .admin_schema import COLONNE_ANOMALIE, COLONNE_DASHBOARD
 
@@ -130,13 +131,11 @@ class AnomaliaRuntime:
 
 
 class ArchivioDashboard(Protocol):
-    def aggiorna(self, metriche: MetricheEsecuzione) -> None:
-        """Sostituisce la fotografia aggregata della dashboard."""
+    def aggiorna(self, metriche: MetricheEsecuzione) -> None: ...
 
 
 class ArchivioAnomalie(Protocol):
-    def registra(self, anomalia: AnomaliaRuntime) -> None:
-        """Registra una nuova anomalia."""
+    def registra(self, anomalia: AnomaliaRuntime) -> None: ...
 
 
 @dataclass(slots=True)
@@ -162,14 +161,20 @@ class AnomalieMemoria:
 
 
 class TrasportoMonitoraggioSheets(Protocol):
+    def leggi_valori(
+        self,
+        *,
+        spreadsheet_id: str,
+        intervallo_a1: str,
+    ) -> Sequence[Sequence[Any]]: ...
+
     def sostituisci_valori(
         self,
         *,
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Sequence[Any]],
-    ) -> None:
-        """Scrive la fotografia completa con valueInputOption RAW."""
+    ) -> None: ...
 
     def aggiungi_riga(
         self,
@@ -177,8 +182,7 @@ class TrasportoMonitoraggioSheets(Protocol):
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> None:
-        """Accoda una riga con valueInputOption RAW."""
+    ) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,16 +208,49 @@ class DashboardGoogleSheets:
             ) from exc
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class AnomalieGoogleSheets:
+    """Accoda soltanto anomalie che non risultano già aperte."""
+
     trasporto: TrasportoMonitoraggioSheets
     spreadsheet_id: str
     nome_scheda: str = "ANOMALIE"
+    _aperte: set[str] | None = field(default=None, init=False, repr=False)
+
+    def _carica_aperte(self) -> set[str]:
+        if self._aperte is not None:
+            return self._aperte
+        identificativo = self.spreadsheet_id.strip()
+        if not identificativo:
+            raise ErroreMonitoraggio("ANOMALIE: spreadsheet_id mancante")
+        try:
+            righe = self.trasporto.leggi_valori(
+                spreadsheet_id=identificativo,
+                intervallo_a1=f"'{_escape(self.nome_scheda)}'!A2:J",
+            )
+        except Exception as exc:
+            raise ErroreMonitoraggio(
+                f"ANOMALIE: lettura non riuscita: {type(exc).__name__}"
+            ) from exc
+
+        aperte: set[str] = set()
+        for riga in righe:
+            if isinstance(riga, (str, bytes)) or not isinstance(riga, Sequence):
+                continue
+            anomalia_id = str(riga[0]).strip() if riga else ""
+            risolta_il = str(riga[9]).strip() if len(riga) > 9 else ""
+            if anomalia_id and not risolta_il:
+                aperte.add(anomalia_id)
+        self._aperte = aperte
+        return aperte
 
     def registra(self, anomalia: AnomaliaRuntime) -> None:
         identificativo = self.spreadsheet_id.strip()
         if not identificativo:
             raise ErroreMonitoraggio("ANOMALIE: spreadsheet_id mancante")
+        aperte = self._carica_aperte()
+        if anomalia.anomalia_id in aperte:
+            return
         try:
             self.trasporto.aggiungi_riga(
                 spreadsheet_id=identificativo,
@@ -224,11 +261,30 @@ class AnomalieGoogleSheets:
             raise ErroreMonitoraggio(
                 f"ANOMALIE: scrittura non riuscita: {type(exc).__name__}"
             ) from exc
+        aperte.add(anomalia.anomalia_id)
 
 
 @dataclass(frozen=True, slots=True)
 class TrasportoMonitoraggioGoogleApi:
     servizio: Any
+
+    def leggi_valori(
+        self,
+        *,
+        spreadsheet_id: str,
+        intervallo_a1: str,
+    ) -> Sequence[Sequence[Any]]:
+        risposta = self.servizio.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=intervallo_a1,
+            majorDimension="ROWS",
+        ).execute()
+        if not isinstance(risposta, Mapping):
+            raise ErroreMonitoraggio("Google Sheets: risposta di lettura non valida")
+        valori = risposta.get("values", [])
+        if not isinstance(valori, Sequence) or isinstance(valori, (str, bytes)):
+            raise ErroreMonitoraggio("Google Sheets: campo values non valido")
+        return valori
 
     def sostituisci_valori(
         self,
@@ -237,8 +293,6 @@ class TrasportoMonitoraggioGoogleApi:
         intervallo_a1: str,
         valori: Sequence[Sequence[Any]],
     ) -> None:
-        # Il numero delle metriche è stabile. Un singolo update evita che un
-        # errore tra clear e update lasci la dashboard completamente vuota.
         self.servizio.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
             range=intervallo_a1,

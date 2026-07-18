@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from reminder_certificati.monitoring import (
     AnomaliaRuntime,
+    AnomalieGoogleSheets,
     AnomalieMemoria,
     DashboardMemoria,
     MetricheEsecuzione,
@@ -9,6 +10,19 @@ from reminder_certificati.monitoring import (
     TrasportoMonitoraggioGoogleApi,
     sanitizza_messaggio,
 )
+
+
+def _anomalia() -> AnomaliaRuntime:
+    return AnomaliaRuntime.crea(
+        severita=SeveritaAnomalia.WARNING,
+        origine="OPERATIVO",
+        codice="EMAIL_NON_VALIDA",
+        messaggio="anomalia dati nel campo email",
+        versione_app="0.12.0",
+        riga_sorgente=7,
+        campo="e-Mail",
+        rilevata_il=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
+    )
 
 
 def test_sanitizza_email_token_notification_id_e_riduce_righe() -> None:
@@ -25,27 +39,8 @@ def test_sanitizza_email_token_notification_id_e_riduce_righe() -> None:
 
 
 def test_anomalia_id_e_stabile_e_i_duplicati_aperti_non_si_accodano() -> None:
-    ora = datetime(2026, 7, 17, 10, tzinfo=timezone.utc)
-    prima = AnomaliaRuntime.crea(
-        severita=SeveritaAnomalia.WARNING,
-        origine="OPERATIVO",
-        codice="EMAIL_NON_VALIDA",
-        messaggio="anomalia dati nel campo email",
-        versione_app="0.11.1",
-        riga_sorgente=7,
-        campo="e-Mail",
-        rilevata_il=ora,
-    )
-    seconda = AnomaliaRuntime.crea(
-        severita=SeveritaAnomalia.WARNING,
-        origine="OPERATIVO",
-        codice="EMAIL_NON_VALIDA",
-        messaggio="anomalia dati nel campo email",
-        versione_app="0.11.1",
-        riga_sorgente=7,
-        campo="e-Mail",
-        rilevata_il=ora,
-    )
+    prima = _anomalia()
+    seconda = _anomalia()
     archivio = AnomalieMemoria()
     archivio.registra(prima)
     archivio.registra(seconda)
@@ -66,7 +61,7 @@ def test_dashboard_espone_solo_conteggi_e_stato() -> None:
         candidati=2,
         anomalie=1,
         kill_switch=False,
-        versione_app="0.11.1",
+        versione_app="0.12.0",
     )
     dashboard = DashboardMemoria()
     dashboard.aggiorna(metriche)
@@ -78,9 +73,60 @@ def test_dashboard_espone_solo_conteggi_e_stato() -> None:
     assert "email" not in valori
 
 
+class _TrasportoAnomalie:
+    def __init__(self, righe=()) -> None:
+        self.righe = [list(riga) for riga in righe]
+        self.letture = 0
+        self.append = 0
+
+    def leggi_valori(self, **kwargs):
+        self.letture += 1
+        return [list(riga) for riga in self.righe]
+
+    def aggiungi_riga(self, *, valori, **kwargs):
+        self.append += 1
+        self.righe.append(list(valori))
+
+    def sostituisci_valori(self, **kwargs):
+        raise AssertionError("non usato in questo test")
+
+
+def test_anomalie_google_non_riaccoda_un_id_gia_aperto() -> None:
+    anomalia = _anomalia()
+    trasporto = _TrasportoAnomalie([anomalia.come_riga()])
+    archivio = AnomalieGoogleSheets(
+        trasporto=trasporto,
+        spreadsheet_id="synthetic-sheet",
+    )
+
+    archivio.registra(anomalia)
+    archivio.registra(anomalia)
+
+    assert trasporto.letture == 1
+    assert trasporto.append == 0
+
+
+def test_anomalie_google_accoda_una_sola_volta_un_nuovo_id() -> None:
+    anomalia = _anomalia()
+    trasporto = _TrasportoAnomalie()
+    archivio = AnomalieGoogleSheets(
+        trasporto=trasporto,
+        spreadsheet_id="synthetic-sheet",
+    )
+
+    archivio.registra(anomalia)
+    archivio.registra(anomalia)
+
+    assert trasporto.letture == 1
+    assert trasporto.append == 1
+
+
 class _Richiesta:
+    def __init__(self, payload=None):
+        self.payload = {} if payload is None else payload
+
     def execute(self):
-        return {}
+        return self.payload
 
 
 class _ValoriApi:
@@ -90,8 +136,14 @@ class _ValoriApi:
     def clear(self, **kwargs):
         raise AssertionError("la dashboard non deve essere svuotata prima dell'update")
 
+    def get(self, **kwargs):
+        return _Richiesta({"values": []})
+
     def update(self, **kwargs):
         self.update_calls.append(kwargs)
+        return _Richiesta()
+
+    def append(self, **kwargs):
         return _Richiesta()
 
 

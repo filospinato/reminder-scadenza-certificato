@@ -12,23 +12,9 @@ from enum import StrEnum
 from typing import Any, Mapping, Protocol, Sequence
 
 from .admin_schema import NOMI_TAB_AMMINISTRATIVE, crea_schema_amministrativo
-from .google_runtime import ConfigurazioneRisorseGoogle
-
-
-COLONNE_OPERATIVO_VERIFICATE: tuple[str, ...] = (
-    "Tessera",
-    "Cognome",
-    "Nome",
-    "Qualifica",
-    "Stato Rinnovo",
-    "Data Scadenza Certificato",
-    "e-Mail",
-    "Certificato medico",
-    "Rinnovato senza lista",
-    "Lista effettiva di appartenenza",
-    "Esordiente",
-    "Note",
-    "Fa attività quest'anno",
+from .google_runtime import (
+    COLONNE_OPERATIVO_OBBLIGATORIE,
+    ConfigurazioneRisorseGoogle,
 )
 
 
@@ -110,11 +96,13 @@ class PreflightGoogle:
                 )
             ) from exc
 
-        if tab_admin != NOMI_TAB_AMMINISTRATIVE:
+        if len(tab_admin) != len(NOMI_TAB_AMMINISTRATIVE) or set(tab_admin) != set(
+            NOMI_TAB_AMMINISTRATIVE
+        ):
             raise ErrorePreflightGoogle(
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.ADMIN_TAB_NON_CONFORMI,
-                    "Le tab amministrative sono mancanti, duplicate o fuori ordine.",
+                    "Le tab amministrative sono mancanti o non conformi.",
                     "Eseguire o verificare init-admin sul solo Spreadsheet amministrativo.",
                 )
             )
@@ -165,14 +153,14 @@ class PreflightGoogle:
 
         mancanti = [
             nome
-            for nome in COLONNE_OPERATIVO_VERIFICATE
+            for nome in COLONNE_OPERATIVO_OBBLIGATORIE
             if nome not in intestazioni_operativo
         ]
         if mancanti:
             raise ErrorePreflightGoogle(
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.OPERATIVO_INTESTAZIONI_MANCANTI,
-                    "Operativo non contiene tutte le intestazioni obbligatorie.",
+                    "Operativo non contiene tutte le intestazioni usate dal reminder.",
                     "Verificare la sola riga 2 e aggiornare la mappatura soltanto dopo controllo umano.",
                 )
             )
