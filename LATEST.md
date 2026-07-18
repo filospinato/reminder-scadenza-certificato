@@ -1,9 +1,9 @@
 # Stato corrente
 
-**Versione:** 0.11.4  
+**Versione:** 0.11.5  
 **Data:** 18 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; risorse e collaudi esterni ancora mancanti  
-**Baseline di partenza:** `8fbba881b08fbba53b5d7d5fff74d8eb3870918e`
+**Baseline di partenza:** `29aa14504f652c0547a893f5799763641c4d65ed`
 
 ## Funziona già
 
@@ -17,6 +17,7 @@
 - limite applicato dopo la deduplicazione;
 - comando protetto per collaudare append, rilettura e update della tab `NOTIFICHE` con una sola riga sintetica;
 - preflight Google in sola lettura che verifica file distinti, ordine delle tab e sole righe delle intestazioni;
+- codici diagnostici stabili del preflight, con messaggio pubblico, azione di runbook e JSON aggregato anche in errore;
 - test SMTP limitato a un messaggio e audit dell'override effettivo;
 - dashboard aggregata aggiornata con una singola scrittura, senza clear preventivo;
 - anomalie e errori CLI con rimozione di email, token e chiavi di notifica;
@@ -34,6 +35,7 @@
 - nessun accesso Google finché l'environment non abilita esplicitamente la pre-produzione;
 - il preflight legge soltanto metadati e intestazioni, non legge righe operative, non scrive e non usa SMTP;
 - il preflight rifiuta configurazioni nelle quali `Operativo` e amministrazione indicano lo stesso Spreadsheet;
+- gli errori del preflight usano codici stabili e non riportano ID, email, celle, token o payload Google;
 - il collaudo del registro richiede `--confirm-synthetic-write` e `ALLOW_SYNTHETIC_REGISTRY_WRITE=true`;
 - il collaudo usa soltanto dati `.invalid`, non legge `Operativo` e non abilita email;
 - nessun invio fuori dal dry-run senza conferma CLI e `ALLOW_EMAIL_DELIVERY=true`;
@@ -57,6 +59,7 @@
 
 - inizializzazione reale del file amministrativo vuoto;
 - preflight Google reale con zero righe operative lette e zero scritture;
+- verifica pratica dei codici diagnostici e delle azioni del runbook su errori controllati;
 - esecuzione controllata del comando sintetico sulla tab `NOTIFICHE` reale;
 - dry-run aggregato su `Operativo`;
 - test SMTP esclusivamente all'override;

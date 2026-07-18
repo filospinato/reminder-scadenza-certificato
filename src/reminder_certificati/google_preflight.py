@@ -2,11 +2,13 @@
 
 Il modulo verifica soltanto identificatori, metadati delle tab e righe di
 intestazione. Non legge righe operative, non scrive celle e non usa SMTP.
+Gli errori pubblici usano codici stabili e indicazioni operative prive di PII.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, Mapping, Protocol, Sequence
 
 from .admin_schema import NOMI_TAB_AMMINISTRATIVE, crea_schema_amministrativo
@@ -30,8 +32,29 @@ COLONNE_OPERATIVO_VERIFICATE: tuple[str, ...] = (
 )
 
 
+class CodiceErrorePreflight(StrEnum):
+    RISORSE_COINCIDENTI = "PREFLIGHT_RESOURCE_IDS_EQUAL"
+    ADMIN_NON_RAGGIUNGIBILE = "PREFLIGHT_ADMIN_UNREACHABLE"
+    ADMIN_TAB_NON_CONFORMI = "PREFLIGHT_ADMIN_TABS_INVALID"
+    ADMIN_INTESTAZIONI_NON_LEGGIBILI = "PREFLIGHT_ADMIN_HEADERS_UNREADABLE"
+    ADMIN_INTESTAZIONI_NON_CONFORMI = "PREFLIGHT_ADMIN_HEADERS_INVALID"
+    OPERATIVO_NON_RAGGIUNGIBILE = "PREFLIGHT_OPERATIVO_UNREACHABLE"
+    OPERATIVO_INTESTAZIONI_MANCANTI = "PREFLIGHT_OPERATIVO_HEADERS_MISSING"
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticaPreflight:
+    codice: CodiceErrorePreflight
+    messaggio: str
+    azione_runbook: str
+
+
 class ErrorePreflightGoogle(RuntimeError):
-    """Risorse Google mancanti, ambigue o strutturalmente incompatibili."""
+    """Errore pubblico, stabile e privo di payload Google o identificatori."""
+
+    def __init__(self, diagnostica: DiagnosticaPreflight) -> None:
+        super().__init__(diagnostica.messaggio)
+        self.diagnostica = diagnostica
 
 
 class TrasportoPreflightGoogle(Protocol):
@@ -64,41 +87,82 @@ class PreflightGoogle:
     def esegui(self, *, risorse: ConfigurazioneRisorseGoogle) -> EsitoPreflightGoogle:
         if risorse.operativo_spreadsheet_id == risorse.admin_spreadsheet_id:
             raise ErrorePreflightGoogle(
-                "OPERATIVO_SPREADSHEET_ID e ADMIN_SPREADSHEET_ID devono indicare file distinti"
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.RISORSE_COINCIDENTI,
+                    "Operativo e amministrazione devono indicare file distinti.",
+                    "Correggere le Variables pubbliche dei due Spreadsheet e ripetere il preflight.",
+                )
             )
 
-        tab_admin = tuple(
-            str(nome).strip()
-            for nome in self.trasporto.elenca_tab(
-                spreadsheet_id=risorse.admin_spreadsheet_id
+        try:
+            tab_admin = tuple(
+                str(nome).strip()
+                for nome in self.trasporto.elenca_tab(
+                    spreadsheet_id=risorse.admin_spreadsheet_id
+                )
             )
-        )
+        except Exception as exc:
+            raise ErrorePreflightGoogle(
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.ADMIN_NON_RAGGIUNGIBILE,
+                    "Lo Spreadsheet amministrativo non è raggiungibile in lettura.",
+                    "Verificare condivisione, ID pubblico e identità WIF del service account.",
+                )
+            ) from exc
+
         if tab_admin != NOMI_TAB_AMMINISTRATIVE:
             raise ErrorePreflightGoogle(
-                "Spreadsheet amministrativo: tab mancanti, duplicate o fuori ordine"
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.ADMIN_TAB_NON_CONFORMI,
+                    "Le tab amministrative sono mancanti, duplicate o fuori ordine.",
+                    "Eseguire o verificare init-admin sul solo Spreadsheet amministrativo.",
+                )
             )
 
         schema = crea_schema_amministrativo()
         for definizione in schema.tab:
-            attuali = _normalizza_intestazioni(
-                self.trasporto.leggi_intestazioni(
-                    spreadsheet_id=risorse.admin_spreadsheet_id,
-                    nome_tab=definizione.nome,
-                    riga=1,
+            try:
+                attuali = _normalizza_intestazioni(
+                    self.trasporto.leggi_intestazioni(
+                        spreadsheet_id=risorse.admin_spreadsheet_id,
+                        nome_tab=definizione.nome,
+                        riga=1,
+                    )
                 )
-            )
+            except Exception as exc:
+                raise ErrorePreflightGoogle(
+                    DiagnosticaPreflight(
+                        CodiceErrorePreflight.ADMIN_INTESTAZIONI_NON_LEGGIBILI,
+                        "Le intestazioni amministrative non sono leggibili.",
+                        "Verificare permessi e integrità delle quattro tab amministrative.",
+                    )
+                ) from exc
             if attuali != definizione.intestazioni:
                 raise ErrorePreflightGoogle(
-                    f"Spreadsheet amministrativo: intestazioni non conformi nella tab {definizione.nome}"
+                    DiagnosticaPreflight(
+                        CodiceErrorePreflight.ADMIN_INTESTAZIONI_NON_CONFORMI,
+                        "Le intestazioni amministrative non rispettano lo schema previsto.",
+                        "Confrontare la riga 1 delle tab con docs/SCHEMA_FOGLI.md senza modificare Operativo.",
+                    )
                 )
 
-        intestazioni_operativo = _normalizza_intestazioni(
-            self.trasporto.leggi_intestazioni(
-                spreadsheet_id=risorse.operativo_spreadsheet_id,
-                nome_tab=risorse.operativo_sheet_name,
-                riga=risorse.operativo_header_row,
+        try:
+            intestazioni_operativo = _normalizza_intestazioni(
+                self.trasporto.leggi_intestazioni(
+                    spreadsheet_id=risorse.operativo_spreadsheet_id,
+                    nome_tab=risorse.operativo_sheet_name,
+                    riga=risorse.operativo_header_row,
+                )
             )
-        )
+        except Exception as exc:
+            raise ErrorePreflightGoogle(
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.OPERATIVO_NON_RAGGIUNGIBILE,
+                    "La riga delle intestazioni di Operativo non è raggiungibile in lettura.",
+                    "Verificare condivisione in sola lettura, nome tab e riga intestazioni.",
+                )
+            ) from exc
+
         mancanti = [
             nome
             for nome in COLONNE_OPERATIVO_VERIFICATE
@@ -106,7 +170,11 @@ class PreflightGoogle:
         ]
         if mancanti:
             raise ErrorePreflightGoogle(
-                "Operativo: intestazioni obbligatorie mancanti: " + ", ".join(mancanti)
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.OPERATIVO_INTESTAZIONI_MANCANTI,
+                    "Operativo non contiene tutte le intestazioni obbligatorie.",
+                    "Verificare la sola riga 2 e aggiornare la mappatura soltanto dopo controllo umano.",
+                )
             )
 
         return EsitoPreflightGoogle(
