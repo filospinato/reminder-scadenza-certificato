@@ -33,8 +33,23 @@
 - test SMTP limitato a una sola email all'override;
 - dashboard aggiornata senza `clear` preventivo;
 - workflow senza data fissa e senza gate basato prematuramente su variabili Environment;
+- preflight e collaudo sintetico esposti come operazioni manuali distinte;
+- doppio consenso richiesto per la scrittura sintetica del registro;
+- preflight privo di flag di scrittura, consenso email e segreti SMTP;
 - segreti SMTP limitati allo step di invio;
 - assenza di copie nella Posta inviata.
+
+## Contratto del workflow manuale
+
+`tests/test_manual_preproduction_workflow_contract.py` rende non regressiva la separazione delle operazioni nel workflow `.github/workflows/manual-preproduction.yml`. Il test deve dimostrare che:
+
+1. `google-preflight` e `registry-check` sono operazioni selezionabili e distinte;
+2. il preflight richiama soltanto `reminder-certificati-google-preflight`, senza consensi di scrittura o email e senza segreti SMTP;
+3. il collaudo del registro richiede sia la conferma nell'input del workflow sia `ALLOW_SYNTHETIC_REGISTRY_WRITE=true` nello step dedicato;
+4. i segreti SMTP e `ALLOW_EMAIL_DELIVERY=true` compaiono esclusivamente nello step `test-smtp`;
+5. il gate dell'Environment e il gruppo `concurrency` condiviso restano presenti.
+
+Le modifiche future al workflow devono mantenere separate le operazioni di sola lettura, scrittura sintetica e invio SMTP. Un nuovo consenso non può essere riutilizzato implicitamente per un'operazione diversa.
 
 ## Contratto della diagnostica preflight
 
