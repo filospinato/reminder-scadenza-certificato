@@ -15,7 +15,7 @@ from reminder_certificati.admin_schema import (
 from reminder_certificati.admin_store import COLONNE_NOTIFICHE
 
 
-def test_schema_canonico_contiene_le_quattro_tab_nell_ordine() -> None:
+def test_schema_canonico_crea_le_quattro_tab() -> None:
     schema = crea_schema_amministrativo()
 
     assert schema.nome_spreadsheet == NOME_SPREADSHEET_AMMINISTRATIVO
@@ -31,7 +31,7 @@ def test_config_iniziale_resta_disattivata_e_in_modalita_test() -> None:
 
     assert voci["SISTEMA_ATTIVO"].valore == "false"
     assert voci["INVII_REALI_ABILITATI"].valore == "false"
-    assert voci["INVII_REALI_ABILITATI"].modificabile is False
+    assert voci["INVII_REALI_ABILITATI"].modificabile is True
     assert voci["MODALITA_TEST"].valore == "true"
     assert voci["KILL_SWITCH"].valore == "true"
     assert voci["DESTINATARIO_OVERRIDE"].valore == ""
@@ -39,11 +39,11 @@ def test_config_iniziale_resta_disattivata_e_in_modalita_test() -> None:
     assert voci["LIMITE_INVII_PER_ESECUZIONE"].valore == "10"
 
 
-def test_template_iniziale_preserva_apertura_obbligatoria() -> None:
+def test_config_contiene_solo_campi_usati_dal_runtime() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
-    assert voci["SALUTO_EMAIL"].valore == "Ciao {{nome}},"
-    assert voci["SALUTO_EMAIL"].modificabile is False
+    assert "SALUTO_EMAIL" not in voci
+    assert "CONTATTO_SUPPORTO" not in voci
     assert voci["CORPO_EMAIL"].valore.startswith("ricevi questa mail")
 
 
@@ -85,12 +85,25 @@ def test_rifiuta_intestazioni_duplicate() -> None:
         DefinizioneTab("CONFIG", ("chiave", "chiave"))
 
 
-def test_rifiuta_tab_mancanti_o_fuori_ordine() -> None:
-    with pytest.raises(ErroreSchemaAmministrativo, match="nell'ordine"):
+def test_accetta_le_tab_in_un_ordine_diverso() -> None:
+    schema = SchemaFoglioAmministrativo(
+        nome_spreadsheet=NOME_SPREADSHEET_AMMINISTRATIVO,
+        tab=(
+            DefinizioneTab("NOTIFICHE", COLONNE_NOTIFICHE),
+            DefinizioneTab("CONFIG", COLONNE_CONFIG),
+            DefinizioneTab("DASHBOARD", COLONNE_DASHBOARD),
+            DefinizioneTab("ANOMALIE", COLONNE_ANOMALIE),
+        ),
+    )
+
+    assert schema.ottieni_tab("CONFIG").nome == "CONFIG"
+
+
+def test_rifiuta_tab_mancanti() -> None:
+    with pytest.raises(ErroreSchemaAmministrativo, match="quattro tab"):
         SchemaFoglioAmministrativo(
             nome_spreadsheet=NOME_SPREADSHEET_AMMINISTRATIVO,
             tab=(
-                DefinizioneTab("NOTIFICHE", COLONNE_NOTIFICHE),
                 DefinizioneTab("CONFIG", COLONNE_CONFIG),
                 DefinizioneTab("DASHBOARD", COLONNE_DASHBOARD),
                 DefinizioneTab("ANOMALIE", COLONNE_ANOMALIE),
