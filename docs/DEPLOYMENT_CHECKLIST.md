@@ -3,10 +3,10 @@
 ## A. Software
 
 - [ ] CI verde sulla PR e su `main`;
-- [ ] dipendenze Google installabili e verificate con l'extra `google`;
+- [ ] dipendenze Google installabili con l'extra `google`;
 - [ ] workflow manuale pre-produzione verificato;
-- [ ] gate Environment, data opzionale e lock condiviso verificati;
-- [ ] modello produzione revisionato ma non ancora attivato;
+- [ ] Environment, data opzionale e lock condiviso verificati;
+- [ ] modello produzione revisionato ma non attivato;
 - [ ] nessun segreto o PII nel repository;
 - [ ] issue #1 e documentazione allineate.
 
@@ -16,7 +16,7 @@
 - [ ] Sheets API abilitata;
 - [ ] service account dedicato senza chiavi;
 - [ ] pool e provider WIF creati;
-- [ ] trust limitata a repository, proprietario, `main` e workflow/environment;
+- [ ] trust limitata a repository, proprietario, `main` e workflow/Environment;
 - [ ] binding `roles/iam.workloadIdentityUser` limitato;
 - [ ] seconda identità umana CIA configurata;
 - [ ] procedura di revoca provata.
@@ -27,44 +27,52 @@
 - [ ] proprietà e recupero umano verificati;
 - [ ] file condiviso direttamente con il service account come editor;
 - [ ] bootstrap dalla singola tab vuota riuscito;
-- [ ] quattro tab verificate e inizializzatore idempotente;
+- [ ] quattro tab presenti; un eventuale riordino visuale non causa errore;
 - [ ] service account lettore di `Operativo`;
-- [ ] preflight Google riuscito con file distinti, tab e intestazioni conformi;
-- [ ] preflight confermato con zero righe operative lette e zero scritture;
-- [ ] scrittura sintetica, update e duplicati collaudati;
-- [ ] dry-run confermato senza scritture nel registro;
+- [ ] preflight riuscito con file distinti e sole intestazioni necessarie;
+- [ ] collaudo sintetico del registro riuscito;
+- [ ] deduplicazione delle anomalie aperte verificata;
 - [ ] CONFIG ancora in stato sicuro.
 
-## D. SMTP e contenuti
+## D. Dry-run
+
+- [ ] `SISTEMA_ATTIVO=true`;
+- [ ] `KILL_SWITCH=false`;
+- [ ] `INVII_REALI_ABILITATI=false`;
+- [ ] nessun obbligo di override o parametri SMTP;
+- [ ] conteggi aggregati verificati;
+- [ ] zero scritture in `NOTIFICHE`;
+- [ ] zero chiamate SMTP.
+
+## E. SMTP e contenuti
 
 - [ ] host, porta e sicurezza MDaemon verificati;
 - [ ] mittente e Reply-To approvati;
-- [ ] credenziali inserite solo nei GitHub Secrets dello specifico Environment;
+- [ ] credenziali inserite solo nei Secrets dello specifico Environment;
 - [ ] corpo e firma ufficiali approvati;
 - [ ] logo e CID approvati, se utilizzati;
-- [ ] logo visibile nel corpo HTML e allegato inline;
-- [ ] test SMTP singolo all'override riuscito;
+- [ ] override configurato per il solo test SMTP;
+- [ ] test SMTP singolo riuscito;
 - [ ] registro test contiene l'override effettivo;
-- [ ] errori retryable, permanenti, incerti e non classificati collaudati;
+- [ ] errori retryable, permanenti e incerti collaudati;
 - [ ] nessuna copia nella Posta inviata confermata.
 
-## E. Attivazione a livelli
+## F. Attivazione a livelli
 
-- [ ] preflight Google in sola lettura;
-- [ ] dry-run sintetico;
+- [ ] preflight in sola lettura;
 - [ ] scrittura sintetica sul foglio amministrativo;
-- [ ] dry-run su `Operativo` con output aggregato e deduplicazione verificata;
+- [ ] dry-run su `Operativo`;
 - [ ] test SMTP con override;
 - [ ] singolo invio autorizzato;
 - [ ] piccolo lotto controllato;
-- [ ] workflow schedulato con invii ancora bloccati;
 - [ ] autorizzazione esplicita finale;
+- [ ] Environment `production` protetto;
 - [ ] `PRODUCTION_ENABLED=true`;
-- [ ] CONFIG coerente con produzione e kill switch disattivo;
+- [ ] CONFIG con sistema attivo, invii reali abilitati, modalità test false e kill switch disattivo;
 - [ ] orari cron verificati rispetto a UTC e ora legale;
 - [ ] monitoraggio ravvicinato delle prime esecuzioni.
 
-## F. Handoff
+## G. Handoff
 
 - [ ] responsabile non tecnico ha superato il collaudo;
 - [ ] inventario risorse completato;
