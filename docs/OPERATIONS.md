@@ -2,7 +2,7 @@
 
 ## Stato di sicurezza iniziale
 
-Il sistema deve restare con:
+Il sistema nasce con:
 
 - `SISTEMA_ATTIVO=false`;
 - `INVII_REALI_ABILITATI=false`;
@@ -11,25 +11,27 @@ Il sistema deve restare con:
 - `PREPRODUCTION_ENABLED` assente o diverso da `true`;
 - nessun workflow di produzione attivo.
 
-L'inserimento di ID Google o credenziali SMTP non modifica automaticamente questi valori e non abilita invii.
+L'inserimento di ID Google o credenziali SMTP non abilita invii.
 
 ## Sequenza di preparazione
 
 1. Creare con l'account Google umano lo Spreadsheet vuoto `Reminder certificati CIA Lazio — Gestione`, fuori da cartelle con condivisione ampia.
 2. Creare il progetto Google Cloud e WIF seguendo `AUTENTICAZIONE_GOOGLE.md`.
-3. Condividere il file operativo con il service account come lettore e il file amministrativo vuoto come editor.
-4. Creare l'Environment GitHub `preproduction` e impostare gli identificatori pubblici.
-5. Salvare l'ID del file vuoto come `ADMIN_SPREADSHEET_ID`.
-6. Impostare `PREPRODUCTION_ENABLED=true` soltanto quando WIF e condivisioni sono pronti.
-7. Eseguire `init-admin`: rinomina la singola tab vuota, crea le altre tre e inserisce solo struttura sintetica.
-8. Eseguire `google-preflight`: verifica file distinti, ordine delle tab e sole righe delle intestazioni, senza leggere righe operative o scrivere celle.
-9. Eseguire `registry-check` con la conferma sintetica dedicata: scrive e aggiorna una sola riga `.invalid` nella tab `NOTIFICHE`, senza leggere `Operativo` o usare SMTP.
-10. Eseguire un `dry-run` con data corrente o una data controllata e verificare i conteggi aggregati. `check-headers` resta disponibile come diagnostica mirata della sola riga 2 di `Operativo`.
-11. Inserire un destinatario sintetico in `DESTINATARIO_OVERRIDE`.
-12. Inserire i parametri SMTP nei GitHub Secrets dell'Environment `preproduction`.
-13. Eseguire `test-smtp` con conferma manuale: viene inviata al massimo una email, sempre all'override.
-
-Un service account non viene usato per creare o possedere il file. La proprietà resta all'identità umana e l'accesso applicativo deriva dalla condivisione diretta.
+3. Condividere `Operativo` come lettore e il file amministrativo come editor con il service account.
+4. Creare l'Environment GitHub `preproduction` e impostare le Variables pubbliche.
+5. Impostare `PREPRODUCTION_ENABLED=true` soltanto quando WIF e condivisioni sono pronti.
+6. Eseguire `init-admin`.
+7. Eseguire `google-preflight`: verifica file distinti, presenza delle tab e sole intestazioni necessarie. L'ordine visuale delle tab non è rilevante.
+8. Eseguire `registry-check` con la conferma sintetica dedicata.
+9. Preparare il dry-run impostando in CONFIG:
+   - `SISTEMA_ATTIVO=true`;
+   - `KILL_SWITCH=false`;
+   - `INVII_REALI_ABILITATI=false`;
+   - `MODALITA_TEST=true` o `false`, senza obbligo di override.
+10. Eseguire il dry-run e verificare i conteggi aggregati. `check-headers` resta una diagnostica facoltativa della sola riga 2.
+11. Prima del solo test SMTP, inserire un destinatario di prova in `DESTINATARIO_OVERRIDE` e lasciare `MODALITA_TEST=true`.
+12. Inserire i parametri SMTP nei Secrets dell'Environment `preproduction`.
+13. Eseguire `test-smtp` con conferma manuale: al massimo una email, sempre all'override.
 
 ## Comandi locali
 
@@ -43,7 +45,7 @@ reminder-certificati-runtime run --mode DRY_RUN --today 2026-07-17
 reminder-certificati-runtime run --mode TEST_SMTP --today 2026-07-17 --confirm-email-delivery
 ```
 
-I comandi Google richiedono l'extra `google` e Application Default Credentials temporanee:
+I comandi Google richiedono l'extra `google` e credenziali temporanee WIF:
 
 ```bash
 pip install -e ".[google]"
@@ -51,20 +53,21 @@ pip install -e ".[google]"
 
 ## Modifica di CONFIG
 
-Un responsabile può modificare soltanto le righe marcate `modificabile=true`. Non deve:
+Un responsabile può modificare le righe marcate `modificabile=true`. Non deve:
 
 - rinominare chiavi;
 - riordinare o cancellare colonne;
 - duplicare righe;
-- modificare `SALUTO_EMAIL`;
 - modificare il campo `modificabile`;
 - inserire password o segreti nel foglio.
 
-La modalità test attiva richiede un `DESTINATARIO_OVERRIDE` formalmente valido. Il corpo deve iniziare con `ricevi questa mail`; l'oggetto non può contenere ritorni a capo.
+La CONFIG contiene soltanto impostazioni usate dal programma. Il saluto `Ciao {{nome}},` è fisso nel codice. `DESTINATARIO_OVERRIDE` è richiesto soltanto per `TEST_SMTP`, non per il dry-run.
+
+`INVII_REALI_ABILITATI` è modificabile esclusivamente durante il go-live controllato e non è sufficiente da solo: produzione richiede anche sistema attivo, modalità test disattivata, kill switch disattivato, Environment protetto, `PRODUCTION_ENABLED=true` e consenso dello step SMTP.
 
 ## Lettura della dashboard
 
-- `DRY_RUN_OK`: lettura, deduplicazione e composizione completate senza scritture nel registro e senza invio;
+- `DRY_RUN_OK`: lettura, deduplicazione e composizione completate senza invio;
 - `OK`: invii confermati dal trasporto;
 - `ATTENZIONE`: uno o più errori ritentabili o di composizione;
 - `REVISIONE_RICHIESTA`: esito SMTP incerto o errore permanente; non ritentare automaticamente;
@@ -72,13 +75,17 @@ La modalità test attiva richiede un `DESTINATARIO_OVERRIDE` formalmente valido.
 - `BLOCCATO_KILL_SWITCH`: barriera di emergenza attiva;
 - `ERRORE`: lettura o schema non disponibile.
 
-La dashboard contiene solo conteggi e codici aggregati, non nominativi o email. Viene aggiornata con una sola richiesta, senza essere prima svuotata.
+La dashboard contiene solo conteggi e codici aggregati.
 
 ## Registro NOTIFICHE
 
-Non modificare manualmente le righe salvo procedura di emergenza documentata. Una chiave duplicata blocca il sistema. Gli stati `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` impediscono nuovi tentativi automatici; soltanto `FAILED_RETRYABLE` è riprenotabile.
+Non modificare manualmente le righe salvo procedura di emergenza documentata. Una chiave duplicata blocca il sistema. `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` impediscono nuovi tentativi automatici; soltanto `FAILED_RETRYABLE` è riprenotabile.
 
-Il dry-run consulta il registro per mostrare quanti candidati sono già presenti, ma non aggiunge o aggiorna righe. Il limite viene applicato dopo la deduplicazione.
+Il registro viene letto una sola volta all'inizio dell'elaborazione e mantenuto in un indice locale aggiornato dopo append e update. Il dry-run consulta l'indice ma non scrive.
+
+## Anomalie
+
+La tab `ANOMALIE` non riaccoda a ogni esecuzione la stessa anomalia ancora aperta. L'ID deterministico viene letto una volta e usato per deduplicare. Una nuova riga può essere registrata dopo che la precedente è stata marcata come risolta.
 
 ## Modalità test
 
@@ -87,18 +94,15 @@ La modalità `TEST_SMTP`:
 - richiede `MODALITA_TEST=true`;
 - richiede `DESTINATARIO_OVERRIDE`;
 - richiede la conferma del workflow;
-- usa chiavi `TEST_REMINDER_*`, separate dalle notifiche reali;
+- usa chiavi `TEST_REMINDER_*` separate;
 - non invia ai destinatari di `Operativo`;
 - invia al massimo una email per esecuzione;
-- registra nel campo email l'override realmente contattato;
-- continua a registrare Message-ID ed esiti per verificare il ciclo completo.
+- registra l'override realmente contattato, Message-ID ed esito.
 
 ## Workflow
 
-Il gate `PREPRODUCTION_ENABLED` viene letto dentro il job dopo la dichiarazione dell'Environment. Se non vale `true`, nessuno step di checkout, autenticazione, installazione o accesso esterno viene eseguito.
-
-Il campo data del workflow manuale è facoltativo: se vuoto viene usata la data corrente del runner. Pre-produzione e produzione condividono lo stesso gruppo `concurrency`, perché scrivono sulle stesse tab. I segreti SMTP sono disponibili soltanto allo step di invio.
+Se `PREPRODUCTION_ENABLED` non vale `true`, nessuno step con accesso esterno viene eseguito. Pre-produzione e produzione condividono lo stesso gruppo `concurrency`. I segreti SMTP sono disponibili soltanto allo step di invio. I workflow installano il pacchetto senza eseguire upgrade dinamici di pip.
 
 ## Produzione
 
-Il file `docs/workflows/production.yml.example` è soltanto un modello. Prima di copiarlo in `.github/workflows` devono essere completati tutti i punti della checklist di deployment, inclusi approvazione dei contenuti, test SMTP, WIF ristretto al workflow ed Environment protetto. Gli orari cron sono UTC e devono essere ricontrollati rispetto all'ora locale e all'ora legale.
+`docs/workflows/production.yml.example` è soltanto un modello. Prima di copiarlo in `.github/workflows` servono approvazione dei contenuti, test SMTP, WIF ristretto, Environment protetto e autorizzazione esplicita. Gli orari cron sono UTC e devono essere ricontrollati rispetto all'ora locale e all'ora legale.
