@@ -32,18 +32,19 @@ jobs:
       OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
     steps:
-      - name: Verifica abilitazione environment
+      - name: Verifica abilitazione e approvazione production
         id: gate
         shell: bash
         env:
           PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
+          PRODUCTION_WORKFLOW_APPROVED: ${{ vars.PRODUCTION_WORKFLOW_APPROVED }}
         run: |
           set -euo pipefail
-          if [[ "${PRODUCTION_ENABLED:-}" == "true" ]]; then
+          if [[ "${PRODUCTION_ENABLED:-}" == "true" && "${PRODUCTION_WORKFLOW_APPROVED:-}" == "REMINDER_CERTIFICATI_SCHEDULE_V1" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "PRODUCTION_ENABLED non è true. Nessuna risorsa o email sarà utilizzata."
+            echo "Produzione non abilitata o modello schedulato non approvato. Nessuna risorsa o email sarà utilizzata."
           fi
 
       - name: Checkout
@@ -93,5 +94,6 @@ jobs:
 # 2. approvare firma, logo, mittente, Reply-To e contenuto;
 # 3. completare test SMTP e collaudo con override;
 # 4. impostare CONFIG con sistema attivo, modalità test false, kill switch false;
-# 5. cambiare PRODUCTION_ENABLED a true soltanto dopo autorizzazione esplicita;
-# 6. verificare gli orari UTC della schedule rispetto all'ora locale e all'ora legale.
+# 5. impostare PRODUCTION_ENABLED=true soltanto dopo autorizzazione esplicita;
+# 6. impostare PRODUCTION_WORKFLOW_APPROVED=REMINDER_CERTIFICATI_SCHEDULE_V1 soltanto dopo revisione finale del file che verrà copiato in .github/workflows;
+# 7. verificare gli orari UTC della schedule rispetto all'ora locale e all'ora legale.
