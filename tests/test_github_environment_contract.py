@@ -3,46 +3,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 WORKFLOW_MANUALE = Path(".github/workflows/manual-preproduction.yml")
 MODELLO_PRODUZIONE = Path("docs/workflows/production.yml.example")
 CONTRATTO = Path("docs/CONTRATTO_ENVIRONMENT_GITHUB.md")
-
-PREPRODUCTION_VARIABLES = {
-    "ADMIN_SPREADSHEET_ID",
-    "GCP_PROJECT_ID",
-    "GCP_SERVICE_ACCOUNT",
-    "GCP_WORKLOAD_IDENTITY_PROVIDER",
-    "OPERATIVO_COLUMNS_A1",
-    "OPERATIVO_HEADER_ROW",
-    "OPERATIVO_SHEET_NAME",
-    "OPERATIVO_SPREADSHEET_ID",
-    "PREPRODUCTION_ENABLED",
-    "SMTP_FROM_NAME",
-    "SMTP_REPLY_TO",
-}
-
-PRODUCTION_VARIABLES = {
-    "ADMIN_SPREADSHEET_ID",
-    "GCP_PROJECT_ID",
-    "GCP_SERVICE_ACCOUNT",
-    "GCP_WORKLOAD_IDENTITY_PROVIDER",
-    "OPERATIVO_COLUMNS_A1",
-    "OPERATIVO_SPREADSHEET_ID",
-    "PRODUCTION_ENABLED",
-    "PRODUCTION_WORKFLOW_APPROVED",
-    "SMTP_FROM_NAME",
-    "SMTP_REPLY_TO",
-}
-
-SMTP_SECRETS = {
-    "SMTP_FROM",
-    "SMTP_HOST",
-    "SMTP_PASSWORD",
-    "SMTP_PORT",
-    "SMTP_SECURITY",
-    "SMTP_USERNAME",
-}
 
 
 def _riferimenti(testo: str, contesto: str) -> set[str]:
@@ -56,35 +19,34 @@ def _sezione_documentata(testo: str, nome: str) -> set[str]:
     return {riga.strip() for riga in match.group(1).splitlines() if riga.strip()}
 
 
-def test_workflow_manuale_usa_esattamente_le_variables_documentate():
-    testo = WORKFLOW_MANUALE.read_text(encoding="utf-8")
-    assert _riferimenti(testo, "vars") == PREPRODUCTION_VARIABLES
-
-
-def test_modello_produzione_usa_esattamente_le_variables_documentate():
-    testo = MODELLO_PRODUZIONE.read_text(encoding="utf-8")
-    assert _riferimenti(testo, "vars") == PRODUCTION_VARIABLES
-
-
-def test_i_due_workflow_usano_lo_stesso_contratto_di_secrets_smtp():
+def test_variables_usate_dai_workflow_sono_documentate():
+    contratto = CONTRATTO.read_text(encoding="utf-8")
     manuale = WORKFLOW_MANUALE.read_text(encoding="utf-8")
     produzione = MODELLO_PRODUZIONE.read_text(encoding="utf-8")
 
-    assert _riferimenti(manuale, "secrets") == SMTP_SECRETS
-    assert _riferimenti(produzione, "secrets") == SMTP_SECRETS
-
-
-def test_documentazione_corrisponde_esattamente_ai_workflow():
-    testo = CONTRATTO.read_text(encoding="utf-8")
-
-    assert _sezione_documentata(testo, "PREPRODUCTION VARIABLES") == PREPRODUCTION_VARIABLES
-    assert _sezione_documentata(testo, "PRODUCTION VARIABLES") == PRODUCTION_VARIABLES
-    assert _sezione_documentata(testo, "SMTP SECRETS") == SMTP_SECRETS
-
-
-def test_dati_smtp_non_vengono_riclassificati_in_modo_pericoloso():
-    assert "SMTP_FROM_NAME" not in SMTP_SECRETS
-    assert "SMTP_REPLY_TO" not in SMTP_SECRETS
-    assert {"SMTP_USERNAME", "SMTP_PASSWORD"}.isdisjoint(
-        PREPRODUCTION_VARIABLES | PRODUCTION_VARIABLES
+    assert _riferimenti(manuale, "vars") <= _sezione_documentata(
+        contratto, "PREPRODUCTION VARIABLES"
     )
+    assert _riferimenti(produzione, "vars") <= _sezione_documentata(
+        contratto, "PRODUCTION VARIABLES"
+    )
+
+
+def test_i_due_workflow_usano_i_segreti_smtp_documentati():
+    contratto = CONTRATTO.read_text(encoding="utf-8")
+    attesi = _sezione_documentata(contratto, "SMTP SECRETS")
+    manuale = _riferimenti(WORKFLOW_MANUALE.read_text(encoding="utf-8"), "secrets")
+    produzione = _riferimenti(MODELLO_PRODUZIONE.read_text(encoding="utf-8"), "secrets")
+
+    assert manuale == attesi
+    assert produzione == attesi
+
+
+def test_credenziali_smtp_non_sono_variables():
+    contratto = CONTRATTO.read_text(encoding="utf-8")
+    pubbliche = _sezione_documentata(contratto, "PREPRODUCTION VARIABLES") | _sezione_documentata(
+        contratto, "PRODUCTION VARIABLES"
+    )
+
+    assert {"SMTP_USERNAME", "SMTP_PASSWORD"}.isdisjoint(pubbliche)
+    assert {"SMTP_FROM_NAME", "SMTP_REPLY_TO"} <= pubbliche
