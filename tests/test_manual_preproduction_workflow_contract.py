@@ -22,7 +22,7 @@ def test_workflow_espone_le_operazioni_della_cli_unica():
     assert "check-headers" not in testo
     assert "reminder-certificati preflight" in testo
     assert "reminder-certificati registry-check --confirm-synthetic-write" in testo
-    assert "reminder-certificati-runtime" not in testo
+    assert "run: reminder-certificati-runtime" not in testo
     assert "reminder-certificati-google-preflight" not in testo
     assert "reminder-certificati-registry-check" not in testo
 
