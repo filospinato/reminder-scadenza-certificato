@@ -26,7 +26,7 @@ def candidato(*, nome: str = "Mario", cognome: str = "Rossi") -> CandidatoNotifi
     )
 
 
-def test_apertura_concordata_usa_la_colonna_nome() -> None:
+def test_apertura_usa_la_colonna_nome() -> None:
     messaggio = componi_email(candidato(nome="Mario", cognome="Rossi"))
     assert messaggio.testo.startswith("Ciao Mario, ricevi questa mail")
     assert messaggio.html.startswith("<p>Ciao Mario, ricevi questa mail")
@@ -40,13 +40,14 @@ def test_nome_composto_non_viene_troncato() -> None:
 def test_nome_e_cognome_completo_sono_disponibili_nei_template() -> None:
     config = ConfigurazioneEmail(
         corpo=(
-            "ricevi questa mail perché il certificato di {{nome_completo}} "
+            "Il certificato di {{nome_completo}} "
             "scade il {{data_scadenza}}."
         ),
         firma="Cordiali saluti,\nCIA Lazio",
     )
     messaggio = componi_email(candidato(nome="Anna", cognome="Verdi"), config)
     assert "Anna Verdi" in messaggio.testo
+    assert messaggio.testo.startswith("Ciao Anna, Il certificato")
 
 
 def test_nome_vuoto_produce_errore_controllato() -> None:
@@ -77,15 +78,22 @@ def test_html_esegue_escape_dei_dati_personalizzati() -> None:
 
 def test_placeholder_sconosciuto_viene_rifiutato() -> None:
     config = ConfigurazioneEmail(
-        corpo="ricevi questa mail per {{dato_segreto}}.",
+        corpo="Promemoria per {{dato_segreto}}.",
     )
     with pytest.raises(ErroreTemplate, match="placeholder non consentiti"):
         componi_email(candidato(), config)
 
 
-def test_corpo_deve_mantenere_apertura_concordata() -> None:
-    config = ConfigurazioneEmail(corpo="il certificato sta per scadere.")
-    with pytest.raises(ErroreTemplate, match="deve iniziare"):
+def test_corpo_puo_avere_una_formulazione_libera() -> None:
+    config = ConfigurazioneEmail(corpo="Il certificato sta per scadere.")
+    messaggio = componi_email(candidato(), config)
+
+    assert messaggio.testo.startswith("Ciao Mario, Il certificato")
+
+
+def test_corpo_vuoto_viene_rifiutato() -> None:
+    config = ConfigurazioneEmail(corpo="   ")
+    with pytest.raises(ErroreTemplate, match="non può essere vuoto"):
         componi_email(candidato(), config)
 
 
