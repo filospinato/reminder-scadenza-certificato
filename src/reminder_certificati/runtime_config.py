@@ -7,7 +7,7 @@ serve anche un consenso esterno esplicito fornito dal workflow.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 from .admin_schema import COLONNE_CONFIG, configurazione_iniziale_sicura
 from .email_templates import ConfigurazioneEmail
@@ -20,10 +20,8 @@ class ErroreConfigurazioneRuntime(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ConfigurazioneRuntime:
-    sistema_attivo: bool
+    automazione_attiva: bool
     invii_reali_abilitati: bool
-    modalita_test: bool
-    kill_switch: bool
     giorni_preavviso: int
     limite_invii_per_esecuzione: int
     destinatario_override: str | None
@@ -31,16 +29,15 @@ class ConfigurazioneRuntime:
 
     @property
     def elaborazione_consentita(self) -> bool:
-        return self.sistema_attivo and not self.kill_switch
+        return self.automazione_attiva
 
     def invio_reale_consentito(self, *, consenso_esterno: bool) -> bool:
-        """Richiede simultaneamente foglio, modalità e consenso del workflow."""
+        """Richiede simultaneamente foglio e consenso del workflow."""
 
         return (
             consenso_esterno
-            and self.elaborazione_consentita
+            and self.automazione_attiva
             and self.invii_reali_abilitati
-            and not self.modalita_test
         )
 
 
@@ -61,7 +58,7 @@ def carica_configurazione(
             "CONFIG: intestazioni diverse dallo schema canonico"
         )
 
-    righe: dict[str, Mapping[str, str]] = {}
+    righe: dict[str, dict[str, str]] = {}
     for numero_riga, valori_originali in enumerate(matrice[1:], start=2):
         valori = list(valori_originali)
         if not any(str(cella).strip() for cella in valori):
@@ -94,14 +91,14 @@ def carica_configurazione(
             "CONFIG: chiavi sconosciute: " + ", ".join(sconosciute)
         )
 
-    _verifica_metadati(righe)
-    sistema_attivo = _booleano(righe["SISTEMA_ATTIVO"]["valore"], "SISTEMA_ATTIVO")
+    automazione_attiva = _booleano(
+        righe["AUTOMAZIONE_ATTIVA"]["valore"],
+        "AUTOMAZIONE_ATTIVA",
+    )
     invii_reali = _booleano(
         righe["INVII_REALI_ABILITATI"]["valore"],
         "INVII_REALI_ABILITATI",
     )
-    modalita_test = _booleano(righe["MODALITA_TEST"]["valore"], "MODALITA_TEST")
-    kill_switch = _booleano(righe["KILL_SWITCH"]["valore"], "KILL_SWITCH")
     giorni = _intero_limitato(
         righe["GIORNI_PREAVVISO"]["valore"],
         campo="GIORNI_PREAVVISO",
@@ -115,8 +112,6 @@ def carica_configurazione(
         massimo=500,
     )
 
-    # L'override è necessario soltanto quando viene realmente eseguito TEST_SMTP.
-    # Un dry-run può quindi funzionare senza configurazione SMTP.
     override = _email_opzionale(
         righe["DESTINATARIO_OVERRIDE"]["valore"],
         "DESTINATARIO_OVERRIDE",
@@ -129,48 +124,24 @@ def carica_configurazione(
         raise ErroreConfigurazioneRuntime(
             "CONFIG: OGGETTO_EMAIL vuoto o contenente ritorni a capo"
         )
-    if not corpo.casefold().startswith("ricevi questa mail"):
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: CORPO_EMAIL deve iniziare con 'ricevi questa mail'"
-        )
+    if not corpo:
+        raise ErroreConfigurazioneRuntime("CONFIG: CORPO_EMAIL non può essere vuoto")
     if not firma:
         raise ErroreConfigurazioneRuntime("CONFIG: FIRMA_TESTO non può essere vuota")
 
-    if invii_reali and (modalita_test or kill_switch or not sistema_attivo):
+    if invii_reali and not automazione_attiva:
         raise ErroreConfigurazioneRuntime(
-            "CONFIG: INVII_REALI_ABILITATI richiede sistema attivo, modalità test "
-            "disattivata e kill switch disattivato"
+            "CONFIG: INVII_REALI_ABILITATI richiede AUTOMAZIONE_ATTIVA=true"
         )
 
     return ConfigurazioneRuntime(
-        sistema_attivo=sistema_attivo,
+        automazione_attiva=automazione_attiva,
         invii_reali_abilitati=invii_reali,
-        modalita_test=modalita_test,
-        kill_switch=kill_switch,
         giorni_preavviso=giorni,
         limite_invii_per_esecuzione=limite,
         destinatario_override=override,
         email=ConfigurazioneEmail(oggetto=oggetto, corpo=corpo, firma=firma),
     )
-
-
-def _verifica_metadati(righe: Mapping[str, Mapping[str, str]]) -> None:
-    canoniche = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
-    for chiave, mappa in righe.items():
-        attesa = canoniche[chiave]
-        if mappa["tipo"] != attesa.tipo.value:
-            raise ErroreConfigurazioneRuntime(
-                f"CONFIG: tipo non valido per {chiave}: {mappa['tipo']}"
-            )
-        modificabile = _booleano(mappa["modificabile"], f"{chiave}.modificabile")
-        if modificabile != attesa.modificabile:
-            raise ErroreConfigurazioneRuntime(
-                f"CONFIG: attributo modificabile alterato per {chiave}"
-            )
-        if not mappa["descrizione"]:
-            raise ErroreConfigurazioneRuntime(
-                f"CONFIG: descrizione mancante per {chiave}"
-            )
 
 
 def _booleano(value: str, campo: str) -> bool:
