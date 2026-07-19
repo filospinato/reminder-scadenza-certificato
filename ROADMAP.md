@@ -3,20 +3,19 @@
 Il codice pre-produzione è implementato e semplificato. L'attivazione reale richiede ancora risorse, permessi, contenuti e collaudi esterni.
 
 1. [x] Repository Python, test, CI e documentazione di base.
-2. [ ] GitHub Actions programmata una o due volte al giorno, oltre all'avvio manuale.
+2. [ ] GitHub Actions programmata una volta al giorno, oltre all'avvio manuale.
    - [x] workflow manuale pre-produzione con WIF, Environment e permessi minimi;
    - [x] `concurrency` condivisa;
    - [x] segreti SMTP limitati al solo step di invio;
    - [x] modello di produzione conservato come `.example` non attivo;
-   - [x] installazione senza upgrade dinamici del package manager;
+   - [x] una sola schedule giornaliera prevista;
    - [ ] creazione degli Environment e valorizzazione di Variables/Secrets;
    - [ ] attivazione del workflow di produzione dopo autorizzazione finale.
 3. [ ] Lettura di `Operativo` tramite Google Sheets API e service account a privilegi minimi.
    - [x] adapter, conversione e validazione strutturale;
    - [x] intestazioni in riga 2;
    - [x] unica mappatura canonica delle sei colonne usate;
-   - [x] `check-headers` e preflight limitati alle intestazioni;
-   - [x] preflight indipendente da ordine delle tab e colonne estranee;
+   - [x] preflight unico limitato a file, tab e intestazioni;
    - [x] WIF/OIDC e blocco delle chiavi permanenti;
    - [ ] provisioning reale, condivisione e dry-run controllato.
 4. [x] Validazione di ID, nome, cognome, email, scadenza e stato; anomalie e duplicati esclusi.
@@ -27,9 +26,9 @@ Il codice pre-produzione è implementato e semplificato. L'attivazione reale ric
    - [x] limite applicato dopo la deduplicazione;
    - [x] collaudo sintetico protetto;
    - [ ] prova sul foglio reale e concorrenza tra workflow.
-6. [x] Unica macchina a stati persistente con `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`.
+6. [x] Stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED`.
 7. [ ] Invio individuale SMTP MDaemon.
-   - [x] testo/HTML, apertura obbligatoria, escaping e Message-ID;
+   - [x] testo/HTML, escaping e Message-ID;
    - [x] STARTTLS/SSL, Reply-To e logo CID facoltativo;
    - [x] classificazione retryable, permanente e incerta;
    - [x] test limitato a una email all'override;
@@ -41,23 +40,23 @@ Il codice pre-produzione è implementato e semplificato. L'attivazione reale ric
    - [x] preflight e collaudo sintetico;
    - [ ] creazione e collaudo del foglio reale.
 9. [ ] `CONFIG` modificabile da un responsabile non tecnico.
-   - [x] soltanto campi effettivamente usati;
-   - [x] dry-run senza override SMTP;
-   - [x] `INVII_REALI_ABILITATI` modificabile nel go-live controllato;
-   - [x] barriere tra CONFIG, Environment e consenso dello step;
+   - [x] un solo interruttore `AUTOMAZIONE_ATTIVA`;
+   - [x] modalità determinata dal sottocomando, senza duplicazioni nel foglio;
+   - [x] validazione concentrata sui valori funzionali;
+   - [x] corpo email liberamente modificabile con placeholder autorizzati;
    - [ ] prova con responsabile non tecnico.
-10. [ ] `DASHBOARD`, anomalie, kill switch, runbook e handoff.
-   - [x] dashboard aggregata con un solo update;
-   - [x] anomalie sanitizzate e deduplicate per ID aperto;
-   - [x] kill switch prima della lettura e degli invii;
-   - [x] runbook, emergenze, handoff e checklist;
-   - [ ] prova reale delle scritture e passaggio di consegne.
+10. [ ] `DASHBOARD`, anomalie, arresto operativo, runbook e handoff.
+    - [x] dashboard aggregata con un solo update;
+    - [x] anomalie sanitizzate e deduplicate per ID aperto;
+    - [x] `AUTOMAZIONE_ATTIVA=false` blocca prima della lettura e degli invii;
+    - [x] runbook, emergenze, handoff e checklist;
+    - [ ] prova reale delle scritture e passaggio di consegne.
 
 ## Flusso applicativo
 
 1. verifica leggera di tab e intestazioni amministrative;
 2. lettura e validazione di `CONFIG`;
-3. controllo kill switch e modalità;
+3. controllo di `AUTOMAZIONE_ATTIVA`;
 4. lettura e validazione di `Operativo`;
 5. deduplicazione delle anomalie aperte;
 6. selezione dei candidati;
