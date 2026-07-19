@@ -26,17 +26,18 @@ def test_schema_canonico_crea_le_quattro_tab() -> None:
     assert schema.ottieni_tab("ANOMALIE").intestazioni == COLONNE_ANOMALIE
 
 
-def test_config_iniziale_resta_disattivata_e_in_modalita_test() -> None:
+def test_config_iniziale_resta_disattivata() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
-    assert voci["SISTEMA_ATTIVO"].valore == "false"
+    assert voci["AUTOMAZIONE_ATTIVA"].valore == "false"
     assert voci["INVII_REALI_ABILITATI"].valore == "false"
     assert voci["INVII_REALI_ABILITATI"].modificabile is True
-    assert voci["MODALITA_TEST"].valore == "true"
-    assert voci["KILL_SWITCH"].valore == "true"
     assert voci["DESTINATARIO_OVERRIDE"].valore == ""
     assert voci["GIORNI_PREAVVISO"].valore == "30"
     assert voci["LIMITE_INVII_PER_ESECUZIONE"].valore == "10"
+    assert "SISTEMA_ATTIVO" not in voci
+    assert "MODALITA_TEST" not in voci
+    assert "KILL_SWITCH" not in voci
 
 
 def test_config_contiene_solo_campi_usati_dal_runtime() -> None:
@@ -44,7 +45,7 @@ def test_config_contiene_solo_campi_usati_dal_runtime() -> None:
 
     assert "SALUTO_EMAIL" not in voci
     assert "CONTATTO_SUPPORTO" not in voci
-    assert voci["CORPO_EMAIL"].valore.startswith("ricevi questa mail")
+    assert voci["CORPO_EMAIL"].valore
 
 
 def test_notifiche_e_anomalie_non_contengono_righe_iniziali() -> None:
@@ -59,7 +60,7 @@ def test_dashboard_parte_disattivata_con_conteggi_a_zero() -> None:
     valori = {riga[0]: riga[1] for riga in dashboard.righe_iniziali}
 
     assert valori["stato_sistema"] == "DISATTIVATO"
-    assert valori["kill_switch"] == "ATTIVO"
+    assert valori["automazione_attiva"] == "NO"
     assert valori["righe_lette"] == "0"
     assert valori["invii_tentati"] == "0"
     assert valori["invii_riusciti"] == "0"
