@@ -58,7 +58,9 @@ class EsitoInizializzazione:
 @dataclass(frozen=True, slots=True)
 class InizializzatoreFoglioAmministrativo:
     trasporto: TrasportoStrutturaSheets
-    schema: SchemaFoglioAmministrativo = field(default_factory=crea_schema_amministrativo)
+    schema: SchemaFoglioAmministrativo = field(
+        default_factory=crea_schema_amministrativo
+    )
 
     def prepara(self, *, spreadsheet_id: str) -> EsitoInizializzazione:
         """Inizializza tab vuote e verifica senza sovrascrivere tab usate."""
@@ -114,8 +116,7 @@ class InizializzatoreFoglioAmministrativo:
                 identificativo,
                 _intervallo_intestazioni(definizione.nome),
             )
-            intestazioni = _prima_riga(attuale)
-            if intestazioni != definizione.intestazioni:
+            if _prima_riga(attuale) != definizione.intestazioni:
                 raise ErroreInizializzazioneFoglio(
                     f"{definizione.nome}: intestazioni diverse dallo schema canonico"
                 )
@@ -125,13 +126,11 @@ class InizializzatoreFoglioAmministrativo:
         attesi = tuple(tab.nome for tab in self.schema.tab)
         if _stesse_tab(nomi, attesi):
             return False
-
         if len(nomi) != 1:
             raise ErroreInizializzazioneFoglio(
                 "tab amministrative mancanti o non conformi; il bootstrap automatico "
                 "è consentito soltanto su un file con una singola tab vuota"
             )
-
         tab_originale = nomi[0]
         if not _matrice_vuota(
             self._leggi(spreadsheet_id, _intervallo_tab(tab_originale))
@@ -139,7 +138,6 @@ class InizializzatoreFoglioAmministrativo:
             raise ErroreInizializzazioneFoglio(
                 "la singola tab iniziale contiene già dati; nessuna modifica eseguita"
             )
-
         try:
             self.trasporto.configura_tab_canoniche(
                 spreadsheet_id=spreadsheet_id,
@@ -149,14 +147,12 @@ class InizializzatoreFoglioAmministrativo:
             raise ErroreInizializzazioneFoglio(
                 f"configurazione tab non riuscita: {type(exc).__name__}"
             ) from exc
-
         self._verifica_tab_presenti(spreadsheet_id)
         return True
 
     def _verifica_tab_presenti(self, spreadsheet_id: str) -> None:
-        nomi = self._elenca_tab(spreadsheet_id)
         attesi = tuple(tab.nome for tab in self.schema.tab)
-        if not _stesse_tab(nomi, attesi):
+        if not _stesse_tab(self._elenca_tab(spreadsheet_id), attesi):
             raise ErroreInizializzazioneFoglio(
                 "tab amministrative mancanti o duplicate; attese: "
                 + ", ".join(attesi)
@@ -215,7 +211,9 @@ def _stesse_tab(attuali: Sequence[str], attese: Sequence[str]) -> bool:
 def _prima_riga(matrice: Sequence[Sequence[Any]]) -> tuple[str, ...]:
     if not matrice:
         return ()
-    valori = tuple("" if cella is None else str(cella).strip() for cella in matrice[0])
+    valori = tuple(
+        "" if cella is None else str(cella).strip() for cella in matrice[0]
+    )
     fine = len(valori)
     while fine and not valori[fine - 1]:
         fine -= 1
@@ -235,6 +233,7 @@ def _verifica_matrice_esistente(
         raise ErroreInizializzazioneFoglio(
             f"{nome_tab}: contenuto esistente incompatibile; intestazioni diverse"
         )
+
     larghezza = len(intestazioni)
     chiavi: set[str] = set()
     for numero_riga, riga in enumerate(normalizzata[1:], start=2):
@@ -259,10 +258,15 @@ def _verifica_matrice_esistente(
         mancanti = richieste - chiavi
         if mancanti:
             raise ErroreInizializzazioneFoglio(
-                "CONFIG: chiavi obbligatorie mancanti: " + ", ".join(sorted(mancanti))
+                "CONFIG: chiavi obbligatorie mancanti: "
+                + ", ".join(sorted(mancanti))
             )
     if nome_tab == "DASHBOARD":
-        mancanti = {"stato_sistema", "heartbeat", "kill_switch"} - chiavi
+        mancanti = {
+            "stato_sistema",
+            "heartbeat",
+            "automazione_attiva",
+        } - chiavi
         if mancanti:
             raise ErroreInizializzazioneFoglio(
                 "DASHBOARD: metriche obbligatorie mancanti: "
@@ -308,7 +312,9 @@ def _matrice_vuota(matrice: Sequence[Sequence[Any]]) -> bool:
 class TrasportoStrutturaMemoria:
     """Fake idempotente per test e collaudi senza rete."""
 
-    spreadsheet: dict[str, dict[str, list[list[Any]]]] = field(default_factory=dict)
+    spreadsheet: dict[str, dict[str, list[list[Any]]]] = field(
+        default_factory=dict
+    )
     titoli: dict[str, str] = field(default_factory=dict)
     ordine_tab: dict[str, list[str]] = field(default_factory=dict)
     prossimo_id: int = 1
@@ -429,7 +435,10 @@ class TrasportoStrutturaGoogleApi:
             body={"requests": richieste},
         ).execute()
 
-    def _metadati_tab(self, spreadsheet_id: str) -> tuple[tuple[int, int, str], ...]:
+    def _metadati_tab(
+        self,
+        spreadsheet_id: str,
+    ) -> tuple[tuple[int, int, str], ...]:
         risposta = self.servizio.spreadsheets().get(
             spreadsheetId=spreadsheet_id,
             fields="sheets(properties(sheetId,title,index))",

@@ -87,11 +87,10 @@ class OrchestratoreReminder:
         if not self.versione_app.strip():
             raise ErroreOrchestrazione("versione_app mancante")
 
-        if self.configurazione.kill_switch or not self.configurazione.sistema_attivo:
-            stato = "BLOCCATO_KILL_SWITCH" if self.configurazione.kill_switch else "DISATTIVATO"
+        if not self.configurazione.automazione_attiva:
             esito = EsitoEsecuzione(
                 modalita=modalita,
-                stato=stato,
+                stato="DISATTIVATO",
                 righe_lette=0,
                 righe_valide=0,
                 anomalie=0,
@@ -161,9 +160,6 @@ class OrchestratoreReminder:
             oggi=oggi,
             giorni_preavviso=self.configurazione.giorni_preavviso,
         )
-        # Un test manuale invia una sola email all'override. In dry-run e
-        # produzione il limite configurato si applica dopo la deduplicazione,
-        # affinché record già presenti non consumino il lotto utile.
         limite = (
             1
             if modalita is ModalitaEsecuzione.TEST_SMTP
@@ -293,9 +289,6 @@ class OrchestratoreReminder:
                     istante=istante,
                 )
             except Exception as exc:
-                # Dopo la prenotazione SENDING un errore non classificato non è
-                # mai ritentato automaticamente: la consegna potrebbe essere
-                # avvenuta e richiede revisione umana.
                 incerti += 1
                 try:
                     self.registro.segna_esito_incerto(
@@ -348,8 +341,6 @@ class OrchestratoreReminder:
                 "un workflow protetto deve fornire il consenso esterno all'invio"
             )
         if modalita is ModalitaEsecuzione.TEST_SMTP:
-            if not self.configurazione.modalita_test:
-                raise ErroreOrchestrazione("MODALITA_TEST deve essere true")
             if self.configurazione.destinatario_override is None:
                 raise ErroreOrchestrazione("DESTINATARIO_OVERRIDE mancante")
             return
@@ -357,7 +348,7 @@ class OrchestratoreReminder:
             consenso_esterno=consenso_esterno
         ):
             raise ErroreOrchestrazione(
-                "le barriere per l'invio reale non sono tutte disattivate"
+                "le barriere per l'invio reale non sono tutte abilitate"
             )
 
     def _registra_anomalia(
@@ -405,7 +396,7 @@ class OrchestratoreReminder:
                 invii_falliti=esito.invii_falliti,
                 esiti_incerti=esito.esiti_incerti,
                 anomalie=esito.anomalie,
-                kill_switch=self.configurazione.kill_switch,
+                automazione_attiva=self.configurazione.automazione_attiva,
                 versione_app=self.versione_app,
                 codice_errore=codice_errore,
             )

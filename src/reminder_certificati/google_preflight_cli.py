@@ -1,9 +1,10 @@
-"""CLI di preflight Google in sola lettura e con output aggregato."""
+"""Preflight Google in sola lettura e con output aggregato."""
 
 from __future__ import annotations
 
 import json
 import os
+from typing import Mapping
 
 from .google_preflight import (
     ErrorePreflightGoogle,
@@ -18,9 +19,9 @@ def _stampa(payload: dict[str, object]) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
-def main() -> int:
+def run(ambiente: Mapping[str, str]) -> int:
     try:
-        risorse = ConfigurazioneRisorseGoogle.da_ambiente(os.environ)
+        risorse = ConfigurazioneRisorseGoogle.da_ambiente(ambiente)
         servizio = costruisci_servizio_sheets()
         esito = PreflightGoogle(TrasportoPreflightGoogleApi(servizio)).esegui(
             risorse=risorse
@@ -72,6 +73,10 @@ def main() -> int:
             }
         )
         return 2
+
+
+def main() -> int:
+    return run(os.environ)
 
 
 if __name__ == "__main__":

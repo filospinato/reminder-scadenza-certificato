@@ -7,10 +7,9 @@ on:
         description: Operazione sicura da eseguire
         required: true
         type: choice
-        default: google-preflight
+        default: preflight
         options:
-          - google-preflight
-          - check-headers
+          - preflight
           - init-admin
           - registry-check
           - dry-run
@@ -94,12 +93,8 @@ jobs:
         run: pip install -e ".[google]"
 
       - name: Esegui preflight Google in sola lettura
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'google-preflight'
-        run: reminder-certificati-google-preflight
-
-      - name: Controlla intestazioni
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'check-headers'
-        run: reminder-certificati-runtime check-headers
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'preflight'
+        run: reminder-certificati preflight
 
       - name: Inizializza o verifica il foglio amministrativo
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'init-admin'
@@ -110,13 +105,13 @@ jobs:
             echo "ADMIN_SPREADSHEET_ID mancante: crea e condividi prima uno Spreadsheet vuoto." >&2
             exit 2
           fi
-          reminder-certificati-runtime init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
+          reminder-certificati init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
 
       - name: Collauda il registro con una riga sintetica
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'registry-check' && inputs.confirm_synthetic_registry_write
         env:
           ALLOW_SYNTHETIC_REGISTRY_WRITE: "true"
-        run: reminder-certificati-registry-check --confirm-synthetic-write
+        run: reminder-certificati registry-check --confirm-synthetic-write
 
       - name: Rifiuta collaudo registro senza conferma
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'registry-check' && !inputs.confirm_synthetic_registry_write
@@ -131,11 +126,11 @@ jobs:
           INPUT_TODAY: ${{ inputs.today }}
         run: |
           set -euo pipefail
-          args=(run --mode DRY_RUN)
+          args=(dry-run)
           if [[ -n "${INPUT_TODAY:-}" ]]; then
             args+=(--today "$INPUT_TODAY")
           fi
-          reminder-certificati-runtime "${args[@]}"
+          reminder-certificati "${args[@]}"
 
       - name: Esegui test SMTP all'override
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && inputs.confirm_email_delivery
@@ -153,11 +148,11 @@ jobs:
           ALLOW_EMAIL_DELIVERY: "true"
         run: |
           set -euo pipefail
-          args=(run --mode TEST_SMTP --confirm-email-delivery)
+          args=(test-smtp --confirm-email-delivery)
           if [[ -n "${INPUT_TODAY:-}" ]]; then
             args+=(--today "$INPUT_TODAY")
           fi
-          reminder-certificati-runtime "${args[@]}"
+          reminder-certificati "${args[@]}"
 
       - name: Rifiuta test SMTP senza conferma
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && !inputs.confirm_email_delivery

@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "15 6 * * *"
-    - cron: "15 16 * * *"
 
 permissions:
   contents: read
@@ -85,12 +84,12 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           ALLOW_EMAIL_DELIVERY: "true"
-        run: reminder-certificati-runtime run --mode PRODUZIONE --confirm-email-delivery
+        run: reminder-certificati produzione --confirm-email-delivery
 
 # Prima dell'attivazione:
 # 1. vincolare WIF anche a questo workflow_ref o all'environment production;
 # 2. approvare firma, logo, mittente, Reply-To e contenuto;
 # 3. completare test SMTP e collaudo con override;
-# 4. impostare CONFIG con sistema attivo, invii reali abilitati, modalità test false e kill switch false;
+# 4. impostare AUTOMAZIONE_ATTIVA=true e INVII_REALI_ABILITATI=true in CONFIG;
 # 5. impostare PRODUCTION_ENABLED=true soltanto dopo autorizzazione esplicita;
-# 6. verificare gli orari UTC della schedule rispetto all'ora locale e all'ora legale.
+# 6. verificare l'orario UTC della schedule rispetto all'ora locale e all'ora legale.

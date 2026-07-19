@@ -1,4 +1,4 @@
-"""CLI operativa con default sicuri e output esclusivamente aggregato."""
+"""Unica CLI operativa con default sicuri e output aggregato."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from .admin_initializer import (
     TrasportoStrutturaSheets,
 )
 from .admin_schema import NOMI_TAB_AMMINISTRATIVE, crea_schema_amministrativo
+from .google_preflight_cli import run as esegui_preflight
 from .google_runtime import (
-    COLONNE_OPERATIVO_OBBLIGATORIE,
     MAPPATURA_OPERATIVO_REALE,
     ConfigurazioneRisorseGoogle,
     costruisci_componenti_google,
@@ -26,6 +26,7 @@ from .google_runtime import (
 from .monitoring import sanitizza_messaggio
 from .orchestrator import ModalitaEsecuzione, OrchestratoreReminder
 from .persistent_registry import RegistroPersistente
+from .registry_probe_cli import run as esegui_collaudo_registro
 from .runtime_config import carica_configurazione
 from .smtp_transport import ConfigurazioneSmtp, TrasportoSmtpMdaemon
 
@@ -41,9 +42,22 @@ def _data(value: str) -> date:
         raise argparse.ArgumentTypeError("usa il formato YYYY-MM-DD") from exc
 
 
+def _aggiungi_data(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--today", type=_data, default=date.today())
+
+
+def _aggiungi_conferma_email(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--confirm-email-delivery",
+        action="store_true",
+        help="conferma esplicita richiesta per qualsiasi invio SMTP",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Strumenti pre-produzione del reminder certificati."
+        prog="reminder-certificati",
+        description="Gestione del reminder certificati con un solo comando.",
     )
     sub = parser.add_subparsers(dest="comando", required=True)
 
@@ -58,22 +72,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser(
-        "check-headers",
-        help="verifica solo metadati e intestazioni di Operativo",
+        "preflight",
+        help="verifica file, tab e intestazioni senza leggere righe operative",
     )
 
-    esegui = sub.add_parser("run", help="esegue il flusso con output aggregato")
-    esegui.add_argument(
-        "--mode",
-        choices=[item.value for item in ModalitaEsecuzione],
-        default=ModalitaEsecuzione.DRY_RUN.value,
+    registro = sub.add_parser(
+        "registry-check",
+        help="collauda NOTIFICHE con una sola riga sintetica",
     )
-    esegui.add_argument("--today", type=_data, default=date.today())
-    esegui.add_argument(
-        "--confirm-email-delivery",
+    registro.add_argument(
+        "--confirm-synthetic-write",
         action="store_true",
-        help="seconda conferma richiesta per TEST_SMTP o PRODUZIONE",
+        help="conferma la scrittura di una sola riga interamente sintetica",
     )
+
+    dry_run = sub.add_parser("dry-run", help="esegue il flusso senza inviare email")
+    _aggiungi_data(dry_run)
+
+    test_smtp = sub.add_parser(
+        "test-smtp",
+        help="invia al massimo una email al destinatario override",
+    )
+    _aggiungi_data(test_smtp)
+    _aggiungi_conferma_email(test_smtp)
+
+    produzione = sub.add_parser(
+        "produzione",
+        help="esegue gli invii reali protetti",
+    )
+    _aggiungi_data(produzione)
+    _aggiungi_conferma_email(produzione)
     return parser
 
 
@@ -82,9 +110,24 @@ def main() -> int:
     try:
         if args.comando == "init-admin":
             return _init_admin(args.spreadsheet_id)
-        if args.comando == "check-headers":
-            return _check_headers(os.environ)
-        return _run(args, os.environ)
+        if args.comando == "preflight":
+            return esegui_preflight(os.environ)
+        if args.comando == "registry-check":
+            return esegui_collaudo_registro(
+                conferma=bool(args.confirm_synthetic_write),
+                ambiente=os.environ,
+            )
+        modalita = {
+            "dry-run": ModalitaEsecuzione.DRY_RUN,
+            "test-smtp": ModalitaEsecuzione.TEST_SMTP,
+            "produzione": ModalitaEsecuzione.PRODUZIONE,
+        }[args.comando]
+        return _run(
+            modalita=modalita,
+            oggi=args.today,
+            conferma_email=bool(getattr(args, "confirm_email_delivery", False)),
+            ambiente=os.environ,
+        )
     except Exception as exc:
         dettaglio = sanitizza_messaggio(str(exc))
         raise SystemExit(
@@ -120,61 +163,22 @@ def _init_admin(spreadsheet_id: str) -> int:
     return 0
 
 
-def _check_headers(ambiente: Mapping[str, str]) -> int:
-    risorse = ConfigurazioneRisorseGoogle.da_ambiente(
-        ambiente,
-        richiedi_admin=False,
-    )
-    servizio = costruisci_servizio_sheets()
-    escaped = risorse.operativo_sheet_name.replace("'", "''")
-    range_a1 = (
-        f"'{escaped}'!A{risorse.operativo_header_row}:ZZ{risorse.operativo_header_row}"
-    )
-    risposta = servizio.spreadsheets().values().get(
-        spreadsheetId=risorse.operativo_spreadsheet_id,
-        range=range_a1,
-        majorDimension="ROWS",
-    ).execute()
-    valori = risposta.get("values", []) if isinstance(risposta, Mapping) else []
-    intestazioni = tuple(str(cella).strip() for cella in (valori[0] if valori else []))
-    mancanti = [
-        nome for nome in COLONNE_OPERATIVO_OBBLIGATORIE if nome not in intestazioni
-    ]
-    if mancanti:
-        raise ErroreCliRuntime(
-            "intestazioni Operativo mancanti: " + ", ".join(mancanti)
-        )
-    print(
-        json.dumps(
-            {
-                "operation": "check-headers",
-                "sheet": risorse.operativo_sheet_name,
-                "header_row": risorse.operativo_header_row,
-                "header_count": len(intestazioni),
-                "required_headers_present": True,
-                "data_rows_read": 0,
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
-
-
-def _run(args: argparse.Namespace, ambiente: Mapping[str, str]) -> int:
-    modalita = ModalitaEsecuzione(args.mode)
+def _run(
+    *,
+    modalita: ModalitaEsecuzione,
+    oggi: date,
+    conferma_email: bool,
+    ambiente: Mapping[str, str],
+) -> int:
     consenso = _consenso_esterno(
         modalita,
-        flag_cli=bool(args.confirm_email_delivery),
+        flag_cli=conferma_email,
         ambiente=ambiente,
     )
     risorse = ConfigurazioneRisorseGoogle.da_ambiente(ambiente)
     servizio = costruisci_servizio_sheets()
     componenti = costruisci_componenti_google(servizio=servizio, risorse=risorse)
 
-    # Controllo leggero: una lettura dei metadati e una sola riga per tab. La
-    # CONFIG completa viene validata subito dopo; NOTIFICHE e ANOMALIE non sono
-    # più rilette integralmente prima di ogni esecuzione.
     _verifica_struttura_admin(
         componenti.trasporto_struttura,
         spreadsheet_id=risorse.admin_spreadsheet_id,
@@ -207,7 +211,7 @@ def _run(args: argparse.Namespace, ambiente: Mapping[str, str]) -> int:
         mappatura=MAPPATURA_OPERATIVO_REALE,
     )
     esito = orchestratore.esegui(
-        oggi=args.today,
+        oggi=oggi,
         modalita=modalita,
         consenso_esterno_invio=consenso,
     )
@@ -243,9 +247,10 @@ def _verifica_struttura_admin(
     identificativo = spreadsheet_id.strip()
     if not identificativo:
         raise ErroreCliRuntime("ADMIN_SPREADSHEET_ID mancante")
-    nomi = tuple(str(nome).strip() for nome in trasporto.elenca_tab(
-        spreadsheet_id=identificativo
-    ))
+    nomi = tuple(
+        str(nome).strip()
+        for nome in trasporto.elenca_tab(spreadsheet_id=identificativo)
+    )
     if len(nomi) != len(NOMI_TAB_AMMINISTRATIVE) or set(nomi) != set(
         NOMI_TAB_AMMINISTRATIVE
     ):

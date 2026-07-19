@@ -7,13 +7,14 @@
 - nomi composti conservati;
 - sole sei intestazioni effettivamente usate come requisito bloccante;
 - righe malformate, vuote e ID duplicati;
-- apertura obbligatoria, escaping HTML e oggetto sicuro;
+- saluto personalizzato, corpo libero, placeholder autorizzati, escaping HTML e oggetto sicuro;
 - CONFIG con chiavi duplicate, sconosciute, mancanti o valori incoerenti;
-- dry-run attivo senza override o configurazione SMTP;
-- override obbligatorio nella sola modalità `TEST_SMTP`;
-- kill switch prima della lettura e dell'invio;
+- modifiche editoriali a descrizione e metadati CONFIG non bloccanti;
+- `AUTOMAZIONE_ATTIVA=false` prima della lettura e dell'invio;
+- dry-run senza override o configurazione SMTP;
+- override obbligatorio nel solo sottocomando `test-smtp`;
 - bootstrap idempotente e tab riordinabili dopo la creazione;
-- verifica runtime limitata a metadati e intestazioni;
+- preflight unico limitato a file, tab e intestazioni;
 - una sola lettura completa di `NOTIFICHE` per esecuzione;
 - append e update della stessa riga con indice locale aggiornato;
 - unica macchina a stati persistente;
@@ -24,13 +25,12 @@
 - MIME testo/HTML, Message-ID e logo CID;
 - test SMTP limitato a una sola email all'override;
 - dashboard aggiornata senza `clear` preventivo;
+- un solo entry point CLI installato;
 - workflow con WIF, Environment, lock condiviso e segreti confinati allo step SMTP;
-- modello schedulato fuori da `.github/workflows`;
+- modello schedulato fuori da `.github/workflows` con una sola schedule giornaliera;
 - nessun upgrade dinamico di pip nei workflow.
 
 ## Contratti di sicurezza dei workflow
-
-I test dei workflow verificano proprietà operative, non nomi italiani degli step o conteggi testuali fragili.
 
 Il workflow manuale deve mantenere separate:
 
@@ -38,14 +38,17 @@ Il workflow manuale deve mantenere separate:
 2. scrittura sintetica con doppio consenso;
 3. test SMTP con consenso e Secrets dedicati.
 
+Tutte le operazioni devono usare il comando `reminder-certificati`.
+
 Il modello produttivo deve:
 
 1. restare non attivo sotto `docs/workflows`;
 2. usare Environment `production`, WIF e lo stesso gruppo `concurrency`;
 3. richiedere `PRODUCTION_ENABLED=true`;
-4. contenere una sola esecuzione applicativa in modalità `PRODUZIONE`;
-5. non contenere bootstrap, preflight o modalità di test;
-6. esporre i Secrets SMTP soltanto nello step produttivo.
+4. contenere una sola esecuzione applicativa tramite `reminder-certificati produzione`;
+5. avere una sola schedule giornaliera;
+6. non contenere bootstrap, preflight o modalità di test;
+7. esporre i Secrets SMTP soltanto nello step produttivo.
 
 ## Diagnostica preflight
 
@@ -55,8 +58,6 @@ I test verificano che:
 - l'output contenga le garanzie minime dichiarate;
 - successo ed errore dichiarino zero letture di righe operative e zero scritture;
 - il dettaglio sensibile originario non venga propagato.
-
-Aggiungere un campo JSON o riordinare un enum non deve rompere la CI se il contratto di sicurezza rimane invariato.
 
 ## Collaudo persistente sintetico
 
@@ -73,10 +74,10 @@ Il fake tabellare deve dimostrare:
 
 1. creare con l'account umano il foglio amministrativo vuoto;
 2. condividerlo con il service account;
-3. eseguire `init-admin` due volte e verificare idempotenza;
-4. riordinare visivamente le tab e verificare che il preflight resti verde;
+3. eseguire `reminder-certificati init-admin` due volte e verificare idempotenza;
+4. riordinare visivamente le tab e verificare che `reminder-certificati preflight` resti verde;
 5. alterare un'intestazione su una copia e verificare il blocco;
-6. eseguire il collaudo sintetico del registro;
+6. eseguire `reminder-certificati registry-check`;
 7. verificare append e update senza righe duplicate;
 8. verificare la deduplicazione di un'anomalia aperta;
 9. simulare revoca accesso e controllare l'errore aggregato;
@@ -86,18 +87,17 @@ Il fake tabellare deve dimostrare:
 
 Prima del dry-run impostare:
 
-- `SISTEMA_ATTIVO=true`;
-- `KILL_SWITCH=false`;
+- `AUTOMAZIONE_ATTIVA=true`;
 - `INVII_REALI_ABILITATI=false`.
 
 Non è necessario valorizzare `DESTINATARIO_OVERRIDE` o i parametri SMTP.
 
-Verificare conteggi aggregati, deduplicazione, applicazione del limite, zero scritture nel registro e zero chiamate SMTP.
+Eseguire `reminder-certificati dry-run` e verificare conteggi aggregati, deduplicazione, applicazione del limite, zero scritture nel registro e zero chiamate SMTP.
 
 ## Collaudo SMTP
 
-1. usare esclusivamente `TEST_SMTP`;
-2. impostare un override controllato;
+1. impostare un override controllato;
+2. eseguire `reminder-certificati test-smtp --confirm-email-delivery`;
 3. inviare al massimo una email;
 4. verificare testo, HTML, mittente, Reply-To e Message-ID;
 5. verificare che il registro conservi l'override;
@@ -115,7 +115,8 @@ Verificare conteggi aggregati, deduplicazione, applicazione del limite, zero scr
 
 - CI verde su `main`;
 - nessun segreto o PII nei diff e nei log;
-- dry-run e modalità test validati;
+- dry-run e test SMTP validati;
+- arresto tramite `AUTOMAZIONE_ATTIVA=false` provato;
 - runbook provato da un responsabile non tecnico;
 - seconda identità umana CIA configurata;
 - firma, logo e contenuti approvati;

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.12.0] - 2026-07-19
+
+### Modificato
+
+- unificate tutte le operazioni sotto il solo comando `reminder-certificati`, con sottocomandi per inizializzazione, preflight, collaudo registro, dry-run, test SMTP e produzione;
+- rimossi la CLI storica, gli entry point separati e il comando duplicato `check-headers`;
+- sostituiti `SISTEMA_ATTIVO`, `KILL_SWITCH` e `MODALITA_TEST` con il solo interruttore operativo `AUTOMAZIONE_ATTIVA`;
+- la modalità di esecuzione è ora determinata esclusivamente dal sottocomando;
+- alleggerita la validazione della CONFIG: restano bloccanti chiavi e valori funzionali, non i metadati descrittivi;
+- il corpo email può usare qualsiasi formulazione non vuota con placeholder autorizzati;
+- il modello produttivo prevede una sola esecuzione giornaliera;
+- documentazione, runbook, handoff, checklist e test riallineati.
+
+### Sicurezza
+
+- mantenuti WIF/OIDC, `Operativo` in sola lettura, Environment protetti, `INVII_REALI_ABILITATI`, consenso SMTP esplicito e doppio consenso per le scritture sintetiche;
+- `AUTOMAZIONE_ATTIVA=false` arresta elaborazione e invii prima della lettura completa della sorgente;
+- i segreti SMTP restano confinati al solo step di invio;
+- gli esiti incerti continuano a non essere ritentati automaticamente.
+
 ## [0.11.5] - 2026-07-18
 
 ### Aggiunto

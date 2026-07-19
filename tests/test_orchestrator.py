@@ -31,20 +31,17 @@ def _sorgente(*righe: list[str]) -> SorgenteMemoria:
 
 def _config(
     *,
-    attivo: bool = True,
-    test: bool = True,
-    kill: bool = False,
+    attiva: bool = True,
+    invii_reali: bool = False,
     limite: int = 10,
     override: str | None = "test@example.invalid",
 ) -> ConfigurazioneRuntime:
     return ConfigurazioneRuntime(
-        sistema_attivo=attivo,
-        invii_reali_abilitati=False,
-        modalita_test=test,
-        kill_switch=kill,
+        automazione_attiva=attiva,
+        invii_reali_abilitati=invii_reali,
         giorni_preavviso=30,
         limite_invii_per_esecuzione=limite,
-        destinatario_override=override if test else None,
+        destinatario_override=override,
         email=ConfigurazioneEmail(),
     )
 
@@ -71,11 +68,11 @@ def _candidato(
     )
 
 
-def test_kill_switch_blocca_prima_della_lettura() -> None:
+def test_automazione_disattivata_blocca_prima_della_lettura() -> None:
     dashboard = DashboardMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(),
-        configurazione=_config(kill=True),
+        configurazione=_config(attiva=False),
         dashboard=dashboard,
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
@@ -83,10 +80,10 @@ def test_kill_switch_blocca_prima_della_lettura() -> None:
 
     esito = orchestratore.esegui(oggi=date(2026, 7, 17))
 
-    assert esito.stato == "BLOCCATO_KILL_SWITCH"
+    assert esito.stato == "DISATTIVATO"
     assert esito.righe_lette == 0
     assert dashboard.ultima is not None
-    assert dashboard.ultima.kill_switch is True
+    assert dashboard.ultima.automazione_attiva is False
 
 
 def test_dry_run_compone_senza_override_scritture_o_invio() -> None:
@@ -151,7 +148,7 @@ def test_dry_run_salta_registrate_e_applica_limite_dopo_deduplicazione() -> None
     assert len(archivio.snapshot()) == 1
 
 
-def test_modalita_test_invia_solo_all_override_e_lo_registra() -> None:
+def test_test_smtp_invia_solo_all_override_e_lo_registra() -> None:
     archivio = ArchivioNotificheMemoria()
     registro = RegistroPersistente(archivio, versione_app=VERSIONE)
     smtp = TrasportoEmailMemoria()
@@ -182,7 +179,7 @@ def test_modalita_test_invia_solo_all_override_e_lo_registra() -> None:
     assert righe[0].email == "test@example.invalid"
 
 
-def test_modalita_test_invia_al_massimo_un_messaggio() -> None:
+def test_test_smtp_invia_al_massimo_un_messaggio() -> None:
     smtp = TrasportoEmailMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(
@@ -237,6 +234,31 @@ def test_seconda_esecuzione_test_non_duplica() -> None:
     assert seconda.notifiche_gia_presenti == 1
     assert seconda.invii_tentati == 0
     assert len(smtp.inviati) == 1
+
+
+def test_produzione_richiede_invii_reali_abilitati() -> None:
+    orchestratore = OrchestratoreReminder(
+        sorgente=_sorgente(),
+        configurazione=_config(invii_reali=False),
+        dashboard=DashboardMemoria(),
+        anomalie=AnomalieMemoria(),
+        versione_app=VERSIONE,
+        registro=RegistroPersistente(
+            ArchivioNotificheMemoria(), versione_app=VERSIONE
+        ),
+        trasporto_email=TrasportoEmailMemoria(),
+    )
+
+    try:
+        orchestratore.esegui(
+            oggi=date(2026, 7, 17),
+            modalita=ModalitaEsecuzione.PRODUZIONE,
+            consenso_esterno_invio=True,
+        )
+    except Exception as exc:
+        assert "barriere" in str(exc)
+    else:
+        raise AssertionError("produzione accettata senza INVII_REALI_ABILITATI")
 
 
 def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:

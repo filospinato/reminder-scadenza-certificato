@@ -60,7 +60,7 @@ def test_dashboard_espone_solo_conteggi_e_stato() -> None:
         righe_valide=4,
         candidati=2,
         anomalie=1,
-        kill_switch=False,
+        automazione_attiva=True,
         versione_app="0.12.0",
     )
     dashboard = DashboardMemoria()
@@ -69,7 +69,7 @@ def test_dashboard_espone_solo_conteggi_e_stato() -> None:
     assert dashboard.ultima == metriche
     valori = {riga[0]: riga[1] for riga in metriche.come_righe()}
     assert valori["righe_lette"] == "5"
-    assert valori["kill_switch"] == "DISATTIVO"
+    assert valori["automazione_attiva"] == "SI"
     assert "email" not in valori
 
 

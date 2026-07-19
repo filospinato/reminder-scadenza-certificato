@@ -27,4 +27,26 @@ jobs:
         run: pip install -e ".[dev,google]"
 
       - name: Test
-        run: pytest
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          pytest > pytest.log 2>&1
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Carica log dei test falliti
+        if: steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-failure-log
+          path: pytest.log
+          retention-days: 3
+
+      - name: Propaga il fallimento dei test
+        if: steps.test.outcome == 'failure'
+        run: |
+          cat pytest.log
+          exit 1

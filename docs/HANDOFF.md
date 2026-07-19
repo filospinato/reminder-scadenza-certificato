@@ -14,20 +14,19 @@ Prima della produzione compilare, fuori dal repository pubblico ai collaboratori
 
 Non usare account condivisi o password comuni.
 
-## Conoscenze minime del nuovo responsabile
+## Conoscenze minime del responsabile operativo
 
-Il responsabile deve saper:
+Il responsabile non tecnico deve saper:
 
-1. attivare e disattivare il kill switch;
-2. eseguire `check-headers`;
-3. eseguire un dry-run manuale;
+1. impostare `AUTOMAZIONE_ATTIVA=true` o `false`;
+2. eseguire `reminder-certificati preflight`;
+3. eseguire `reminder-certificati dry-run`;
 4. impostare un destinatario di test;
-5. interpretare gli stati della dashboard;
+5. interpretare dashboard e anomalie;
 6. distinguere `FAILED_RETRYABLE` da `UNKNOWN_REVIEW_REQUIRED`;
-7. revocare l'accesso WIF;
-8. aggiornare o rimuovere un GitHub Secret SMTP;
-9. aprire una PR senza scrivere direttamente su `main`;
-10. applicare le procedure di `EMERGENCY.md`.
+7. applicare le procedure di `EMERGENCY.md`.
+
+Le attività tecniche su WIF, GitHub Secrets, IAM, codice e pull request restano responsabilità di un referente tecnico e non fanno parte della gestione ordinaria.
 
 ## Inventario delle risorse
 
@@ -65,7 +64,7 @@ Il nuovo responsabile deve completare senza assistenza tecnica:
 - impostazione dell'override test;
 - esecuzione di un dry-run;
 - lettura di dashboard e anomalie;
-- attivazione e rimozione del kill switch;
+- arresto e riattivazione tramite `AUTOMAZIONE_ATTIVA`;
 - simulazione di un esito incerto seguendo il runbook.
 
 Il collaudo non include invii reali ad arbitri.

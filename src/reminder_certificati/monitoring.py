@@ -38,7 +38,7 @@ class MetricheEsecuzione:
     invii_falliti: int = 0
     esiti_incerti: int = 0
     anomalie: int = 0
-    kill_switch: bool = True
+    automazione_attiva: bool = False
     versione_app: str = ""
     codice_errore: str = ""
 
@@ -56,7 +56,11 @@ class MetricheEsecuzione:
             ("invii_falliti", str(self.invii_falliti), "Invii falliti in modo classificato."),
             ("esiti_incerti", str(self.esiti_incerti), "Esiti che richiedono revisione umana."),
             ("anomalie", str(self.anomalie), "Anomalie rilevate."),
-            ("kill_switch", "ATTIVO" if self.kill_switch else "DISATTIVO", "Stato del blocco operativo."),
+            (
+                "automazione_attiva",
+                "SI" if self.automazione_attiva else "NO",
+                "Stato dell'unico interruttore operativo.",
+            ),
             ("versione_app", self.versione_app, "Versione del programma."),
             ("codice_errore", self.codice_errore, "Codice sintetico dell'eventuale errore fatale."),
         )

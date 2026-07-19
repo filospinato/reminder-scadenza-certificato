@@ -28,21 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
-    try:
-        return _run(
-            conferma=bool(args.confirm_synthetic_write),
-            ambiente=os.environ,
-        )
-    except Exception as exc:
-        dettaglio = sanitizza_messaggio(str(exc))
-        raise SystemExit(
-            f"Errore collaudo registro: {type(exc).__name__}: {dettaglio}"
-        ) from exc
-
-
-def _run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
+def run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
     if not conferma:
         raise ErroreCliCollaudo("richiesta --confirm-synthetic-write")
     if ambiente.get("ALLOW_SYNTHETIC_REGISTRY_WRITE", "").casefold() != "true":
@@ -79,6 +65,20 @@ def _run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
         )
     )
     return 0
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    try:
+        return run(
+            conferma=bool(args.confirm_synthetic_write),
+            ambiente=os.environ,
+        )
+    except Exception as exc:
+        dettaglio = sanitizza_messaggio(str(exc))
+        raise SystemExit(
+            f"Errore collaudo registro: {type(exc).__name__}: {dettaglio}"
+        ) from exc
 
 
 def _versione() -> str:

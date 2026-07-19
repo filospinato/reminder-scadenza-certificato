@@ -9,19 +9,22 @@ def _testo() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
 
 
-def test_workflow_espone_le_operazioni_di_collaudo_separate():
+def test_workflow_espone_le_operazioni_della_cli_unica():
     testo = _testo()
     for operazione in (
-        "google-preflight",
-        "check-headers",
+        "preflight",
         "init-admin",
         "registry-check",
         "dry-run",
         "test-smtp",
     ):
         assert f"- {operazione}" in testo
-    assert "reminder-certificati-google-preflight" in testo
-    assert "reminder-certificati-registry-check --confirm-synthetic-write" in testo
+    assert "check-headers" not in testo
+    assert "reminder-certificati preflight" in testo
+    assert "reminder-certificati registry-check --confirm-synthetic-write" in testo
+    assert "run: reminder-certificati-runtime" not in testo
+    assert "reminder-certificati-google-preflight" not in testo
+    assert "reminder-certificati-registry-check" not in testo
 
 
 def test_scrittura_sintetica_richiede_doppio_consenso_senza_segreti_smtp():
@@ -38,10 +41,10 @@ def test_scrittura_sintetica_richiede_doppio_consenso_senza_segreti_smtp():
 
 def test_preflight_non_riceve_consensi_di_scrittura_o_email():
     testo = _testo()
-    indice = testo.index("inputs.operation == 'google-preflight'")
-    blocco = testo[indice : testo.index("inputs.operation == 'check-headers'", indice)]
+    indice = testo.index("inputs.operation == 'preflight'")
+    blocco = testo[indice : testo.index("inputs.operation == 'init-admin'", indice)]
 
-    assert "reminder-certificati-google-preflight" in blocco
+    assert "reminder-certificati preflight" in blocco
     assert "ALLOW_SYNTHETIC_REGISTRY_WRITE" not in blocco
     assert "ALLOW_EMAIL_DELIVERY" not in blocco
     assert "${{ secrets." not in blocco
