@@ -23,17 +23,14 @@ def _imposta(matrice: list[list[str]], chiave: str, valore: str) -> None:
 def test_configurazione_iniziale_e_disattivata() -> None:
     config = carica_configurazione(_matrice_config())
 
-    assert config.sistema_attivo is False
-    assert config.kill_switch is True
-    assert config.modalita_test is True
+    assert config.automazione_attiva is False
     assert config.destinatario_override is None
     assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
 def test_dry_run_puo_essere_preparato_senza_override_smtp() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "SISTEMA_ATTIVO", "true")
-    _imposta(matrice, "KILL_SWITCH", "false")
+    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
 
     config = carica_configurazione(matrice)
 
@@ -42,10 +39,9 @@ def test_dry_run_puo_essere_preparato_senza_override_smtp() -> None:
     assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_modalita_test_accetta_override_sintetico_quando_configurato() -> None:
+def test_test_smtp_accetta_override_quando_configurato() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "SISTEMA_ATTIVO", "true")
-    _imposta(matrice, "KILL_SWITCH", "false")
+    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
     _imposta(matrice, "DESTINATARIO_OVERRIDE", "test@example.invalid")
 
     config = carica_configurazione(matrice)
@@ -57,15 +53,21 @@ def test_modalita_test_accetta_override_sintetico_quando_configurato() -> None:
 
 def test_invii_reali_richiedono_configurazione_coerente_e_consenso_esterno() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "SISTEMA_ATTIVO", "true")
-    _imposta(matrice, "KILL_SWITCH", "false")
-    _imposta(matrice, "MODALITA_TEST", "false")
+    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
     _imposta(matrice, "INVII_REALI_ABILITATI", "true")
 
     config = carica_configurazione(matrice)
 
     assert config.invio_reale_consentito(consenso_esterno=False) is False
     assert config.invio_reale_consentito(consenso_esterno=True) is True
+
+
+def test_rifiuta_invii_reali_con_automazione_disattivata() -> None:
+    matrice = _matrice_config()
+    _imposta(matrice, "INVII_REALI_ABILITATI", "true")
+
+    with pytest.raises(ErroreConfigurazioneRuntime, match="AUTOMAZIONE_ATTIVA"):
+        carica_configurazione(matrice)
 
 
 def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:
@@ -80,9 +82,20 @@ def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:
         carica_configurazione(matrice)
 
 
-def test_rifiuta_corpo_non_conforme_e_limiti_fuori_intervallo() -> None:
+def test_accetta_descrizioni_modificate_e_corpo_libero() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "CORPO_EMAIL", "Testo non conforme")
+    matrice[1][3] = "Descrizione modificata dall'amministratore"
+    matrice[1][4] = "testo libero non funzionale"
+    _imposta(matrice, "CORPO_EMAIL", "Il certificato scade il {{data_scadenza}}.")
+
+    config = carica_configurazione(matrice)
+
+    assert config.email.corpo.startswith("Il certificato")
+
+
+def test_rifiuta_corpo_vuoto_e_limiti_fuori_intervallo() -> None:
+    matrice = _matrice_config()
+    _imposta(matrice, "CORPO_EMAIL", "")
     with pytest.raises(ErroreConfigurazioneRuntime, match="CORPO_EMAIL"):
         carica_configurazione(matrice)
 
