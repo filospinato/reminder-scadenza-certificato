@@ -1,45 +1,43 @@
 # Stato corrente
 
-**Versione di pacchetto:** 0.11.5  
-**Data:** 18 luglio 2026  
+**Versione di pacchetto:** 0.12.0  
+**Data:** 19 luglio 2026  
 **Stato:** codice pre-produzione semplificato e disattivato; risorse e collaudi esterni ancora mancanti
 
 ## Funziona già
 
-- validazione e selezione lineari dei record di `Operativo`;
-- una sola fonte di verità per le sei colonne effettivamente utilizzate;
-- preflight in sola lettura che non dipende dall'ordine visuale delle tab o da colonne estranee al reminder;
-- inizializzazione sicura del foglio amministrativo e verifica runtime limitata a metadati e intestazioni;
-- `CONFIG` ridotta ai campi realmente usati;
-- dry-run eseguibile senza destinatario override o configurazione SMTP;
-- registro persistente con una sola lettura completa per esecuzione e indice locale aggiornato dopo le scritture;
-- stati `SENDING`, `SENT`, `FAILED_RETRYABLE` e `UNKNOWN_REVIEW_REQUIRED` gestiti da una sola macchina a stati;
-- anomalie persistenti deduplicate per ID aperto;
-- test SMTP limitato a un messaggio all'override;
+- validazione e selezione dei record di `Operativo`;
+- preflight in sola lettura su file, tab e intestazioni;
+- inizializzazione sicura del foglio amministrativo;
+- un solo comando installato: `reminder-certificati`;
+- sottocomandi `init-admin`, `preflight`, `registry-check`, `dry-run`, `test-smtp` e `produzione`;
+- un solo interruttore operativo: `AUTOMAZIONE_ATTIVA`;
+- modalità determinata dal sottocomando, senza `MODALITA_TEST` in CONFIG;
+- registro persistente con una sola lettura completa per esecuzione;
+- anomalie persistenti deduplicate;
+- corpo email liberamente modificabile con placeholder autorizzati;
 - dashboard aggregata, SMTP MDaemon, WIF/OIDC e workflow manuale protetto;
-- modello schedulato conservato come esempio non attivo;
-- test automatici concentrati sulle proprietà di sicurezza e sul comportamento, non sulla forma testuale dei file.
+- modello schedulato conservato come esempio non attivo, con una sola esecuzione giornaliera.
 
 ## Semplificazioni applicate
 
-- rimossa la CLI storica che elaborava e stampava record completi; il vecchio comando mostra soltanto un avviso;
-- eliminata la versione duplicata da `__init__.py`;
-- eliminati `SALUTO_EMAIL` e `CONTATTO_SUPPORTO` dalla CONFIG perché non influenzavano il runtime;
-- reso modificabile `INVII_REALI_ABILITATI`, mantenendo le altre barriere di go-live;
-- rimosso il modulo di salute non collegato a CLI o workflow;
-- rimossa la macchina a stati in memoria duplicata;
-- eliminati gli acknowledgement produttivi statici ridondanti;
-- eliminato l'upgrade dinamico di pip dai workflow.
+- rimossa la CLI storica;
+- rimossi gli entry point separati per preflight e collaudo registro;
+- eliminato il comando duplicato `check-headers`;
+- sostituiti `SISTEMA_ATTIVO` e `KILL_SWITCH` con `AUTOMAZIONE_ATTIVA`;
+- eliminato `MODALITA_TEST` dalla CONFIG;
+- alleggerita la validazione dei metadati descrittivi della CONFIG;
+- rimosso il vincolo testuale che imponeva al corpo di iniziare con “ricevi questa mail”;
+- ridotta la schedule prevista da due esecuzioni a una al giorno.
 
-## Barriere di sicurezza
+## Barriere di sicurezza mantenute
 
-- nessuna credenziale, email reale o PII nel repository;
 - `Operativo` sempre in sola lettura;
 - credenziali Google permanenti rifiutate a runtime;
-- preflight e check delle intestazioni senza lettura di righe operative;
+- preflight senza lettura di righe operative;
 - collaudo del registro protetto da flag e variabile dedicata;
 - segreti SMTP disponibili soltanto nello step di invio;
-- produzione subordinata a Environment, `PRODUCTION_ENABLED`, CONFIG coerente, kill switch disattivato e consenso esplicito dello step;
+- produzione subordinata a Environment, `PRODUCTION_ENABLED`, CONFIG coerente e consenso dello step;
 - esiti SMTP incerti non ritentati automaticamente;
 - workflow schedulato assente da `.github/workflows`.
 
@@ -53,17 +51,14 @@
 - mittente, Reply-To, firma ufficiale e logo approvato;
 - seconda identità umana CIA di recupero.
 
-## Collaudi ancora necessari
-
-- inizializzazione reale del file amministrativo vuoto;
-- preflight Google reale;
-- collaudo sintetico di `NOTIFICHE`;
-- dry-run aggregato su `Operativo`;
-- test SMTP esclusivamente all'override;
-- errori retryable, permanenti e incerti;
-- concorrenza reale tra workflow e revoca dei permessi;
-- prova dei runbook con un responsabile non tecnico.
-
 ## Prossimo passo
 
-Creare con l'account umano lo Spreadsheet amministrativo vuoto, predisporre Google Cloud e l'Environment `preproduction`, quindi eseguire `init-admin`, preflight, collaudo sintetico, dry-run e test SMTP all'override. Nessun invio reale agli arbitri è necessario durante questi collaudi.
+Creare lo Spreadsheet amministrativo vuoto, predisporre Google Cloud e l'Environment `preproduction`, quindi eseguire nell'ordine:
+
+```text
+reminder-certificati init-admin
+reminder-certificati preflight
+reminder-certificati registry-check
+reminder-certificati dry-run
+reminder-certificati test-smtp
+```
