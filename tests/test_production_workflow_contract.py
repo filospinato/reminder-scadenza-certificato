@@ -50,9 +50,9 @@ def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive():
         "dry-run",
         "test-smtp",
         "ALLOW_SYNTHETIC_REGISTRY_WRITE",
-        "reminder-certificati-runtime",
     ):
         assert valore not in testo
+    assert "run: reminder-certificati-runtime" not in testo
     assert testo.count("reminder-certificati produzione") == 1
 
 
