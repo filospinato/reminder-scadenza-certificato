@@ -11,7 +11,6 @@ _PLACEHOLDER_RE = re.compile(r"{{\s*([a-z_]+)\s*}}")
 _PLACEHOLDER_CONSENTITI = frozenset(
     {"nome", "cognome", "nome_completo", "data_scadenza", "giorni_residui"}
 )
-_APERTURA_OBBLIGATORIA = "ricevi questa mail"
 
 
 class ErroreTemplate(ValueError):
@@ -66,6 +65,8 @@ def _render(template: str, valori: Mapping[str, str], *, campo: str) -> str:
     risultato = _PLACEHOLDER_RE.sub(sostituisci, template).strip()
     if "{{" in risultato or "}}" in risultato:
         raise ErroreTemplate(f"{campo}: placeholder non valido o non chiuso")
+    if not risultato:
+        raise ErroreTemplate(f"{campo}: non può essere vuoto")
     return risultato
 
 
@@ -100,11 +101,6 @@ def componi_email(
 
     if "\n" in oggetto or "\r" in oggetto:
         raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")
-    if not corpo.casefold().startswith(_APERTURA_OBBLIGATORIA):
-        raise ErroreTemplate(
-            "corpo: deve iniziare con 'ricevi questa mail' per rispettare "
-            "l'apertura concordata"
-        )
 
     apertura = f"Ciao {valori['nome']}, {corpo}"
     testo = f"{apertura}\n\n{firma}"
