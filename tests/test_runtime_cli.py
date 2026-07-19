@@ -18,6 +18,16 @@ def test_init_admin_richiede_spreadsheet_id() -> None:
     assert args.spreadsheet_id == "synthetic-sheet"
 
 
+def test_unica_cli_espone_i_sottocomandi_operativi() -> None:
+    parser = runtime_cli.build_parser()
+
+    assert parser.parse_args(["preflight"]).comando == "preflight"
+    assert parser.parse_args(["registry-check"]).comando == "registry-check"
+    assert parser.parse_args(["dry-run"]).comando == "dry-run"
+    assert parser.parse_args(["test-smtp"]).comando == "test-smtp"
+    assert parser.parse_args(["produzione"]).comando == "produzione"
+
+
 def test_consenso_email_richiede_flag_e_variabile() -> None:
     with pytest.raises(runtime_cli.ErroreCliRuntime, match="richiede"):
         runtime_cli._consenso_esterno(
@@ -34,7 +44,7 @@ def test_consenso_email_richiede_flag_e_variabile() -> None:
 
 
 def test_errore_cli_non_stampa_notification_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "argv", ["runtime", "run"])
+    monkeypatch.setattr(sys, "argv", ["reminder-certificati", "dry-run"])
 
     def fallisce(*args, **kwargs):
         raise RuntimeError("duplicato A-123|2026-08-01|REMINDER_30")
