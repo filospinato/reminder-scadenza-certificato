@@ -2,15 +2,15 @@
 
 Il programma genera sempre una versione testuale e una HTML dello stesso messaggio. La composizione resta separata dal trasporto e può essere verificata in dry-run.
 
-## Apertura obbligatoria
+## Apertura
 
-Ogni comunicazione deve iniziare con:
+Il programma aggiunge automaticamente:
 
 ```text
-Ciao {{nome}}, ricevi questa mail...
+Ciao {{nome}},
 ```
 
-Il saluto non è affidato liberamente al template. Il programma aggiunge `Ciao {{nome}}, ` e accetta il corpo solo quando inizia con `ricevi questa mail`.
+Il corpo successivo è liberamente modificabile in `CONFIG`: non deve iniziare con una frase obbligatoria. Deve però essere non vuoto e può usare soltanto i placeholder autorizzati.
 
 ## Provenienza del nome
 
@@ -23,10 +23,10 @@ nome = Anna Maria
 cognome = Verdi
 ```
 
-produce:
+può produrre:
 
 ```text
-Ciao Anna Maria, ricevi questa mail...
+Ciao Anna Maria, il tuo certificato medico scade il 01/08/2026.
 ```
 
 Il programma non prende la prima parola di un nominativo completo e non deduce il nome dal cognome.
@@ -58,7 +58,7 @@ Cordiali saluti,
 CIA Lazio
 ```
 
-Oggetto, corpo e firma vengono caricati da `CONFIG`. Il testo attuale è provvisorio: contenuto, contatti, firma ufficiale e logo devono essere approvati prima della produzione.
+Il testo iniziale resta quello concordato, ma può essere modificato senza cambiare il codice. Oggetto, corpo e firma vengono caricati da `CONFIG`; contenuto, contatti, firma ufficiale e logo devono essere approvati prima della produzione.
 
 ## MIME e trasporto
 
@@ -71,9 +71,7 @@ Oggetto, corpo e firma vengono caricati da `CONFIG`. Il testo attuale è provvis
 - immagine inline CID facoltativa;
 - un solo destinatario per chiamata SMTP.
 
-Il trasporto supporta STARTTLS e SSL. SMTP non cifrato è rifiutato salvo una seconda autorizzazione esplicita. Username e password devono essere entrambi presenti o entrambi assenti.
-
-La consegna avviene direttamente al server SMTP e non crea una copia nella Posta inviata.
+Il trasporto supporta STARTTLS e SSL. La consegna avviene direttamente al server SMTP e non crea una copia nella Posta inviata.
 
 ## Classificazione degli esiti
 
@@ -84,23 +82,22 @@ La consegna avviene direttamente al server SMTP e non crea una copia nella Posta
 
 Un esito incerto non viene ritentato automaticamente.
 
-## Modalità test
+## Test SMTP
 
-`TEST_SMTP` richiede:
+Il sottocomando `reminder-certificati test-smtp` richiede:
 
-- sistema attivo;
-- kill switch disattivato;
-- modalità test attiva;
+- `AUTOMAZIONE_ATTIVA=true`;
 - destinatario override valido;
 - consenso esplicito del comando e dell'environment.
 
-Il destinatario originale viene sostituito prima della chiamata SMTP. Il registro usa tipi `TEST_REMINDER_*`, separati dalle notifiche reali.
+Non esiste una seconda modalità test nella CONFIG. Il destinatario originale viene sostituito prima della chiamata SMTP. Il registro usa tipi `TEST_REMINDER_*`, separati dalle notifiche reali.
 
 ## Sicurezza
 
 - nome, cognome, email e scadenza provengono dalla medesima riga validata;
 - valori personalizzati sottoposti a escaping HTML;
 - ritorni a capo vietati nell'oggetto;
+- oggetto, corpo e firma non possono essere vuoti;
 - testo e HTML prodotti dalla stessa configurazione;
 - i template non accedono a campi arbitrari;
 - i parametri SMTP vengono letti dall'ambiente e non sono versionati;
