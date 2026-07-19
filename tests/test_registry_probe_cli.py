@@ -8,10 +8,10 @@ from reminder_certificati.registry import StatoNotifica
 
 def test_comando_richiede_flag_e_variabile() -> None:
     with pytest.raises(registry_probe_cli.ErroreCliCollaudo, match="confirm"):
-        registry_probe_cli._run(conferma=False, ambiente={})
+        registry_probe_cli.run(conferma=False, ambiente={})
 
     with pytest.raises(registry_probe_cli.ErroreCliCollaudo, match="ALLOW_SYNTHETIC"):
-        registry_probe_cli._run(conferma=True, ambiente={})
+        registry_probe_cli.run(conferma=True, ambiente={})
 
 
 def test_comando_non_legge_operativo_e_stampa_solo_esito_aggregato(
@@ -47,7 +47,7 @@ def test_comando_non_legge_operativo_e_stampa_solo_esito_aggregato(
         ),
     )
 
-    risultato = registry_probe_cli._run(
+    risultato = registry_probe_cli.run(
         conferma=True,
         ambiente={"ALLOW_SYNTHETIC_REGISTRY_WRITE": "true"},
     )
