@@ -29,7 +29,7 @@ def test_cli_restituisce_json_diagnostico_senza_identificatori(monkeypatch, caps
 
     monkeypatch.setattr(google_preflight_cli.PreflightGoogle, "esegui", fallisce)
 
-    assert google_preflight_cli.main() == 2
+    assert google_preflight_cli.run({}) == 2
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["success"] is False
@@ -49,7 +49,7 @@ def test_cli_traduce_errori_inattesi_senza_dettaglio_originale(monkeypatch, caps
         lambda _env: (_ for _ in ()).throw(RuntimeError("segreto@example.test")),
     )
 
-    assert google_preflight_cli.main() == 2
+    assert google_preflight_cli.run({}) == 2
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["error_code"] == "PREFLIGHT_UNEXPECTED_ERROR"
