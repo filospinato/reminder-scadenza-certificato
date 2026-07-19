@@ -32,7 +32,12 @@ def test_produzione_richiede_un_gate_esterno_e_le_barriere_runtime():
     assert "PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}" in testo
     assert '"${PRODUCTION_ENABLED:-}" == "true"' in testo
     assert 'ALLOW_EMAIL_DELIVERY: "true"' in testo
-    assert "--mode PRODUZIONE --confirm-email-delivery" in testo
+    assert "reminder-certificati produzione --confirm-email-delivery" in testo
+
+
+def test_modello_ha_una_sola_esecuzione_giornaliera():
+    testo = _testo()
+    assert testo.count("cron:") == 1
 
 
 def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive():
@@ -40,14 +45,15 @@ def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive():
     for valore in (
         "init-admin",
         "check-headers",
-        "reminder-certificati-google-preflight",
-        "reminder-certificati-registry-check",
-        "--mode DRY_RUN",
-        "--mode TEST_SMTP",
+        "preflight",
+        "registry-check",
+        "dry-run",
+        "test-smtp",
         "ALLOW_SYNTHETIC_REGISTRY_WRITE",
+        "reminder-certificati-runtime",
     ):
         assert valore not in testo
-    assert testo.count("reminder-certificati-runtime run") == 1
+    assert testo.count("reminder-certificati produzione") == 1
 
 
 def test_segreti_smtp_restano_nello_step_produttivo():
