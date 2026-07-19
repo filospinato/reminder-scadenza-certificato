@@ -141,10 +141,10 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
     email = ConfigurazioneEmail()
     voci = (
         VoceConfig(
-            "SISTEMA_ATTIVO",
+            "AUTOMAZIONE_ATTIVA",
             "false",
             TipoValoreConfig.BOOLEANO,
-            "Abilita l'elaborazione dopo il collaudo.",
+            "Unico interruttore operativo: false arresta elaborazione e invii.",
             True,
         ),
         VoceConfig(
@@ -152,20 +152,6 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "false",
             TipoValoreConfig.BOOLEANO,
             "Barriera modificabile soltanto durante il go-live controllato.",
-            True,
-        ),
-        VoceConfig(
-            "MODALITA_TEST",
-            "true",
-            TipoValoreConfig.BOOLEANO,
-            "Sostituisce i destinatari con l'override nei soli test SMTP.",
-            True,
-        ),
-        VoceConfig(
-            "KILL_SWITCH",
-            "true",
-            TipoValoreConfig.BOOLEANO,
-            "Blocca immediatamente elaborazione e invii.",
             True,
         ),
         VoceConfig(
@@ -200,7 +186,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "CORPO_EMAIL",
             email.corpo,
             TipoValoreConfig.TEMPLATE,
-            "Corpo modificabile; deve iniziare con 'ricevi questa mail'.",
+            "Corpo modificabile del promemoria.",
             True,
         ),
         VoceConfig(
@@ -226,7 +212,7 @@ def crea_schema_amministrativo() -> SchemaFoglioAmministrativo:
         ("invii_tentati", "0", "Invii tentati nell'ultima esecuzione."),
         ("invii_riusciti", "0", "Invii confermati nell'ultima esecuzione."),
         ("anomalie", "0", "Anomalie rilevate nell'ultima esecuzione."),
-        ("kill_switch", "ATTIVO", "Barriera operativa inizialmente attiva."),
+        ("automazione_attiva", "NO", "Stato dell'unico interruttore operativo."),
     )
     return SchemaFoglioAmministrativo(
         nome_spreadsheet=NOME_SPREADSHEET_AMMINISTRATIVO,
@@ -245,10 +231,8 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
         raise ErroreSchemaAmministrativo("CONFIG contiene chiavi duplicate")
 
     valori_attesi = {
-        "SISTEMA_ATTIVO": "false",
+        "AUTOMAZIONE_ATTIVA": "false",
         "INVII_REALI_ABILITATI": "false",
-        "MODALITA_TEST": "true",
-        "KILL_SWITCH": "true",
     }
     for chiave, valore in valori_attesi.items():
         voce = per_chiave.get(chiave)
@@ -261,9 +245,6 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
         raise ErroreSchemaAmministrativo(
             "DESTINATARIO_OVERRIDE deve essere vuoto nello schema iniziale"
         )
-    if not per_chiave["CORPO_EMAIL"].valore.casefold().startswith(
-        "ricevi questa mail"
-    ):
-        raise ErroreSchemaAmministrativo(
-            "CORPO_EMAIL deve iniziare con 'ricevi questa mail'"
-        )
+    for chiave in ("OGGETTO_EMAIL", "CORPO_EMAIL", "FIRMA_TESTO"):
+        if not per_chiave[chiave].valore.strip():
+            raise ErroreSchemaAmministrativo(f"{chiave} non può essere vuoto")
