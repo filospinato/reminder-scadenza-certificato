@@ -25,6 +25,8 @@ def test_unica_cli_espone_i_sottocomandi_operativi() -> None:
     assert parser.parse_args(["dry-run"]).comando == "dry-run"
     assert parser.parse_args(["test-smtp"]).comando == "test-smtp"
     assert parser.parse_args(["produzione"]).comando == "produzione"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["produzione", "--confirm-email-delivery"])
     migrazione = parser.parse_args(
         ["migrate-admin", "--spreadsheet-id", "admin"]
     )
@@ -32,8 +34,8 @@ def test_unica_cli_espone_i_sottocomandi_operativi() -> None:
     assert migrazione.apply is False
 
 
-def test_consenso_email_richiede_flag_e_variabile() -> None:
-    with pytest.raises(runtime_cli.ErroreCliRuntime, match="richiede"):
+def test_test_smtp_richiede_flag_e_variabile() -> None:
+    with pytest.raises(runtime_cli.ErroreCliRuntime, match="test SMTP richiede"):
         runtime_cli._consenso_esterno(
             ModalitaEsecuzione.TEST_SMTP,
             flag_cli=True,
@@ -43,6 +45,20 @@ def test_consenso_email_richiede_flag_e_variabile() -> None:
         ModalitaEsecuzione.TEST_SMTP,
         flag_cli=True,
         ambiente={"ALLOW_EMAIL_DELIVERY": "true"},
+    ) is True
+
+
+def test_produzione_richiede_solo_il_gate_esterno_reale() -> None:
+    with pytest.raises(runtime_cli.ErroreCliRuntime, match="PRODUCTION_ENABLED"):
+        runtime_cli._consenso_esterno(
+            ModalitaEsecuzione.PRODUZIONE,
+            flag_cli=False,
+            ambiente={},
+        )
+    assert runtime_cli._consenso_esterno(
+        ModalitaEsecuzione.PRODUZIONE,
+        flag_cli=False,
+        ambiente={"PRODUCTION_ENABLED": "true"},
     ) is True
 
 
