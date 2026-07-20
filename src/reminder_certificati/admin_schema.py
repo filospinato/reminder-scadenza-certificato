@@ -167,7 +167,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "CORPO_EMAIL",
             email.corpo,
             TipoValoreConfig.TEMPLATE,
-            "Testo inserito dopo il saluto automatico Ciao [nome],.",
+            "Messaggio completo; può usare placeholder come {{nome}} e {{data_scadenza}}.",
             True,
         ),
         VoceConfig(
