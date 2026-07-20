@@ -20,7 +20,9 @@ from reminder_certificati.google_runtime import (
 class TrasportoFake:
     tab: dict[str, tuple[str, ...]]
     intestazioni: dict[tuple[str, str, int], tuple[str, ...]]
+    config: list[list[str]]
     letture: list[tuple[str, str, int]] = field(default_factory=list)
+    letture_valori: list[tuple[str, str]] = field(default_factory=list)
     errore_tab: Exception | None = None
     errore_lettura: Exception | None = None
 
@@ -35,6 +37,10 @@ class TrasportoFake:
             raise self.errore_lettura
         return self.intestazioni[(spreadsheet_id, nome_tab, riga)]
 
+    def leggi_valori(self, *, spreadsheet_id: str, intervallo_a1: str):
+        self.letture_valori.append((spreadsheet_id, intervallo_a1))
+        return [list(riga) for riga in self.config]
+
 
 def _scenario():
     schema = crea_schema_amministrativo()
@@ -48,6 +54,7 @@ def _scenario():
     trasporto = TrasportoFake(
         tab={"admin-id": tuple(tab.nome for tab in schema.tab)},
         intestazioni=intestazioni,
+        config=[list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()],
     )
     risorse = ConfigurazioneRisorseGoogle(
         operativo_spreadsheet_id="operativo-id",
@@ -60,19 +67,18 @@ def _diagnostica(exc_info: pytest.ExceptionInfo[ErrorePreflightGoogle]):
     return exc_info.value.diagnostica
 
 
-def test_preflight_legge_soltanto_le_righe_di_intestazione():
+def test_preflight_legge_intestazioni_e_config_ma_non_righe_operativo():
     trasporto, risorse = _scenario()
-
     esito = PreflightGoogle(trasporto).esegui(risorse=risorse)
-
     assert esito.operativo_headers_ok is True
     assert esito.admin_tabs_ok is True
     assert esito.admin_headers_ok is True
+    assert esito.admin_config_ok is True
     assert esito.operativo_data_rows_read == 0
     assert esito.writes_performed == 0
     assert esito.admin_write_verified is False
     assert ("operativo-id", "Operativo", 2) in trasporto.letture
-    assert all(riga in {1, 2} for _, _, riga in trasporto.letture)
+    assert trasporto.letture_valori == [("admin-id", "'CONFIG'!A:E")]
 
 
 def test_preflight_rifiuta_lo_stesso_file_con_codice_stabile():
@@ -81,10 +87,8 @@ def test_preflight_rifiuta_lo_stesso_file_con_codice_stabile():
         operativo_spreadsheet_id="stesso-id",
         admin_spreadsheet_id="stesso-id",
     )
-
     with pytest.raises(ErrorePreflightGoogle) as exc_info:
         PreflightGoogle(trasporto).esegui(risorse=risorse)
-
     assert _diagnostica(exc_info).codice is CodiceErrorePreflight.RISORSE_COINCIDENTI
     assert trasporto.letture == []
 
@@ -92,9 +96,7 @@ def test_preflight_rifiuta_lo_stesso_file_con_codice_stabile():
 def test_preflight_accetta_le_tab_amministrative_riordinate():
     trasporto, risorse = _scenario()
     trasporto.tab["admin-id"] = ("NOTIFICHE", "CONFIG", "DASHBOARD", "ANOMALIE")
-
     esito = PreflightGoogle(trasporto).esegui(risorse=risorse)
-
     assert esito.admin_tabs_ok is True
 
 
@@ -104,17 +106,22 @@ def test_preflight_non_dipende_da_colonne_non_usate():
         *COLONNE_OPERATIVO_OBBLIGATORIE,
         "Colonna libera",
     )
-
     assert PreflightGoogle(trasporto).esegui(risorse=risorse).operativo_headers_ok
+
+
+def test_preflight_rifiuta_config_non_compatibile():
+    trasporto, risorse = _scenario()
+    trasporto.config[1][1] = "1"
+    with pytest.raises(ErrorePreflightGoogle) as exc_info:
+        PreflightGoogle(trasporto).esegui(risorse=risorse)
+    assert _diagnostica(exc_info).codice is CodiceErrorePreflight.ADMIN_CONFIG_NON_CONFORME
 
 
 def test_preflight_rifiuta_intestazioni_operativo_incomplete_senza_elencarle():
     trasporto, risorse = _scenario()
     trasporto.intestazioni[("operativo-id", "Operativo", 2)] = ("Tessera", "Nome")
-
     with pytest.raises(ErrorePreflightGoogle) as exc_info:
         PreflightGoogle(trasporto).esegui(risorse=risorse)
-
     diagnostica = _diagnostica(exc_info)
     assert diagnostica.codice is CodiceErrorePreflight.OPERATIVO_INTESTAZIONI_MANCANTI
     assert "Cognome" not in diagnostica.messaggio
@@ -123,10 +130,8 @@ def test_preflight_rifiuta_intestazioni_operativo_incomplete_senza_elencarle():
 def test_preflight_traduce_errore_google_admin_senza_esporre_payload():
     trasporto, risorse = _scenario()
     trasporto.errore_tab = RuntimeError("spreadsheet-id-segreto token@example.test")
-
     with pytest.raises(ErrorePreflightGoogle) as exc_info:
         PreflightGoogle(trasporto).esegui(risorse=risorse)
-
     diagnostica = _diagnostica(exc_info)
     assert diagnostica.codice is CodiceErrorePreflight.ADMIN_NON_RAGGIUNGIBILE
     assert "spreadsheet-id-segreto" not in str(exc_info.value)
