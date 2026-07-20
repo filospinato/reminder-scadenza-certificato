@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from datetime import date
 
 
+def _normalizza_nome_proprio(nome: str) -> str:
+    """Uniforma spazi e maiuscole di un nome proveniente da Operativo."""
+
+    return " ".join(nome.split()).title()
+
+
 @dataclass(frozen=True, slots=True)
 class Arbitro:
     """Dati minimi di una riga valida di Operativo."""
@@ -19,9 +25,9 @@ class Arbitro:
 
     @property
     def nome_per_saluto(self) -> str:
-        """Nome, letto direttamente dalla relativa colonna di Operativo."""
+        """Nome leggibile per i template, anche se Operativo usa il maiuscolo."""
 
-        return self.nome.strip()
+        return _normalizza_nome_proprio(self.nome)
 
     @property
     def nome_completo(self) -> str:

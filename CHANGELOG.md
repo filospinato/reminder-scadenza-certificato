@@ -2,6 +2,20 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.2] - 2026-07-20
+
+### Modificato
+
+- il placeholder `{{nome}}` normalizza i nomi maiuscoli provenienti da `Operativo`;
+- ogni parte di un nome composto conserva soltanto l'iniziale maiuscola;
+- gli spazi interni ripetuti vengono uniformati prima della composizione della mail;
+- aggiunti test espliciti per nomi singoli e composti, tra cui `PIER SILVIO`, `ALFONSO ARIO` e `NICOLA GIULIO`.
+
+### Compatibilità
+
+- nessuna modifica al foglio Drive, ai template, a SMTP, al registro o ai workflow;
+- il valore originale in `Operativo` resta invariato e viene normalizzato soltanto durante la composizione del messaggio.
+
 ## [0.14.1] - 2026-07-20
 
 ### Modificato
