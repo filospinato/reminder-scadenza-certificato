@@ -20,13 +20,13 @@ class ErroreConfigurazioneRuntime(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ConfigurazioneRuntime:
-    schema_version: int
     automazione_attiva: bool
     invii_reali_abilitati: bool
     giorni_preavviso: int
     limite_invii_per_esecuzione: int
     destinatario_override: str | None
     email: ConfigurazioneEmail
+    schema_version: int = VERSIONE_SCHEMA_AMMINISTRATIVO
 
     @property
     def elaborazione_consentita(self) -> bool:
@@ -145,13 +145,13 @@ def carica_configurazione(
         )
 
     return ConfigurazioneRuntime(
-        schema_version=schema_version,
         automazione_attiva=automazione_attiva,
         invii_reali_abilitati=invii_reali,
         giorni_preavviso=giorni,
         limite_invii_per_esecuzione=limite,
         destinatario_override=override,
         email=ConfigurazioneEmail(oggetto=oggetto, corpo=corpo, firma=firma),
+        schema_version=schema_version,
     )
 
 
