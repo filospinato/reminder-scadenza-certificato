@@ -27,8 +27,10 @@ chiave | valore | descrizione
 | `GIORNI_PREAVVISO` | `30` | finestra inclusiva |
 | `DESTINATARIO_OVERRIDE` | vuoto | destinatario del test SMTP |
 | `OGGETTO_EMAIL` | predefinito | oggetto del promemoria |
-| `CORPO_EMAIL` | predefinito | testo dopo il saluto automatico |
+| `CORPO_EMAIL` | predefinito | messaggio completo, compreso l'eventuale saluto |
 | `FIRMA_TESTO` | predefinita | firma testuale |
+
+Il codice non aggiunge saluti o altre frasi implicite. `CORPO_EMAIL` può usare `{{nome}}`, `{{cognome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`. Il valore iniziale comincia con `Ciao {{nome}},`, ma l'operatore può modificare liberamente la formulazione dal foglio.
 
 Il limite di 10 invii per esecuzione è una costante interna e non compare nel foglio. Non esistono più chiavi separate per produzione, preproduzione o invii reali.
 
