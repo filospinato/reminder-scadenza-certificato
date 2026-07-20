@@ -12,13 +12,12 @@ ADMIN_SPREADSHEET_ID
 GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
 GCP_WORKLOAD_IDENTITY_PROVIDER
-OPERATIVO_COLUMNS_A1
-OPERATIVO_HEADER_ROW
-OPERATIVO_SHEET_NAME
 OPERATIVO_SPREADSHEET_ID
 SMTP_REPLY_TO
 ```
 <!-- END PREPRODUCTION VARIABLES -->
+
+Il foglio `Operativo` segue il contratto canonico incorporato nel programma: tab `Operativo`, intestazioni alla riga 2 e intervallo `A:AS`. Questi dettagli non sono Variables operative e non richiedono configurazione manuale.
 
 L'avvio manuale e l'Environment `preproduction` sono l'unica autorizzazione richiesta. Non esistono ulteriori interruttori GitHub per preflight, setup o collaudi sintetici.
 
@@ -32,9 +31,6 @@ ADMIN_SPREADSHEET_ID
 GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
 GCP_WORKLOAD_IDENTITY_PROVIDER
-OPERATIVO_COLUMNS_A1
-OPERATIVO_HEADER_ROW
-OPERATIVO_SHEET_NAME
 OPERATIVO_SPREADSHEET_ID
 SMTP_REPLY_TO
 ```

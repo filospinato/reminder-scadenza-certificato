@@ -81,14 +81,15 @@ def test_segreti_smtp_restano_nello_step_produttivo() -> None:
     assert "SMTP_FROM_NAME" not in testo
 
 
-def test_modello_mantiene_configurabili_i_parametri_di_operativo() -> None:
+def test_modello_configura_solo_l_id_del_foglio_operativo() -> None:
     testo = _testo()
+    assert "${{ vars.OPERATIVO_SPREADSHEET_ID }}" in testo
     for nome in (
         "OPERATIVO_SHEET_NAME",
         "OPERATIVO_HEADER_ROW",
         "OPERATIVO_COLUMNS_A1",
     ):
-        assert f"${{{{ vars.{nome} }}}}" in testo
+        assert nome not in testo
 
 
 def test_modello_non_esegue_upgrade_dinamici_del_package_manager() -> None:

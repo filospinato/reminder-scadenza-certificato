@@ -27,13 +27,18 @@ class ErroreGoogleRuntime(RuntimeError):
     """Dipendenze, ADC o identificatori Google non sono disponibili."""
 
 
+OPERATIVO_SHEET_NAME = "Operativo"
+OPERATIVO_HEADER_ROW = 2
+OPERATIVO_COLUMNS_A1 = "A:AS"
+
+
 @dataclass(frozen=True, slots=True)
 class ConfigurazioneRisorseGoogle:
     operativo_spreadsheet_id: str
     admin_spreadsheet_id: str
-    operativo_sheet_name: str = "Operativo"
-    operativo_header_row: int = 2
-    operativo_columns_a1: str = "A:ZZ"
+    operativo_sheet_name: str = OPERATIVO_SHEET_NAME
+    operativo_header_row: int = OPERATIVO_HEADER_ROW
+    operativo_columns_a1: str = OPERATIVO_COLUMNS_A1
 
     @classmethod
     def da_ambiente(
@@ -49,24 +54,9 @@ class ConfigurazioneRisorseGoogle:
             raise ErroreGoogleRuntime("OPERATIVO_SPREADSHEET_ID mancante")
         if richiedi_admin and not admin:
             raise ErroreGoogleRuntime("ADMIN_SPREADSHEET_ID mancante")
-        try:
-            header = int(ambiente.get("OPERATIVO_HEADER_ROW", "2"))
-        except ValueError as exc:
-            raise ErroreGoogleRuntime("OPERATIVO_HEADER_ROW non valido") from exc
-        if header < 1:
-            raise ErroreGoogleRuntime("OPERATIVO_HEADER_ROW deve essere almeno 1")
-        colonne = ambiente.get("OPERATIVO_COLUMNS_A1", "A:ZZ").strip()
-        if not colonne:
-            raise ErroreGoogleRuntime("OPERATIVO_COLUMNS_A1 mancante")
         return cls(
             operativo_spreadsheet_id=operativo,
             admin_spreadsheet_id=admin,
-            operativo_sheet_name=ambiente.get(
-                "OPERATIVO_SHEET_NAME", "Operativo"
-            ).strip()
-            or "Operativo",
-            operativo_header_row=header,
-            operativo_columns_a1=colonne,
         )
 
 
