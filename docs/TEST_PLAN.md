@@ -1,5 +1,7 @@
 # Piano di test
 
+Questo documento definisce i controlli automatici e i collaudi necessari per dimostrare che il sistema è corretto, sicuro e pronto al rilascio; non registra lo stato corrente del progetto.
+
 ## Test automatici obbligatori
 
 - finestra inclusiva, scaduti esclusi e cambi di calendario;
