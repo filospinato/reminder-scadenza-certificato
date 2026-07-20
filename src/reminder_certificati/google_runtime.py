@@ -1,8 +1,4 @@
-"""Factory dei componenti Google usando ADC prodotti da WIF/OIDC.
-
-Le importazioni Google sono intenzionalmente lazy: test e dry-run locali non
-richiedono dipendenze Google. Il modulo non accetta chiavi JSON permanenti.
-"""
+"""Factory dei componenti Google usando ADC prodotti da WIF/OIDC."""
 
 from __future__ import annotations
 
@@ -43,10 +39,11 @@ class ConfigurazioneRisorseGoogle:
         ambiente: Mapping[str, str],
         *,
         richiedi_admin: bool = True,
+        richiedi_operativo: bool = True,
     ) -> "ConfigurazioneRisorseGoogle":
         operativo = ambiente.get("OPERATIVO_SPREADSHEET_ID", "").strip()
         admin = ambiente.get("ADMIN_SPREADSHEET_ID", "").strip()
-        if not operativo:
+        if richiedi_operativo and not operativo:
             raise ErroreGoogleRuntime("OPERATIVO_SPREADSHEET_ID mancante")
         if richiedi_admin and not admin:
             raise ErroreGoogleRuntime("ADMIN_SPREADSHEET_ID mancante")
@@ -80,16 +77,12 @@ MAPPATURA_OPERATIVO_REALE = MappaturaColonne(
     attivo="Fa attività quest'anno",
 )
 
-# Unica fonte di verità per le colonne che il programma usa davvero. Le altre
-# colonne del foglio possono cambiare senza bloccare preflight o runtime.
 COLONNE_OPERATIVO_OBBLIGATORIE: tuple[str, ...] = (
     MAPPATURA_OPERATIVO_REALE.obbligatorie
 )
 
 
 def costruisci_servizio_sheets() -> Any:
-    """Costruisce il client soltanto con ADC temporanee prodotte da WIF/OIDC."""
-
     verifica_credenziali_google_temporanee(os.environ)
     try:
         from googleapiclient.discovery import build
@@ -130,6 +123,7 @@ def costruisci_componenti_google(
             nome_scheda=risorse.operativo_sheet_name,
             colonne_a1=risorse.operativo_columns_a1,
             riga_intestazioni=risorse.operativo_header_row,
+            mappatura=MAPPATURA_OPERATIVO_REALE,
         ),
         archivio_notifiche=ArchivioNotificheGoogleSheets(
             trasporto=trasporto_notifiche,
