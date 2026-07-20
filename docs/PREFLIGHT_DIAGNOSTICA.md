@@ -21,8 +21,8 @@ La fase preflight legge il contenuto della sola tab `CONFIG`, ma non legge righe
 | `PREFLIGHT_ADMIN_HEADERS_UNREADABLE` | Le intestazioni amministrative non sono leggibili | Verificare permessi e integrità delle quattro tab |
 | `PREFLIGHT_ADMIN_HEADERS_INVALID` | La riga 1 non rispetta lo schema | Eseguire `setup-admin` in anteprima e confrontare con `docs/SCHEMA_FOGLI.md` |
 | `PREFLIGHT_ADMIN_CONFIG_INVALID` | Le chiavi o i valori della CONFIG non sono compatibili | Eseguire `setup-admin` in anteprima mantenendo l'invio automatico spento |
-| `PREFLIGHT_OPERATIVO_UNREACHABLE` | La riga delle intestazioni di `Operativo` non è leggibile | Verificare condivisione in sola lettura, nome tab e riga |
-| `PREFLIGHT_OPERATIVO_HEADERS_MISSING` | Manca una colonna usata dal reminder | Controllare la riga delle intestazioni e la mappatura configurata |
+| `PREFLIGHT_OPERATIVO_UNREACHABLE` | Le intestazioni canoniche di `Operativo` non sono leggibili | Verificare condivisione in sola lettura e contratto tab `Operativo`, riga 2 |
+| `PREFLIGHT_OPERATIVO_HEADERS_MISSING` | Manca una colonna usata dal reminder | Controllare la riga 2 del foglio sorgente e aggiornare il codice se il contratto è cambiato |
 | `PREFLIGHT_UNEXPECTED_ERROR` | Errore non classificato | Verificare WIF e log sanitizzati, poi ripetere |
 
 ## Contratto di sicurezza
