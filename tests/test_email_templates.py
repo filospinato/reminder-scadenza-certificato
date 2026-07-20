@@ -32,6 +32,27 @@ def test_template_predefinito_usa_la_colonna_nome() -> None:
     assert messaggio.html.startswith("<p>Ciao Mario, ricevi questa mail")
 
 
+@pytest.mark.parametrize(
+    ("nome_operativo", "nome_atteso"),
+    (
+        ("SILVIA", "Silvia"),
+        ("FILIPPO", "Filippo"),
+        ("PIER SILVIO", "Pier Silvio"),
+        ("ALFONSO ARIO", "Alfonso Ario"),
+        ("NICOLA GIULIO", "Nicola Giulio"),
+        ("  PIER   SILVIO  ", "Pier Silvio"),
+    ),
+)
+def test_nome_maiuscolo_di_operativo_diventa_leggibile(
+    nome_operativo: str,
+    nome_atteso: str,
+) -> None:
+    messaggio = componi_email(candidato(nome=nome_operativo))
+
+    assert messaggio.testo.startswith(f"Ciao {nome_atteso}, ricevi questa mail")
+    assert messaggio.html.startswith(f"<p>Ciao {nome_atteso}, ricevi questa mail")
+
+
 def test_nome_composto_non_viene_troncato() -> None:
     messaggio = componi_email(candidato(nome="Anna Maria", cognome="Verdi"))
     assert messaggio.testo.startswith("Ciao Anna Maria, ricevi questa mail")
