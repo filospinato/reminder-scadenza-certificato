@@ -4,14 +4,14 @@ Sistema per individuare gli arbitri con certificato medico prossimo alla scadenz
 
 ## Stato del progetto
 
-La versione **0.13.3** interpreta correttamente la convenzione reale della colonna `Fa attività quest'anno`: cella vuota significa che la persona fa attività; una annotazione non affermativa significa che non fa attività. Benemeriti, osservatori e fuori quadro sono esclusi dai reminder, senza attivare risorse, schedule o invii reali.
+La versione **0.13.4** interpreta correttamente la convenzione reale della colonna `Fa attività quest'anno`: cella vuota significa che la persona fa attività; una annotazione non affermativa significa che non fa attività. Benemeriti, osservatori, fuori quadro, decaduti e non attivi sono esclusi dai reminder, senza attivare risorse, schedule o invii reali.
 
 Sono implementati:
 
 - lettura e validazione di `Operativo`, con intestazioni in riga 2;
 - lettura delle sole otto colonne necessarie tramite `batchGet`, incluse `Qualifica` e `Abilitazione`;
 - interpretazione di `Fa attività quest'anno`: vuoto = attivo, annotazione non affermativa = inattivo;
-- esclusione esplicita di benemeriti, osservatori e fuori quadro dai candidati al reminder;
+- esclusione esplicita di benemeriti, osservatori, fuori quadro, decaduti e non attivi dai candidati al reminder;
 - chiave anti-duplicazione stabile anche se cambia `GIORNI_PREAVVISO`;
 - stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED`;
 - massimo tre tentativi automatici per gli errori ritentabili;

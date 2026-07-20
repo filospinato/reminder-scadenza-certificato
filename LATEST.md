@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione di pacchetto:** 0.13.3  
+**Versione di pacchetto:** 0.13.4  
 **Data:** 20 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; produzione e schedule non attive
 
@@ -11,7 +11,7 @@
 - preflight su tab, intestazioni e CONFIG reale;
 - lettura delle sole otto colonne necessarie di `Operativo`, incluse `Qualifica` e `Abilitazione`;
 - interpretazione di `Fa attività quest'anno`: cella vuota = attivo, annotazione non affermativa = inattivo;
-- esclusione esplicita di benemeriti, osservatori e fuori quadro dai reminder per il certificato medico;
+- esclusione esplicita di benemeriti, osservatori, fuori quadro, decaduti e non attivi dai reminder per il certificato medico;
 - chiave di notifica stabile rispetto a `GIORNI_PREAVVISO`;
 - registro senza nome, cognome o email;
 - stati distinti per errore ritentabile, permanente e incerto;
@@ -28,7 +28,7 @@ La colonna `Fa attività quest'anno` usa la convenzione del foglio reale: una ce
 
 ## Regola categorie
 
-Una riga non diventa candidata al reminder quando `Qualifica` o `Abilitazione` contiene `Benemerito`, `Osservatore` oppure `Fuori Quadro`, senza distinzione tra maiuscole e minuscole.
+Una riga non diventa candidata al reminder quando `Qualifica` o `Abilitazione` contiene `Benemerito`, `Osservatore`, `Fuori Quadro`, `Decaduto` oppure `Non Attivo`, senza distinzione tra maiuscole e minuscole.
 
 ## Migrazione necessaria
 
@@ -45,7 +45,7 @@ Il test SMTP non è stato trasformato in un test interamente sintetico, secondo 
 
 ## Prossimo passo
 
-Dopo il merge della versione 0.13.3:
+Dopo il merge della versione 0.13.4:
 
 1. creare una copia di sicurezza del foglio reale;
 2. migrare CONFIG e NOTIFICHE;

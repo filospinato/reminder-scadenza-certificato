@@ -62,6 +62,9 @@ def test_esclude_inattivi_ed_email_non_valide() -> None:
         ("osservatore", ""),
         ("Arbitro Fuori Quadro", "Fuori Quadro"),
         ("fuori quadro", ""),
+        ("Decaduto", ""),
+        ("Arbitro Regionale", "Non Attivo"),
+        ("decaduto", "non attivo"),
     ],
 )
 def test_esclude_categorie_non_tenute_al_certificato(
