@@ -66,6 +66,18 @@ La tab usa tre sole colonne: `chiave`, `valore`, `descrizione`. Le chiavi sono:
 - `CORPO_EMAIL`;
 - `FIRMA_TESTO`.
 
+`CORPO_EMAIL` contiene il messaggio completo, compreso l'eventuale saluto. Il codice non aggiunge frasi implicite. I placeholder disponibili in oggetto, corpo e firma sono:
+
+```text
+{{nome}}
+{{cognome}}
+{{nome_completo}}
+{{data_scadenza}}
+{{giorni_residui}}
+```
+
+Il valore predefinito inizia con `Ciao {{nome}},`, ma può essere sostituito con qualsiasi formulazione valida direttamente dal foglio.
+
 Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite di invio non è più una decisione dell'operatore.
 
 ## Registro
