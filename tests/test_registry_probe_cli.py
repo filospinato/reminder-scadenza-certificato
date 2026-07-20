@@ -6,12 +6,10 @@ from reminder_certificati import registry_probe_cli
 from reminder_certificati.registry import StatoNotifica
 
 
-def test_comando_richiede_flag_e_variabile() -> None:
-    with pytest.raises(registry_probe_cli.ErroreCliCollaudo, match="confirm"):
-        registry_probe_cli.run(conferma=False, ambiente={})
-
-    with pytest.raises(registry_probe_cli.ErroreCliCollaudo, match="ALLOW_SYNTHETIC"):
-        registry_probe_cli.run(conferma=True, ambiente={})
+def test_comando_non_richiede_flag_o_variabili_di_consenso() -> None:
+    parser = registry_probe_cli.build_parser()
+    args = parser.parse_args([])
+    assert vars(args) == {}
 
 
 def test_comando_non_legge_operativo_e_stampa_solo_esito_aggregato(
@@ -47,10 +45,7 @@ def test_comando_non_legge_operativo_e_stampa_solo_esito_aggregato(
         ),
     )
 
-    risultato = registry_probe_cli.run(
-        conferma=True,
-        ambiente={"ALLOW_SYNTHETIC_REGISTRY_WRITE": "true"},
-    )
+    risultato = registry_probe_cli.run(ambiente={})
 
     output = capsys.readouterr().out
     assert risultato == 0
