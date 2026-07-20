@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione di pacchetto:** 0.13.0  
+**Versione di pacchetto:** 0.13.1  
 **Data:** 20 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; produzione e schedule non attive
 
@@ -9,7 +9,8 @@
 - schema amministrativo v2 con `SCHEMA_VERSION`;
 - migrazione con anteprima, conferma e backup;
 - preflight su tab, intestazioni e CONFIG reale;
-- lettura delle sole sei colonne necessarie di `Operativo`;
+- lettura delle sole otto colonne necessarie di `Operativo`, incluse `Qualifica` e `Abilitazione`;
+- esclusione esplicita di benemeriti e osservatori dai reminder per il certificato medico;
 - chiave di notifica stabile rispetto a `GIORNI_PREAVVISO`;
 - registro senza nome, cognome o email;
 - stati distinti per errore ritentabile, permanente e incerto;
@@ -19,6 +20,10 @@
 - exit code non-zero per `ATTENZIONE` e `REVISIONE_RICHIESTA`;
 - WIF/OIDC, Environment protetti e workflow manuale;
 - modello produttivo non attivo.
+
+## Regola categorie
+
+Una riga non diventa candidata al reminder quando `Qualifica` o `Abilitazione` contiene `Benemerito` oppure `Osservatore`, senza distinzione tra maiuscole e minuscole. `Fuori Quadro` non viene escluso automaticamente, perché nel foglio operativo non equivale necessariamente a osservatore.
 
 ## Migrazione necessaria
 
@@ -35,7 +40,7 @@ Il test SMTP non è stato trasformato in un test interamente sintetico, secondo 
 
 ## Prossimo passo
 
-Dopo il merge della versione 0.13.0:
+Dopo il merge della versione 0.13.1:
 
 1. creare una copia di sicurezza del foglio reale;
 2. migrare CONFIG e NOTIFICHE;
