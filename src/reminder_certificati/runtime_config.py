@@ -1,4 +1,4 @@
-"""Lettura rigorosa della tab CONFIG e barriere di attivazione."""
+"""Lettura rigorosa della tab CONFIG e unico interruttore operativo."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from .admin_schema import (
 from .email_templates import ConfigurazioneEmail
 from .validation import email_valida
 
+LIMITE_INVII_PER_ESECUZIONE = 10
+
 
 class ErroreConfigurazioneRuntime(ValueError):
     """CONFIG è incompleta, duplicata, incoerente o non sicura."""
@@ -21,11 +23,10 @@ class ErroreConfigurazioneRuntime(ValueError):
 @dataclass(frozen=True, slots=True)
 class ConfigurazioneRuntime:
     automazione_attiva: bool
-    invii_reali_abilitati: bool
     giorni_preavviso: int
-    limite_invii_per_esecuzione: int
     destinatario_override: str | None
     email: ConfigurazioneEmail
+    limite_invii_per_esecuzione: int = LIMITE_INVII_PER_ESECUZIONE
     schema_version: int = VERSIONE_SCHEMA_AMMINISTRATIVO
 
     @property
@@ -33,11 +34,7 @@ class ConfigurazioneRuntime:
         return self.automazione_attiva
 
     def invio_reale_consentito(self, *, consenso_esterno: bool) -> bool:
-        return (
-            consenso_esterno
-            and self.automazione_attiva
-            and self.invii_reali_abilitati
-        )
+        return consenso_esterno and self.automazione_attiva
 
 
 _CHIAVI_CANONICHE = tuple(voce.chiave for voce in configurazione_iniziale_sicura())
@@ -98,16 +95,12 @@ def carica_configurazione(
     )
     if schema_version != VERSIONE_SCHEMA_AMMINISTRATIVO:
         raise ErroreConfigurazioneRuntime(
-            "CONFIG: versione schema non supportata; eseguire migrate-admin"
+            "CONFIG: versione schema non supportata; eseguire setup-admin"
         )
 
     automazione_attiva = _booleano(
-        righe["AUTOMAZIONE_ATTIVA"]["valore"],
-        "AUTOMAZIONE_ATTIVA",
-    )
-    invii_reali = _booleano(
-        righe["INVII_REALI_ABILITATI"]["valore"],
-        "INVII_REALI_ABILITATI",
+        righe["INVIO_AUTOMATICO_ATTIVO"]["valore"],
+        "INVIO_AUTOMATICO_ATTIVO",
     )
     giorni = _intero_limitato(
         righe["GIORNI_PREAVVISO"]["valore"],
@@ -115,13 +108,6 @@ def carica_configurazione(
         minimo=0,
         massimo=365,
     )
-    limite = _intero_limitato(
-        righe["LIMITE_INVII_PER_ESECUZIONE"]["valore"],
-        campo="LIMITE_INVII_PER_ESECUZIONE",
-        minimo=1,
-        massimo=500,
-    )
-
     override = _email_opzionale(
         righe["DESTINATARIO_OVERRIDE"]["valore"],
         "DESTINATARIO_OVERRIDE",
@@ -139,16 +125,9 @@ def carica_configurazione(
     if not firma:
         raise ErroreConfigurazioneRuntime("CONFIG: FIRMA_TESTO non può essere vuota")
 
-    if invii_reali and not automazione_attiva:
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: INVII_REALI_ABILITATI richiede AUTOMAZIONE_ATTIVA=true"
-        )
-
     return ConfigurazioneRuntime(
         automazione_attiva=automazione_attiva,
-        invii_reali_abilitati=invii_reali,
         giorni_preavviso=giorni,
-        limite_invii_per_esecuzione=limite,
         destinatario_override=override,
         email=ConfigurazioneEmail(oggetto=oggetto, corpo=corpo, firma=firma),
         schema_version=schema_version,

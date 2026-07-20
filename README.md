@@ -2,15 +2,25 @@
 
 Sistema per individuare gli arbitri con certificato medico prossimo alla scadenza e inviare promemoria individuali tramite SMTP MDaemon.
 
+## Uso quotidiano
+
+L'operatore deve conoscere soltanto tre azioni:
+
+- `INVIO_AUTOMATICO_ATTIVO` nella tab `CONFIG` accende o spegne gli invii programmati;
+- **Controlla senza inviare** verifica configurazione, dati, candidati e registro;
+- **Invia email di prova** manda al massimo un messaggio al `DESTINATARIO_OVERRIDE`.
+
+Il controllo e la prova funzionano anche quando l'invio automatico è spento. Soltanto la modalità `produzione` richiede `INVIO_AUTOMATICO_ATTIVO=true`.
+
 ## Principi operativi
 
-- `Operativo` è sempre letto in sola lettura e soltanto nelle colonne necessarie;
-- il foglio amministrativo contiene CONFIG, registro, dashboard e anomalie;
-- `AUTOMAZIONE_ATTIVA` abilita l'elaborazione;
-- `INVII_REALI_ABILITATI` abilita separatamente gli invii agli indirizzi reali;
-- il test SMTP usa esclusivamente `DESTINATARIO_OVERRIDE` e richiede doppia conferma;
-- la produzione richiede Environment protetto e `PRODUCTION_ENABLED=true`;
-- credenziali Google permanenti e dati personali nei log sono rifiutati.
+- `Operativo` resta in sola lettura e vengono lette soltanto le otto colonne necessarie;
+- nome scheda, riga delle intestazioni e intervallo di colonne restano configurabili;
+- `NOTIFICHE` e `ANOMALIE` restano visibili nel foglio amministrativo;
+- il test SMTP mantiene il comportamento corrente: usa un candidato reale, sostituisce l'indirizzo con l'override, registra una notifica `TEST_` e invia al massimo un messaggio;
+- il limite produttivo resta fissato internamente a 10 messaggi per esecuzione;
+- Environment GitHub, WIF/OIDC, registro anti-duplicazione e classificazione degli errori SMTP restano invariati;
+- SMTP `PLAIN` resta temporaneamente supportato e protetto da `ALLOW_PLAIN_SMTP=true`.
 
 ## Installazione
 
@@ -23,49 +33,42 @@ python -m pip install -e ".[dev]"
 pytest
 ```
 
-Per i comandi Google:
+Per usare Google Sheets:
 
 ```bash
 python -m pip install -e ".[google]"
 ```
 
-## Comando unico
+## Comandi
 
 ```bash
-reminder-certificati init-admin --spreadsheet-id ID
-reminder-certificati migrate-admin --spreadsheet-id ID
-reminder-certificati migrate-admin --spreadsheet-id ID --apply --confirm-migration
-reminder-certificati preflight
-ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati registry-check --confirm-synthetic-write
-reminder-certificati review-registry
-reminder-certificati dry-run
-ALLOW_EMAIL_DELIVERY=true reminder-certificati test-smtp --confirm-email-delivery
-PRODUCTION_ENABLED=true reminder-certificati produzione
+reminder-certificati setup-admin --spreadsheet-id ID
+reminder-certificati setup-admin --spreadsheet-id ID --apply
+reminder-certificati check
+reminder-certificati registry-check
+reminder-certificati test-smtp
+reminder-certificati produzione
 ```
 
-`migrate-admin` opera in anteprima senza `--apply`. L'applicazione richiede anche `--confirm-migration`, salva un backup JSON e lascia disattivati sia `AUTOMAZIONE_ATTIVA` sia `INVII_REALI_ABILITATI`.
+`setup-admin` riconosce automaticamente un foglio vuoto, uno schema precedente o un foglio già aggiornato. Senza `--apply` mostra l'anteprima; con `--apply` inizializza oppure aggiorna e, quando modifica un foglio esistente, crea prima un backup JSON.
 
-`preflight` verifica risorse, tab, intestazioni, versione dello schema e valori funzionali della CONFIG senza leggere righe anagrafiche di `Operativo`, scrivere celle o usare SMTP.
-
-`review-registry` restituisce soltanto conteggi aggregati degli stati che richiedono attenzione.
+`check` unisce preflight, controllo completo senza invio e revisione aggregata del registro. Non usa SMTP e non richiede che l'invio automatico sia acceso.
 
 ## CONFIG
 
-Le chiavi funzionali sono:
+La tab usa tre sole colonne: `chiave`, `valore`, `descrizione`. Le chiavi sono:
 
 - `SCHEMA_VERSION`, gestita dal programma;
-- `AUTOMAZIONE_ATTIVA`;
-- `INVII_REALI_ABILITATI`;
+- `INVIO_AUTOMATICO_ATTIVO`;
 - `GIORNI_PREAVVISO`;
-- `LIMITE_INVII_PER_ESECUZIONE`;
 - `DESTINATARIO_OVERRIDE`;
 - `OGGETTO_EMAIL`;
 - `CORPO_EMAIL`;
 - `FIRMA_TESTO`.
 
-Con `AUTOMAZIONE_ATTIVA=false`, il runtime termina prima di leggere le righe operative e prima di inizializzare SMTP.
+Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite di invio non è più una decisione dell'operatore.
 
-## Registro e codici di uscita
+## Registro
 
 La chiave anti-duplicazione è:
 
@@ -73,24 +76,19 @@ La chiave anti-duplicazione è:
 ID_ARBITRO|DATA_SCADENZA|CERTIFICATO_SCADENZA_V1
 ```
 
-Il registro non conserva nome, cognome o email. Gli stati distinguono invii in corso, riusciti, ritentabili, permanenti ed esiti incerti da revisionare.
-
-- `0`: esecuzione regolare o sistema disattivato;
-- `2`: errore operativo o registro da revisionare;
-- `3`: stato `ATTENZIONE`;
-- `4`: stato `REVISIONE_RICHIESTA`.
+Il registro non conserva nome, cognome o email. Gli stati tecnici restano distinti tra invio in corso, riuscito, ritentabile, permanente e incerto; nei riepiloghi vengono mostrati con etichette comprensibili.
 
 ## Produzione
 
-Il modello schedulato resta in `docs/workflows/production.yml.example` finché il go-live non è autorizzato. Gli invii reali richiedono contemporaneamente:
+Il modello resta non attivo in `docs/workflows/production.yml.example` e non contiene ancora una schedule. Al go-live verrà aggiunta una sola esecuzione giornaliera dopo i collaudi finali.
+
+Gli invii reali richiedono:
 
 - Environment GitHub `production` protetto;
-- `PRODUCTION_ENABLED=true`;
-- `AUTOMAZIONE_ATTIVA=true`;
-- `INVII_REALI_ABILITATI=true`;
+- `INVIO_AUTOMATICO_ATTIVO=true` nella tab `CONFIG`;
 - configurazione Google e SMTP valida.
 
-`ALLOW_EMAIL_DELIVERY` e `--confirm-email-delivery` appartengono soltanto al test SMTP manuale e non al workflow schedulato.
+Non esistono più `PRODUCTION_ENABLED`, `PREPRODUCTION_ENABLED`, `INVII_REALI_ABILITATI`, `ALLOW_EMAIL_DELIVERY` o conferme CLI duplicate.
 
 ## Fonti di verità
 

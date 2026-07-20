@@ -10,14 +10,14 @@ def _testo() -> str:
     return MODELLO.read_text(encoding="utf-8")
 
 
-def test_modello_resta_non_attivo_e_fuori_dai_workflow_eseguibili():
+def test_modello_resta_non_attivo_e_fuori_dai_workflow_eseguibili() -> None:
     testo = _testo()
     assert MODELLO.exists()
     assert not WORKFLOW_ATTIVO.exists()
     assert testo.startswith("# MODELLO NON ATTIVO:")
 
 
-def test_modello_usa_environment_wif_e_lock_condiviso():
+def test_modello_usa_environment_wif_e_lock_condiviso() -> None:
     testo = _testo()
     assert "environment: production" in testo
     assert "group: reminder-certificati-runtime" in testo
@@ -27,24 +27,30 @@ def test_modello_usa_environment_wif_e_lock_condiviso():
     assert "google-github-actions/auth@v3" in testo
 
 
-def test_produzione_usa_un_solo_gate_esterno_reale():
+def test_produzione_usa_il_solo_interruttore_del_foglio() -> None:
     testo = _testo()
-    assert "PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}" in testo
-    assert '"${PRODUCTION_ENABLED:-}" == "true"' in testo
     assert "run: reminder-certificati produzione" in testo
-    assert "ALLOW_EMAIL_DELIVERY" not in testo
-    assert "--confirm-email-delivery" not in testo
+    for valore in (
+        "PRODUCTION_ENABLED",
+        "ALLOW_EMAIL_DELIVERY",
+        "--confirm-email-delivery",
+    ):
+        assert valore not in testo
+    assert "INVIO_AUTOMATICO_ATTIVO" in testo
 
 
-def test_modello_ha_una_sola_esecuzione_giornaliera():
+def test_schedule_non_e_preconfigurata_prima_del_go_live() -> None:
     testo = _testo()
-    assert testo.count("cron:") == 1
+    assert "schedule:" not in testo
+    assert "cron:" not in testo
+    assert "aggiungere una sola schedule" in testo
 
 
-def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive():
+def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive() -> None:
     testo = _testo()
     for valore in (
         "init-admin",
+        "setup-admin",
         "check-headers",
         "preflight",
         "registry-check",
@@ -53,11 +59,10 @@ def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive():
         "ALLOW_SYNTHETIC_REGISTRY_WRITE",
     ):
         assert valore not in testo
-    assert "run: reminder-certificati-runtime" not in testo
     assert testo.count("reminder-certificati produzione") == 1
 
 
-def test_segreti_smtp_restano_nello_step_produttivo():
+def test_segreti_smtp_restano_nello_step_produttivo() -> None:
     testo = _testo()
     indice = testo.index("- name: Esecuzione produzione")
     prima = testo[:indice]
@@ -73,7 +78,18 @@ def test_segreti_smtp_restano_nello_step_produttivo():
         "SMTP_PASSWORD",
     ):
         assert f"${{{{ secrets.{nome} }}}}" in produzione
+    assert "SMTP_FROM_NAME" not in testo
 
 
-def test_modello_non_esegue_upgrade_dinamici_del_package_manager():
+def test_modello_mantiene_configurabili_i_parametri_di_operativo() -> None:
+    testo = _testo()
+    for nome in (
+        "OPERATIVO_SHEET_NAME",
+        "OPERATIVO_HEADER_ROW",
+        "OPERATIVO_COLUMNS_A1",
+    ):
+        assert f"${{{{ vars.{nome} }}}}" in testo
+
+
+def test_modello_non_esegue_upgrade_dinamici_del_package_manager() -> None:
     assert "pip install --upgrade pip" not in _testo()

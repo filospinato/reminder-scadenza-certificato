@@ -8,33 +8,39 @@ def _leggi(path: str) -> str:
     return (REPOSITORY_ROOT / path).read_text(encoding="utf-8")
 
 
-def test_workflow_preproduzione_non_usa_data_fissa_o_gate_job_level() -> None:
+def test_workflow_ordinario_non_usa_data_fissa_o_gate_ridondanti() -> None:
     workflow = _leggi(".github/workflows/manual-preproduction.yml")
 
     assert 'default: "2026-07-17"' not in workflow
+    assert "today:" not in workflow
     assert "group: reminder-certificati-runtime" in workflow
-    assert "if: vars.PREPRODUCTION_ENABLED" not in workflow
     assert "environment: preproduction" in workflow
-    assert "steps.gate.outputs.enabled == 'true'" in workflow
+    assert "PREPRODUCTION_ENABLED" not in workflow
+    assert "steps.gate.outputs.enabled" not in workflow
+    assert "reminder-certificati check" in workflow
 
 
-def test_workflow_preproduzione_richiede_file_amministrativo_esistente() -> None:
+def test_manutenzione_gestisce_il_foglio_amministrativo() -> None:
+    workflow = _leggi(".github/workflows/manual-maintenance.yml")
+
+    assert 'ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}' in workflow
+    assert 'setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"' in workflow
+    assert "setup-admin --spreadsheet-id \"$ADMIN_SPREADSHEET_ID\" --apply" in workflow
+    assert "actions/upload-artifact@v4" in workflow
+    assert "init-admin" not in workflow
+    assert "migrate-admin" not in workflow
+
+
+def test_segreti_smtp_ordinari_esistono_solo_nello_step_di_invio() -> None:
     workflow = _leggi(".github/workflows/manual-preproduction.yml")
-
-    assert "ADMIN_SPREADSHEET_ID mancante" in workflow
-    assert 'init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"' in workflow
-    assert "reminder-certificati-runtime init-admin\n" not in workflow
-
-
-def test_segreti_smtp_preproduzione_esistono_solo_nello_step_di_invio() -> None:
-    workflow = _leggi(".github/workflows/manual-preproduction.yml")
-    prima_dell_invio = workflow.split(
-        "- name: Esegui test SMTP all'override", maxsplit=1
-    )[0]
+    nome_step = "- name: Invia una email di prova all'override"
+    assert nome_step in workflow
+    prima_dell_invio = workflow.split(nome_step, maxsplit=1)[0]
 
     assert "SMTP_PASSWORD" not in prima_dell_invio
     assert "SMTP_USERNAME" not in prima_dell_invio
     assert "SMTP_PASSWORD" in workflow
+    assert "reminder-certificati test-smtp" in workflow
 
 
 def test_modello_produzione_condivide_lock_e_limita_i_segreti() -> None:
@@ -42,7 +48,9 @@ def test_modello_produzione_condivide_lock_e_limita_i_segreti() -> None:
     prima_dell_invio = workflow.split("- name: Esecuzione produzione", maxsplit=1)[0]
 
     assert "group: reminder-certificati-runtime" in workflow
-    assert "if: vars.PRODUCTION_ENABLED" not in workflow
-    assert "steps.gate.outputs.enabled == 'true'" in workflow
+    assert "PRODUCTION_ENABLED" not in workflow
+    assert "steps.gate.outputs.enabled" not in workflow
     assert "SMTP_PASSWORD" not in prima_dell_invio
     assert "SMTP_PASSWORD" in workflow
+    assert "schedule:" not in workflow
+    assert "reminder-certificati produzione" in workflow

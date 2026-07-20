@@ -15,7 +15,7 @@ from reminder_certificati.smtp_transport import (
     TrasportoEmailMemoria,
 )
 
-VERSIONE = "0.13.0"
+VERSIONE = "0.14.0"
 _INTESTAZIONI = [
     "id_arbitro",
     "nome",
@@ -36,13 +36,11 @@ def _sorgente(*righe: list[str]) -> SorgenteMemoria:
 def _config(
     *,
     attiva: bool = True,
-    invii_reali: bool = False,
     limite: int = 10,
     override: str | None = "test@example.invalid",
 ) -> ConfigurazioneRuntime:
     return ConfigurazioneRuntime(
         automazione_attiva=attiva,
-        invii_reali_abilitati=invii_reali,
         giorni_preavviso=30,
         limite_invii_per_esecuzione=limite,
         destinatario_override=override,
@@ -72,7 +70,7 @@ def _candidato(
     )
 
 
-def test_automazione_disattivata_blocca_prima_della_lettura() -> None:
+def test_produzione_spenta_blocca_prima_della_lettura() -> None:
     dashboard = DashboardMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(),
@@ -81,22 +79,24 @@ def test_automazione_disattivata_blocca_prima_della_lettura() -> None:
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
     )
-    esito = orchestratore.esegui(oggi=date(2026, 7, 17))
+    esito = orchestratore.esegui(
+        oggi=date(2026, 7, 17),
+        modalita=ModalitaEsecuzione.PRODUZIONE,
+    )
+
     assert esito.stato == "DISATTIVATO"
     assert esito.righe_lette == 0
     assert dashboard.ultima is not None
     assert dashboard.ultima.automazione_attiva is False
 
 
-def test_dry_run_compone_senza_override_scritture_o_invio() -> None:
-    dashboard = DashboardMemoria()
-    anomalie = AnomalieMemoria()
+def test_dry_run_funziona_anche_con_invii_automatici_spenti() -> None:
     archivio = ArchivioNotificheMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(),
-        configurazione=_config(override=None),
-        dashboard=dashboard,
-        anomalie=anomalie,
+        configurazione=_config(attiva=False, override=None),
+        dashboard=DashboardMemoria(),
+        anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
         registro=RegistroPersistente(archivio, versione_app=VERSIONE),
     )
@@ -104,12 +104,12 @@ def test_dry_run_compone_senza_override_scritture_o_invio() -> None:
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.DRY_RUN,
     )
+
     assert esito.stato == "DRY_RUN_OK"
     assert esito.candidati == 1
     assert esito.messaggi_composti == 1
     assert esito.invii_tentati == 0
     assert archivio.snapshot() == ()
-    assert anomalie.snapshot() == ()
 
 
 def test_dry_run_salta_registrate_e_applica_limite_dopo_deduplicazione() -> None:
@@ -140,23 +140,23 @@ def test_dry_run_salta_registrate_e_applica_limite_dopo_deduplicazione() -> None
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.DRY_RUN,
     )
+
     assert esito.candidati == 2
     assert esito.notifiche_gia_presenti == 1
     assert esito.messaggi_composti == 1
     assert len(archivio.snapshot()) == 1
 
 
-def test_test_smtp_invia_solo_all_override_e_lo_registra() -> None:
+def test_test_smtp_invia_solo_all_override_e_lo_registra_anche_se_spento() -> None:
     archivio = ArchivioNotificheMemoria()
-    registro = RegistroPersistente(archivio, versione_app=VERSIONE)
     smtp = TrasportoEmailMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(),
-        configurazione=_config(),
+        configurazione=_config(attiva=False),
         dashboard=DashboardMemoria(),
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
-        registro=registro,
+        registro=RegistroPersistente(archivio, versione_app=VERSIONE),
         trasporto_email=smtp,
     )
     esito = orchestratore.esegui(
@@ -165,6 +165,7 @@ def test_test_smtp_invia_solo_all_override_e_lo_registra() -> None:
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
+
     assert esito.invii_riusciti == 1
     assert smtp.inviati[0].destinatario == "test@example.invalid"
     righe = archivio.snapshot()
@@ -196,6 +197,7 @@ def test_test_smtp_invia_al_massimo_un_messaggio() -> None:
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
+
     assert esito.candidati == 2
     assert esito.invii_tentati == 1
     assert len(smtp.inviati) == 1
@@ -222,33 +224,33 @@ def test_seconda_esecuzione_test_non_duplica() -> None:
     )
     orchestratore.esegui(**kwargs)
     seconda = orchestratore.esegui(**kwargs)
+
     assert seconda.notifiche_gia_presenti == 1
     assert seconda.invii_tentati == 0
     assert len(smtp.inviati) == 1
 
 
-def test_produzione_richiede_invii_reali_abilitati() -> None:
+def test_produzione_attiva_usa_il_solo_interruttore() -> None:
+    smtp = TrasportoEmailMemoria()
     orchestratore = OrchestratoreReminder(
         sorgente=_sorgente(),
-        configurazione=_config(invii_reali=False),
+        configurazione=_config(attiva=True),
         dashboard=DashboardMemoria(),
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
         registro=RegistroPersistente(
             ArchivioNotificheMemoria(), versione_app=VERSIONE
         ),
-        trasporto_email=TrasportoEmailMemoria(),
+        trasporto_email=smtp,
     )
-    try:
-        orchestratore.esegui(
-            oggi=date(2026, 7, 17),
-            modalita=ModalitaEsecuzione.PRODUZIONE,
-            consenso_esterno_invio=True,
-        )
-    except Exception as exc:
-        assert "barriere" in str(exc)
-    else:
-        raise AssertionError("produzione accettata senza INVII_REALI_ABILITATI")
+    esito = orchestratore.esegui(
+        oggi=date(2026, 7, 17),
+        modalita=ModalitaEsecuzione.PRODUZIONE,
+        consenso_esterno_invio=True,
+    )
+
+    assert esito.invii_riusciti == 1
+    assert smtp.inviati[0].destinatario == "anna@example.invalid"
 
 
 def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:
@@ -269,6 +271,7 @@ def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
+
     assert esito.stato == "REVISIONE_RICHIESTA"
     assert archivio.snapshot()[0].stato is StatoNotifica.UNKNOWN_REVIEW_REQUIRED
 
@@ -291,5 +294,6 @@ def test_errore_smtp_permanente_diventa_failed_permanent() -> None:
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
+
     assert esito.stato == "ATTENZIONE"
     assert archivio.snapshot()[0].stato is StatoNotifica.FAILED_PERMANENT

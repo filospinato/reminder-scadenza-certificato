@@ -78,7 +78,7 @@ def test_preflight_legge_intestazioni_e_config_ma_non_righe_operativo():
     assert esito.writes_performed == 0
     assert esito.admin_write_verified is False
     assert ("operativo-id", "Operativo", 2) in trasporto.letture
-    assert trasporto.letture_valori == [("admin-id", "'CONFIG'!A:E")]
+    assert trasporto.letture_valori == [("admin-id", "'CONFIG'!A:C")]
 
 
 def test_preflight_rifiuta_lo_stesso_file_con_codice_stabile():

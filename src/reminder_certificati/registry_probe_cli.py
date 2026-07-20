@@ -12,30 +12,13 @@ from .notifications_sheets import ArchivioNotificheGoogleSheets, TrasportoNotifi
 from .registry_probe import esegui_collaudo_registro_sintetico
 
 
-class ErroreCliCollaudo(RuntimeError):
-    """Il comando di collaudo non dispone delle conferme richieste."""
-
-
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Collaudo sintetico protetto della tab NOTIFICHE."
+    return argparse.ArgumentParser(
+        description="Collaudo sintetico della tab NOTIFICHE."
     )
-    parser.add_argument(
-        "--confirm-synthetic-write",
-        action="store_true",
-        help="conferma la scrittura di una sola riga interamente sintetica",
-    )
-    return parser
 
 
-def run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
-    if not conferma:
-        raise ErroreCliCollaudo("richiesta --confirm-synthetic-write")
-    if ambiente.get("ALLOW_SYNTHETIC_REGISTRY_WRITE", "").casefold() != "true":
-        raise ErroreCliCollaudo(
-            "richiesta anche ALLOW_SYNTHETIC_REGISTRY_WRITE=true"
-        )
-
+def run(*, ambiente: Mapping[str, str]) -> int:
     risorse = ConfigurazioneRisorseGoogle.da_ambiente(
         ambiente,
         richiedi_operativo=False,
@@ -71,12 +54,9 @@ def run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    build_parser().parse_args()
     try:
-        return run(
-            conferma=bool(args.confirm_synthetic_write),
-            ambiente=os.environ,
-        )
+        return run(ambiente=os.environ)
     except Exception as exc:
         dettaglio = sanitizza_messaggio(str(exc))
         raise SystemExit(

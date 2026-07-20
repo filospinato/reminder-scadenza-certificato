@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-WORKFLOW_MANUALE = Path(".github/workflows/manual-preproduction.yml")
+WORKFLOW_ORDINARIO = Path(".github/workflows/manual-preproduction.yml")
+WORKFLOW_MANUTENZIONE = Path(".github/workflows/manual-maintenance.yml")
 MODELLO_PRODUZIONE = Path("docs/workflows/production.yml.example")
 CONTRATTO = Path("docs/CONTRATTO_ENVIRONMENT_GITHUB.md")
 
@@ -19,12 +20,15 @@ def _sezione_documentata(testo: str, nome: str) -> set[str]:
     return {riga.strip() for riga in match.group(1).splitlines() if riga.strip()}
 
 
-def test_variables_usate_dai_workflow_sono_documentate():
+def test_variables_usate_dai_workflow_sono_documentate() -> None:
     contratto = CONTRATTO.read_text(encoding="utf-8")
-    manuale = WORKFLOW_MANUALE.read_text(encoding="utf-8")
+    manuali = "\n".join(
+        percorso.read_text(encoding="utf-8")
+        for percorso in (WORKFLOW_ORDINARIO, WORKFLOW_MANUTENZIONE)
+    )
     produzione = MODELLO_PRODUZIONE.read_text(encoding="utf-8")
 
-    assert _riferimenti(manuale, "vars") <= _sezione_documentata(
+    assert _riferimenti(manuali, "vars") <= _sezione_documentata(
         contratto, "PREPRODUCTION VARIABLES"
     )
     assert _riferimenti(produzione, "vars") <= _sezione_documentata(
@@ -32,21 +36,45 @@ def test_variables_usate_dai_workflow_sono_documentate():
     )
 
 
-def test_i_due_workflow_usano_i_segreti_smtp_documentati():
+def test_workflow_smtp_usano_i_segreti_documentati() -> None:
     contratto = CONTRATTO.read_text(encoding="utf-8")
     attesi = _sezione_documentata(contratto, "SMTP SECRETS")
-    manuale = _riferimenti(WORKFLOW_MANUALE.read_text(encoding="utf-8"), "secrets")
+    ordinario = _riferimenti(WORKFLOW_ORDINARIO.read_text(encoding="utf-8"), "secrets")
+    manutenzione = _riferimenti(
+        WORKFLOW_MANUTENZIONE.read_text(encoding="utf-8"), "secrets"
+    )
     produzione = _riferimenti(MODELLO_PRODUZIONE.read_text(encoding="utf-8"), "secrets")
 
-    assert manuale == attesi
+    assert ordinario == attesi
+    assert manutenzione == set()
     assert produzione == attesi
 
 
-def test_credenziali_smtp_non_sono_variables():
+def test_credenziali_smtp_non_sono_variables() -> None:
     contratto = CONTRATTO.read_text(encoding="utf-8")
-    pubbliche = _sezione_documentata(contratto, "PREPRODUCTION VARIABLES") | _sezione_documentata(
-        contratto, "PRODUCTION VARIABLES"
-    )
+    pubbliche = _sezione_documentata(
+        contratto, "PREPRODUCTION VARIABLES"
+    ) | _sezione_documentata(contratto, "PRODUCTION VARIABLES")
 
     assert {"SMTP_USERNAME", "SMTP_PASSWORD"}.isdisjoint(pubbliche)
-    assert {"SMTP_FROM_NAME", "SMTP_REPLY_TO"} <= pubbliche
+    assert "SMTP_REPLY_TO" in pubbliche
+    assert "SMTP_FROM_NAME" not in pubbliche
+
+
+def test_non_esistono_gate_ridondanti() -> None:
+    testo = "\n".join(
+        percorso.read_text(encoding="utf-8")
+        for percorso in (
+            WORKFLOW_ORDINARIO,
+            WORKFLOW_MANUTENZIONE,
+            MODELLO_PRODUZIONE,
+            CONTRATTO,
+        )
+    )
+    for nome in (
+        "PREPRODUCTION_ENABLED",
+        "PRODUCTION_ENABLED",
+        "ALLOW_EMAIL_DELIVERY",
+        "ALLOW_SYNTHETIC_REGISTRY_WRITE",
+    ):
+        assert nome not in testo

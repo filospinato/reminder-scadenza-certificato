@@ -1,41 +1,16 @@
-name: Pre-production manuale
+name: Reminder certificati — uso ordinario
 
 on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Operazione sicura da eseguire
+        description: Operazione da eseguire
         required: true
         type: choice
-        default: preflight
+        default: check
         options:
-          - preflight
-          - init-admin
-          - migrate-admin
-          - registry-check
-          - review-registry
-          - dry-run
+          - check
           - test-smtp
-      today:
-        description: Data simulata YYYY-MM-DD; lascia vuoto per usare la data corrente
-        required: false
-        default: ""
-        type: string
-      confirm_admin_migration:
-        description: Conferma aggiuntiva per applicare la migrazione amministrativa
-        required: true
-        default: false
-        type: boolean
-      confirm_synthetic_registry_write:
-        description: Conferma aggiuntiva per la sola scrittura sintetica nel registro
-        required: true
-        default: false
-        type: boolean
-      confirm_email_delivery:
-        description: Conferma aggiuntiva per il solo test SMTP
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -60,26 +35,10 @@ jobs:
       OPERATIVO_COLUMNS_A1: ${{ vars.OPERATIVO_COLUMNS_A1 }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
     steps:
-      - name: Verifica abilitazione environment
-        id: gate
-        shell: bash
-        env:
-          PREPRODUCTION_ENABLED: ${{ vars.PREPRODUCTION_ENABLED }}
-        run: |
-          set -euo pipefail
-          if [[ "${PREPRODUCTION_ENABLED:-}" == "true" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "PREPRODUCTION_ENABLED non è true. Nessun accesso Google o SMTP sarà eseguito."
-          fi
-
       - name: Checkout
-        if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Autenticazione Google temporanea
-        if: steps.gate.outputs.enabled == 'true'
         id: auth
         uses: google-github-actions/auth@v3
         with:
@@ -89,102 +48,26 @@ jobs:
           create_credentials_file: true
 
       - name: Set up Python
-        if: steps.gate.outputs.enabled == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install
-        if: steps.gate.outputs.enabled == 'true'
         run: pip install -e ".[google]"
 
-      - name: Esegui preflight Google in sola lettura
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'preflight'
-        run: reminder-certificati preflight
+      - name: Controlla senza inviare
+        if: inputs.operation == 'check'
+        run: reminder-certificati check
 
-      - name: Inizializza o verifica il foglio amministrativo
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'init-admin'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "${ADMIN_SPREADSHEET_ID:-}" ]]; then
-            echo "ADMIN_SPREADSHEET_ID mancante: crea e condividi prima uno Spreadsheet vuoto." >&2
-            exit 2
-          fi
-          reminder-certificati init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
-
-      - name: Applica migrazione amministrativa con backup
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && inputs.confirm_admin_migration
-        run: reminder-certificati migrate-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID" --apply --confirm-migration --backup-path admin-migration-backup.json
-
-      - name: Carica backup della migrazione
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && inputs.confirm_admin_migration
-        uses: actions/upload-artifact@v4
-        with:
-          name: admin-migration-backup
-          path: admin-migration-backup.json
-          retention-days: 3
-
-      - name: Rifiuta migrazione senza conferma
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && !inputs.confirm_admin_migration
-        run: |
-          echo "Conferma della migrazione amministrativa non fornita" >&2
-          exit 2
-
-      - name: Collauda il registro con una riga sintetica
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'registry-check' && inputs.confirm_synthetic_registry_write
+      - name: Invia una email di prova all'override
+        if: inputs.operation == 'test-smtp'
         env:
-          ALLOW_SYNTHETIC_REGISTRY_WRITE: "true"
-        run: reminder-certificati registry-check --confirm-synthetic-write
-
-      - name: Rifiuta collaudo registro senza conferma
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'registry-check' && !inputs.confirm_synthetic_registry_write
-        run: |
-          echo "Conferma della scrittura sintetica non fornita" >&2
-          exit 2
-
-      - name: Rivedi il registro in forma aggregata
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'review-registry'
-        run: reminder-certificati review-registry
-
-      - name: Esegui dry-run aggregato
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'dry-run'
-        shell: bash
-        env:
-          INPUT_TODAY: ${{ inputs.today }}
-        run: |
-          set -euo pipefail
-          args=(dry-run)
-          if [[ -n "${INPUT_TODAY:-}" ]]; then
-            args+=(--today "$INPUT_TODAY")
-          fi
-          reminder-certificati "${args[@]}"
-
-      - name: Esegui test SMTP all'override
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && inputs.confirm_email_delivery
-        shell: bash
-        env:
-          INPUT_TODAY: ${{ inputs.today }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME }}
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          ALLOW_EMAIL_DELIVERY: "true"
-        run: |
-          set -euo pipefail
-          args=(test-smtp --confirm-email-delivery)
-          if [[ -n "${INPUT_TODAY:-}" ]]; then
-            args+=(--today "$INPUT_TODAY")
-          fi
-          reminder-certificati "${args[@]}"
-
-      - name: Rifiuta test SMTP senza conferma
-        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'test-smtp' && !inputs.confirm_email_delivery
-        run: |
-          echo "Conferma email non fornita" >&2
-          exit 2
+        run: reminder-certificati test-smtp
