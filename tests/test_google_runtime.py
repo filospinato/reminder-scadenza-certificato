@@ -7,7 +7,7 @@ from reminder_certificati.google_runtime import (
 )
 
 
-def test_configurazione_google_usa_operativo_riga_due() -> None:
+def test_configurazione_google_usa_contratto_canonico_operativo() -> None:
     config = ConfigurazioneRisorseGoogle.da_ambiente(
         {
             "OPERATIVO_SPREADSHEET_ID": "source-id",
@@ -17,6 +17,7 @@ def test_configurazione_google_usa_operativo_riga_due() -> None:
 
     assert config.operativo_sheet_name == "Operativo"
     assert config.operativo_header_row == 2
+    assert config.operativo_columns_a1 == "A:AS"
     assert MAPPATURA_OPERATIVO_REALE.id_arbitro == "Tessera"
     assert MAPPATURA_OPERATIVO_REALE.nome == "Nome"
     assert MAPPATURA_OPERATIVO_REALE.email == "e-Mail"
@@ -24,6 +25,22 @@ def test_configurazione_google_usa_operativo_riga_due() -> None:
     assert MAPPATURA_OPERATIVO_REALE.qualifica == "Qualifica"
     assert MAPPATURA_OPERATIVO_REALE.abilitazione == "Abilitazione"
     assert len(MAPPATURA_OPERATIVO_REALE.obbligatorie) == 8
+
+
+def test_configurazione_google_ignora_override_strutturali_legacy() -> None:
+    config = ConfigurazioneRisorseGoogle.da_ambiente(
+        {
+            "OPERATIVO_SPREADSHEET_ID": "source-id",
+            "ADMIN_SPREADSHEET_ID": "admin-id",
+            "OPERATIVO_SHEET_NAME": "Altro",
+            "OPERATIVO_HEADER_ROW": "99",
+            "OPERATIVO_COLUMNS_A1": "A:B",
+        }
+    )
+
+    assert config.operativo_sheet_name == "Operativo"
+    assert config.operativo_header_row == 2
+    assert config.operativo_columns_a1 == "A:AS"
 
 
 def test_check_headers_puo_non_richiedere_admin() -> None:
