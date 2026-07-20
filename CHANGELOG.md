@@ -1,5 +1,7 @@
 # Changelog
 
+Questo documento registra esclusivamente la cronologia delle versioni rilasciate e delle relative modifiche; non descrive il lavoro ancora aperto né le procedure operative.
+
 ## [0.13.1] - 2026-07-20
 
 ### Modificato
