@@ -6,6 +6,7 @@ from .models import Arbitro, CandidatoNotifica
 from .validation import email_valida
 
 TIPO_NOTIFICA_SCADENZA = "CERTIFICATO_SCADENZA_V1"
+_CATEGORIE_ESCLUSE_CERTIFICATO = ("benemerito", "osservatore")
 
 
 def notification_id(arbitro: Arbitro, tipo: str) -> str:
@@ -15,6 +16,20 @@ def notification_id(arbitro: Arbitro, tipo: str) -> str:
             arbitro.scadenza_certificato.isoformat(),
             tipo.strip(),
         )
+    )
+
+
+def richiede_certificato_medico(arbitro: Arbitro) -> bool:
+    """Esclude le categorie che non sono tenute a caricare il certificato."""
+
+    categoria = " ".join(
+        parte.strip().casefold()
+        for parte in (arbitro.qualifica, arbitro.abilitazione)
+        if parte.strip()
+    )
+    return not any(
+        categoria_esclusa in categoria
+        for categoria_esclusa in _CATEGORIE_ESCLUSE_CERTIFICATO
     )
 
 
@@ -31,7 +46,11 @@ def trova_candidati(
     tipo = TIPO_NOTIFICA_SCADENZA
 
     for arbitro in arbitri:
-        if not arbitro.attivo or not email_valida(arbitro.email):
+        if (
+            not arbitro.attivo
+            or not email_valida(arbitro.email)
+            or not richiede_certificato_medico(arbitro)
+        ):
             continue
 
         giorni_residui = (arbitro.scadenza_certificato - oggi).days
