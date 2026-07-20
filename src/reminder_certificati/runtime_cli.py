@@ -229,6 +229,10 @@ def _migrate_admin(
             spreadsheet_id=identificativo,
             intervallo_a1="'NOTIFICHE'!A:N",
         ),
+        trasporto.leggi_valori(
+            spreadsheet_id=identificativo,
+            intervallo_a1="'DASHBOARD'!A:C",
+        ),
     )
     if applica:
         if not conferma:
@@ -249,6 +253,7 @@ def _migrate_admin(
             "changes": list(piano.modifiche),
             "config_rows_after": max(0, len(piano.config_dopo) - 1),
             "notification_rows_after": max(0, len(piano.notifiche_dopo) - 1),
+            "dashboard_rows_after": max(0, len(piano.dashboard_dopo) - 1),
             "backup_written": applica,
             "backup_path": str(backup_path) if applica else "",
             "automation_enabled_after": False,

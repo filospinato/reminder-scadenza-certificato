@@ -11,8 +11,10 @@ from typing import Any, Protocol
 
 from .admin_schema import (
     COLONNE_CONFIG,
+    COLONNE_DASHBOARD,
     VERSIONE_SCHEMA_AMMINISTRATIVO,
     configurazione_iniziale_sicura,
+    crea_schema_amministrativo,
 )
 from .admin_store import COLONNE_NOTIFICHE
 from .rules import TIPO_NOTIFICA_SCADENZA
@@ -58,8 +60,10 @@ class TrasportoMigrazione(Protocol):
 class PianoMigrazione:
     config_prima: tuple[tuple[str, ...], ...]
     notifiche_prima: tuple[tuple[str, ...], ...]
+    dashboard_prima: tuple[tuple[str, ...], ...]
     config_dopo: tuple[tuple[str, ...], ...]
     notifiche_dopo: tuple[tuple[str, ...], ...]
+    dashboard_dopo: tuple[tuple[str, ...], ...]
     modifiche: tuple[str, ...]
 
     @property
@@ -70,6 +74,7 @@ class PianoMigrazione:
         payload = {
             "config": [list(riga) for riga in self.config_prima],
             "notifiche": [list(riga) for riga in self.notifiche_prima],
+            "dashboard": [list(riga) for riga in self.dashboard_prima],
         }
         path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
@@ -80,15 +85,34 @@ class PianoMigrazione:
 def prepara_piano(
     config: Sequence[Sequence[Any]],
     notifiche: Sequence[Sequence[Any]],
+    dashboard: Sequence[Sequence[Any]] | None = None,
 ) -> PianoMigrazione:
     config_prima = _normalizza(config)
     notifiche_prima = _normalizza(notifiche)
+    dashboard_prima = _normalizza(dashboard or ()) if dashboard is not None else ()
+
     notifiche_dopo = _migra_notifiche(notifiche_prima)
     config_legacy = not _config_corrente(config_prima)
-    migrazione_necessaria = config_legacy or notifiche_dopo != notifiche_prima
+    dashboard_legacy = dashboard is not None and not _dashboard_corrente(
+        dashboard_prima
+    )
+    migrazione_necessaria = (
+        config_legacy
+        or notifiche_dopo != notifiche_prima
+        or dashboard_legacy
+    )
+
     config_dopo = _migra_config(
         config_prima,
         forza_disattivazione=migrazione_necessaria,
+    )
+    dashboard_dopo = (
+        _migra_dashboard(
+            dashboard_prima,
+            forza_disattivazione=migrazione_necessaria,
+        )
+        if dashboard is not None
+        else ()
     )
     carica_configurazione(config_dopo)
 
@@ -97,11 +121,15 @@ def prepara_piano(
         modifiche.append("CONFIG_SCHEMA_V2")
     if notifiche_dopo != notifiche_prima:
         modifiche.append("NOTIFICHE_MINIMIZZATE")
+    if dashboard is not None and dashboard_dopo != dashboard_prima:
+        modifiche.append("DASHBOARD_SCHEMA_V2")
     return PianoMigrazione(
         config_prima=config_prima,
         notifiche_prima=notifiche_prima,
+        dashboard_prima=dashboard_prima,
         config_dopo=config_dopo,
         notifiche_dopo=notifiche_dopo,
+        dashboard_dopo=dashboard_dopo,
         modifiche=tuple(modifiche),
     )
 
@@ -112,18 +140,24 @@ def applica_piano(
     trasporto: TrasportoMigrazione,
     spreadsheet_id: str,
 ) -> None:
-    if not piano.necessaria:
-        return
-    trasporto.sostituisci_tab(
-        spreadsheet_id=spreadsheet_id,
-        nome_tab="CONFIG",
-        valori=piano.config_dopo,
-    )
-    trasporto.sostituisci_tab(
-        spreadsheet_id=spreadsheet_id,
-        nome_tab="NOTIFICHE",
-        valori=piano.notifiche_dopo,
-    )
+    if piano.config_dopo != piano.config_prima:
+        trasporto.sostituisci_tab(
+            spreadsheet_id=spreadsheet_id,
+            nome_tab="CONFIG",
+            valori=piano.config_dopo,
+        )
+    if piano.notifiche_dopo != piano.notifiche_prima:
+        trasporto.sostituisci_tab(
+            spreadsheet_id=spreadsheet_id,
+            nome_tab="NOTIFICHE",
+            valori=piano.notifiche_dopo,
+        )
+    if piano.dashboard_dopo != piano.dashboard_prima:
+        trasporto.sostituisci_tab(
+            spreadsheet_id=spreadsheet_id,
+            nome_tab="DASHBOARD",
+            valori=piano.dashboard_dopo,
+        )
 
 
 def _config_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
@@ -179,6 +213,73 @@ def _migra_config(
                 "true" if voce.modificabile else "false",
             )
         )
+    return tuple(righe)
+
+
+def _dashboard_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
+    if not matrice or matrice[0] != COLONNE_DASHBOARD:
+        return False
+    chiavi: set[str] = set()
+    for riga in matrice[1:]:
+        if not any(cella.strip() for cella in riga):
+            continue
+        if len(riga) != len(COLONNE_DASHBOARD):
+            return False
+        chiave = riga[0].strip()
+        if not chiave or chiave in chiavi:
+            return False
+        chiavi.add(chiave)
+    return "automazione_attiva" in chiavi and "kill_switch" not in chiavi
+
+
+def _migra_dashboard(
+    matrice: tuple[tuple[str, ...], ...],
+    *,
+    forza_disattivazione: bool,
+) -> tuple[tuple[str, ...], ...]:
+    canonica = crea_schema_amministrativo().ottieni_tab("DASHBOARD").matrice()
+    if not matrice:
+        return canonica
+    if matrice[0] != COLONNE_DASHBOARD:
+        raise ErroreMigrazioneAmministrativa(
+            "DASHBOARD: intestazioni non riconosciute"
+        )
+
+    chiavi_originali: set[str] = set()
+    for riga in matrice[1:]:
+        if not any(cella.strip() for cella in riga):
+            continue
+        if len(riga) != len(COLONNE_DASHBOARD):
+            raise ErroreMigrazioneAmministrativa(
+                "DASHBOARD: riga con larghezza non valida"
+            )
+        chiave = riga[0].strip()
+        if not chiave or chiave in chiavi_originali:
+            raise ErroreMigrazioneAmministrativa(
+                "DASHBOARD: metrica vuota o duplicata"
+            )
+        chiavi_originali.add(chiave)
+
+    descrizione = "Stato dell'unico interruttore operativo."
+    righe: list[tuple[str, ...]] = [COLONNE_DASHBOARD]
+    automazione_presente = "automazione_attiva" in chiavi_originali
+    for riga in matrice[1:]:
+        if not any(cella.strip() for cella in riga):
+            continue
+        chiave = riga[0].strip()
+        if chiave == "kill_switch":
+            if automazione_presente:
+                continue
+            righe.append(("automazione_attiva", "NO", descrizione))
+            automazione_presente = True
+            continue
+        if chiave == "automazione_attiva" and forza_disattivazione:
+            righe.append(("automazione_attiva", "NO", descrizione))
+            continue
+        righe.append(riga)
+
+    if not automazione_presente:
+        righe.append(("automazione_attiva", "NO", descrizione))
     return tuple(righe)
 
 
