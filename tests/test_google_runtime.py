@@ -21,6 +21,9 @@ def test_configurazione_google_usa_operativo_riga_due() -> None:
     assert MAPPATURA_OPERATIVO_REALE.nome == "Nome"
     assert MAPPATURA_OPERATIVO_REALE.email == "e-Mail"
     assert MAPPATURA_OPERATIVO_REALE.attivo == "Fa attività quest'anno"
+    assert MAPPATURA_OPERATIVO_REALE.qualifica == "Qualifica"
+    assert MAPPATURA_OPERATIVO_REALE.abilitazione == "Abilitazione"
+    assert len(MAPPATURA_OPERATIVO_REALE.obbligatorie) == 8
 
 
 def test_check_headers_puo_non_richiedere_admin() -> None:
