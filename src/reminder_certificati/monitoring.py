@@ -358,7 +358,7 @@ def _testo_breve(value: str, campo: str, massimo: int) -> str:
 def _opzionale_breve(value: str | None, massimo: int) -> str | None:
     if value is None:
         return None
-    normalizzato = value.strip()
+    normalizzato = str(value).strip()
     return normalizzato[:massimo] or None
 
 
