@@ -117,18 +117,20 @@ def _parse_data(value: Any) -> date | None:
     return None
 
 
-def _parse_attivo(value: Any, politica: PoliticaStato) -> bool | None:
+def _parse_attivo(value: Any, politica: PoliticaStato) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)) and value in (0, 1):
         return bool(value)
 
     normalizzato = _testo(value).casefold()
+    # Convenzione di Operativo: la cella vuota è riservata a chi fa attività.
+    if not normalizzato:
+        return True
     if normalizzato in politica.valori_attivi:
         return True
-    if normalizzato in politica.valori_inattivi:
-        return False
-    return None
+    # Qualsiasi annotazione non affermativa indica che la persona non fa attività.
+    return False
 
 
 def _riga_vuota(riga: Mapping[str, Any]) -> bool:
@@ -238,22 +240,12 @@ def valida_righe(
                     id_arbitro or None,
                 )
             )
-        if attivo is None:
-            errori_riga.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.STATO_NON_VALIDO,
-                    mappatura.attivo,
-                    "stato non riconosciuto",
-                    id_arbitro or None,
-                )
-            )
 
         if errori_riga:
             anomalie.extend(errori_riga)
             continue
 
-        assert scadenza is not None and attivo is not None
+        assert scadenza is not None
         candidati.append(
             (
                 numero_riga,
