@@ -2,17 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
+from .certificate_policy import richiede_certificato_medico_per_categoria
 from .models import Arbitro, CandidatoNotifica
 from .validation import email_valida
 
 TIPO_NOTIFICA_SCADENZA = "CERTIFICATO_SCADENZA_V1"
-_CATEGORIE_ESCLUSE_CERTIFICATO = (
-    "benemerito",
-    "osservatore",
-    "fuori quadro",
-    "decaduto",
-    "non attivo",
-)
 
 
 def notification_id(arbitro: Arbitro, tipo: str) -> str:
@@ -28,14 +22,9 @@ def notification_id(arbitro: Arbitro, tipo: str) -> str:
 def richiede_certificato_medico(arbitro: Arbitro) -> bool:
     """Esclude le categorie che non sono tenute a caricare il certificato."""
 
-    categoria = " ".join(
-        parte.strip().casefold()
-        for parte in (arbitro.qualifica, arbitro.abilitazione)
-        if parte.strip()
-    )
-    return not any(
-        categoria_esclusa in categoria
-        for categoria_esclusa in _CATEGORIE_ESCLUSE_CERTIFICATO
+    return richiede_certificato_medico_per_categoria(
+        qualifica=arbitro.qualifica,
+        abilitazione=arbitro.abilitazione,
     )
 
 

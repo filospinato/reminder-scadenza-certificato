@@ -44,6 +44,23 @@ def test_accetta_formati_data_e_stato_previsti() -> None:
     assert esito.anomalie == ()
 
 
+@pytest.mark.parametrize("valore", [46261, 46261.75, "46261", "46261,5"])
+def test_accetta_seriale_data_google_sheets(valore: object) -> None:
+    esito = valida_righe([riga(scadenza_certificato=valore)])
+
+    assert esito.arbitri[0].scadenza_certificato == date(2026, 8, 27)
+    assert esito.anomalie == ()
+
+
+def test_non_interpreta_un_anno_isolato_come_seriale_google() -> None:
+    esito = valida_righe([riga(scadenza_certificato="2026")])
+
+    assert esito.arbitri == ()
+    assert [anomalia.codice for anomalia in esito.anomalie] == [
+        CodiceAnomalia.SCADENZA_NON_VALIDA
+    ]
+
+
 @pytest.mark.parametrize("valore", ["", "   ", None])
 def test_stato_vuoto_significa_che_fa_attivita(valore: object) -> None:
     esito = valida_righe([riga(attivo=valore)])
@@ -62,6 +79,40 @@ def test_qualsiasi_annotazione_non_affermativa_significa_inattivo(valore: str) -
 
     assert len(esito.arbitri) == 1
     assert esito.arbitri[0].attivo is False
+    assert esito.anomalie == ()
+
+
+@pytest.mark.parametrize(
+    ("qualifica", "abilitazione"),
+    [
+        ("Arbitro Benemerito", "Benemerito"),
+        ("Osservatore Regionale", "Osservatore"),
+        ("Arbitro Fuori Quadro", "Fuori Quadro"),
+        ("Decaduto", ""),
+        ("Arbitro Regionale", "Non Attivo"),
+    ],
+)
+def test_esclude_categorie_prima_di_validare_email_e_scadenza(
+    qualifica: str,
+    abilitazione: str,
+) -> None:
+    mapping = MappaturaColonne(
+        qualifica="qualifica",
+        abilitazione="abilitazione",
+    )
+    esito = valida_righe(
+        [
+            riga(
+                email="",
+                scadenza_certificato="non-data",
+                qualifica=qualifica,
+                abilitazione=abilitazione,
+            )
+        ],
+        mappatura=mapping,
+    )
+
+    assert esito.arbitri == ()
     assert esito.anomalie == ()
 
 
@@ -124,8 +175,8 @@ def test_mappatura_colonne_personalizzata() -> None:
                 "Email": "anna@example.it",
                 "Scadenza": "2026-09-01",
                 "Stato": "Sì",
-                "Qualifica": "Arbitro Benemerito",
-                "Abilitazione": "Benemerito",
+                "Qualifica": "Arbitro Regionale",
+                "Abilitazione": "5a Categoria",
             }
         ],
         mappatura=mapping,
@@ -133,8 +184,8 @@ def test_mappatura_colonne_personalizzata() -> None:
     assert esito.arbitri[0].id_arbitro == "A-9"
     assert esito.arbitri[0].nome_per_saluto == "Anna Maria"
     assert esito.arbitri[0].nome_completo == "Anna Maria Verdi"
-    assert esito.arbitri[0].qualifica == "Arbitro Benemerito"
-    assert esito.arbitri[0].abilitazione == "Benemerito"
+    assert esito.arbitri[0].qualifica == "Arbitro Regionale"
+    assert esito.arbitri[0].abilitazione == "5a Categoria"
 
 
 def test_cognome_e_colonna_obbligatoria() -> None:

@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Iterable, Mapping, Sequence
 
+from .certificate_policy import richiede_certificato_medico_per_categoria
 from .models import Arbitro
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+_SERIALE_GOOGLE_RE = re.compile(r"^\d+(?:[.,]\d+)?$")
+_EPOCA_SERIALE_GOOGLE = date(1899, 12, 30)
+_MINIMO_SERIALE_GOOGLE = 10_000
 
 
 class SchemaError(ValueError):
@@ -102,6 +107,25 @@ def _testo(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _parse_seriale_google(value: Any) -> date | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        seriale = float(value)
+    else:
+        testo = _testo(value)
+        if not _SERIALE_GOOGLE_RE.fullmatch(testo):
+            return None
+        seriale = float(testo.replace(",", "."))
+
+    if not math.isfinite(seriale) or seriale < _MINIMO_SERIALE_GOOGLE:
+        return None
+    try:
+        return _EPOCA_SERIALE_GOOGLE + timedelta(days=int(seriale))
+    except OverflowError:
+        return None
+
+
 def _parse_data(value: Any) -> date | None:
     if isinstance(value, datetime):
         return value.date()
@@ -114,7 +138,7 @@ def _parse_data(value: Any) -> date | None:
             return datetime.strptime(text, formato).date()
         except ValueError:
             continue
-    return None
+    return _parse_seriale_google(value)
 
 
 def _parse_attivo(value: Any, politica: PoliticaStato) -> bool:
@@ -147,8 +171,8 @@ def valida_righe(
 ) -> EsitoValidazione:
     """Converte righe grezze in arbitri validi e raccoglie anomalie non fatali.
 
-    Nome, cognome ed email vengono letti dalle rispettive colonne della stessa
-    riga di Operativo. Gli ID duplicati vengono esclusi integralmente.
+    Le categorie non tenute al certificato vengono ignorate prima di validare i
+    campi specifici del reminder. Gli ID duplicati vengono esclusi integralmente.
     """
 
     if prima_riga_dati < 1:
@@ -177,7 +201,6 @@ def valida_righe(
         nome = _testo(riga.get(mappatura.nome))
         cognome = _testo(riga.get(mappatura.cognome))
         email = _testo(riga.get(mappatura.email))
-        scadenza = _parse_data(riga.get(mappatura.scadenza_certificato))
         attivo = _parse_attivo(riga.get(mappatura.attivo), politica_stato)
         qualifica = (
             _testo(riga.get(mappatura.qualifica))
@@ -190,6 +213,13 @@ def valida_righe(
             else ""
         )
 
+        if not richiede_certificato_medico_per_categoria(
+            qualifica=qualifica,
+            abilitazione=abilitazione,
+        ):
+            continue
+
+        scadenza = _parse_data(riga.get(mappatura.scadenza_certificato))
         errori_riga: list[AnomaliaDati] = []
         if not id_arbitro:
             errori_riga.append(
@@ -236,7 +266,7 @@ def valida_righe(
                     numero_riga,
                     CodiceAnomalia.SCADENZA_NON_VALIDA,
                     mappatura.scadenza_certificato,
-                    "data di scadenza non valida; usare YYYY-MM-DD o GG/MM/AAAA",
+                    "data non valida; usare YYYY-MM-DD, GG/MM/AAAA o un seriale Google Sheets",
                     id_arbitro or None,
                 )
             )

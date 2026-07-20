@@ -2,6 +2,21 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.6] - 2026-07-21
+
+### Corretto
+
+- le categorie non tenute al certificato vengono escluse prima di validare email e data di scadenza, evitando anomalie inutili per Benemeriti, Osservatori, Fuori Quadro, Decaduti e Non Attivi;
+- le date di Google Sheets espresse come seriali numerici, compreso il valore reale `46261`, vengono convertite con l'epoca compatibile `1899-12-30`;
+- la politica sulle categorie escluse è ora condivisa tra validazione e selezione, senza logica duplicata;
+- aggiunte regressioni per seriali interi, frazionari e testuali e per tutte le categorie escluse.
+
+### Compatibilità e sicurezza
+
+- nessuna modifica ai fogli, alle intestazioni, ai permessi, a SMTP o al registro;
+- gli arbitri ordinari continuano a produrre anomalie quando email o scadenza sono realmente mancanti o non valide;
+- `INVIO_AUTOMATICO_ATTIVO` resta spento e non è stata attivata alcuna schedule produttiva.
+
 ## [0.14.5] - 2026-07-20
 
 ### Modificato
