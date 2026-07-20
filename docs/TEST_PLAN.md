@@ -27,6 +27,7 @@
 - dashboard aggiornata senza `clear` preventivo;
 - un solo entry point CLI installato;
 - workflow con WIF, Environment, lock condiviso e segreti confinati allo step SMTP;
+- produzione protetta da `PRODUCTION_ENABLED` senza conferme automatiche;
 - modello schedulato fuori da `.github/workflows` con una sola schedule giornaliera;
 - nessun upgrade dinamico di pip nei workflow.
 
@@ -44,11 +45,12 @@ Il modello produttivo deve:
 
 1. restare non attivo sotto `docs/workflows`;
 2. usare Environment `production`, WIF e lo stesso gruppo `concurrency`;
-3. richiedere `PRODUCTION_ENABLED=true`;
+3. richiedere `PRODUCTION_ENABLED=true` sia nel gate del workflow sia nel runtime;
 4. contenere una sola esecuzione applicativa tramite `reminder-certificati produzione`;
-5. avere una sola schedule giornaliera;
-6. non contenere bootstrap, preflight o modalità di test;
-7. esporre i Secrets SMTP soltanto nello step produttivo.
+5. non contenere `ALLOW_EMAIL_DELIVERY` o `--confirm-email-delivery`;
+6. avere una sola schedule giornaliera;
+7. non contenere bootstrap, preflight o modalità di test;
+8. esporre i Secrets SMTP soltanto nello step produttivo.
 
 ## Diagnostica preflight
 
@@ -97,7 +99,7 @@ Eseguire `reminder-certificati dry-run` e verificare conteggi aggregati, dedupli
 ## Collaudo SMTP
 
 1. impostare un override controllato;
-2. eseguire `reminder-certificati test-smtp --confirm-email-delivery`;
+2. eseguire `ALLOW_EMAIL_DELIVERY=true reminder-certificati test-smtp --confirm-email-delivery`;
 3. inviare al massimo una email;
 4. verificare testo, HTML, mittente, Reply-To e Message-ID;
 5. verificare che il registro conservi l'override;
