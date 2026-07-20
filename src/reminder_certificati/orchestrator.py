@@ -60,6 +60,7 @@ class RegistroNotifichePersistente(Protocol):
     def prenota(self, candidato: CandidatoNotifica, *, ora: datetime | None = None): ...
     def segna_inviata(self, candidato: CandidatoNotifica, *, message_id: str, ora: datetime | None = None): ...
     def segna_errore_retryable(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
+    def segna_errore_permanente(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
     def segna_esito_incerto(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
 
 
@@ -88,20 +89,7 @@ class OrchestratoreReminder:
             raise ErroreOrchestrazione("versione_app mancante")
 
         if not self.configurazione.automazione_attiva:
-            esito = EsitoEsecuzione(
-                modalita=modalita,
-                stato="DISATTIVATO",
-                righe_lette=0,
-                righe_valide=0,
-                anomalie=0,
-                candidati=0,
-                notifiche_gia_presenti=0,
-                messaggi_composti=0,
-                invii_tentati=0,
-                invii_riusciti=0,
-                invii_falliti=0,
-                esiti_incerti=0,
-            )
+            esito = _esito_vuoto(modalita, "DISATTIVATO")
             self._aggiorna_dashboard(esito, istante, codice_errore="")
             return esito
 
@@ -127,20 +115,7 @@ class OrchestratoreReminder:
                 messaggio=f"lettura o schema non disponibile: {type(exc).__name__}",
                 istante=istante,
             )
-            esito = EsitoEsecuzione(
-                modalita=modalita,
-                stato="ERRORE",
-                righe_lette=0,
-                righe_valide=0,
-                anomalie=1,
-                candidati=0,
-                notifiche_gia_presenti=0,
-                messaggi_composti=0,
-                invii_tentati=0,
-                invii_riusciti=0,
-                invii_falliti=0,
-                esiti_incerti=0,
-            )
+            esito = _esito_vuoto(modalita, "ERRORE", anomalie=1)
             self._aggiorna_dashboard(esito, istante, codice_errore="LETTURA_FATALE")
             raise ErroreOrchestrazione("lettura della sorgente non riuscita") from exc
 
@@ -251,6 +226,20 @@ class OrchestratoreReminder:
                     messaggio=type(exc).__name__,
                     istante=istante,
                 )
+            except ErroreSmtpPermanente as exc:
+                falliti += 1
+                self.registro.segna_errore_permanente(
+                    candidato,
+                    errore=type(exc).__name__,
+                    ora=istante,
+                )
+                self._registra_anomalia(
+                    severita=SeveritaAnomalia.ERROR,
+                    origine="SMTP",
+                    codice="SMTP_PERMANENTE",
+                    messaggio=type(exc).__name__,
+                    istante=istante,
+                )
             except EsitoSmtpIncerto as exc:
                 incerti += 1
                 self.registro.segna_esito_incerto(
@@ -263,20 +252,6 @@ class OrchestratoreReminder:
                     origine="SMTP",
                     codice="SMTP_ESITO_INCERTO",
                     messaggio="la consegna richiede revisione umana",
-                    istante=istante,
-                )
-            except ErroreSmtpPermanente as exc:
-                incerti += 1
-                self.registro.segna_esito_incerto(
-                    candidato,
-                    errore=type(exc).__name__,
-                    ora=istante,
-                )
-                self._registra_anomalia(
-                    severita=SeveritaAnomalia.CRITICAL,
-                    origine="SMTP",
-                    codice="SMTP_PERMANENTE",
-                    messaggio=type(exc).__name__,
                     istante=istante,
                 )
             except ErroreRegistroPersistente as exc:
@@ -401,6 +376,28 @@ class OrchestratoreReminder:
                 codice_errore=codice_errore,
             )
         )
+
+
+def _esito_vuoto(
+    modalita: ModalitaEsecuzione,
+    stato: str,
+    *,
+    anomalie: int = 0,
+) -> EsitoEsecuzione:
+    return EsitoEsecuzione(
+        modalita=modalita,
+        stato=stato,
+        righe_lette=0,
+        righe_valide=0,
+        anomalie=anomalie,
+        candidati=0,
+        notifiche_gia_presenti=0,
+        messaggi_composti=0,
+        invii_tentati=0,
+        invii_riusciti=0,
+        invii_falliti=0,
+        esiti_incerti=0,
+    )
 
 
 def _candidato_test(
