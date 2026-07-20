@@ -1,50 +1,46 @@
 # Schema dei fogli amministrativi
 
-Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Le tab richieste sono `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`; il loro ordine visuale non è significativo.
+Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Le tab richieste sono `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`; il loro ordine visuale non è significativo e nessuna tab viene nascosta.
 
 ## Versione dello schema
 
-La versione corrente è **2** ed è registrata in CONFIG come:
+La versione corrente è **3** ed è registrata in CONFIG come:
 
 ```text
-SCHEMA_VERSION | 2
+SCHEMA_VERSION | 3
 ```
 
-`SCHEMA_VERSION` è gestita dal programma. Un foglio precedente deve essere aggiornato con `reminder-certificati migrate-admin`, prima in anteprima e poi con conferma e backup.
+`SCHEMA_VERSION` è gestita dal programma. `setup-admin` riconosce automaticamente un file vuoto, uno schema precedente oppure un file già aggiornato.
 
 ## CONFIG
 
 Intestazioni:
 
 ```text
-chiave | valore | tipo | descrizione | modificabile
+chiave | valore | descrizione
 ```
 
 | Chiave | Valore iniziale | Scopo |
 |---|---:|---|
-| `SCHEMA_VERSION` | `2` | versione del contratto amministrativo |
-| `AUTOMAZIONE_ATTIVA` | `false` | unico interruttore operativo |
-| `INVII_REALI_ABILITATI` | `false` | barriera separata per il go-live |
+| `SCHEMA_VERSION` | `3` | versione del contratto amministrativo |
+| `INVIO_AUTOMATICO_ATTIVO` | `false` | unico interruttore degli invii programmati |
 | `GIORNI_PREAVVISO` | `30` | finestra inclusiva |
-| `LIMITE_INVII_PER_ESECUZIONE` | `10` | massimo per esecuzione |
 | `DESTINATARIO_OVERRIDE` | vuoto | destinatario del test SMTP |
 | `OGGETTO_EMAIL` | predefinito | oggetto del promemoria |
 | `CORPO_EMAIL` | predefinito | testo dopo il saluto automatico |
-| `FIRMA_TESTO` | provvisoria | firma testuale |
+| `FIRMA_TESTO` | predefinita | firma testuale |
 
-Il preflight valida intestazioni, presenza delle chiavi, valori funzionali e versione. Le colonne `tipo`, `descrizione` e `modificabile` restano informative.
+Il limite di 10 invii per esecuzione è una costante interna e non compare nel foglio. Non esistono più chiavi separate per produzione, preproduzione o invii reali.
 
 ## NOTIFICHE
 
-Intestazioni dello schema v2:
+Intestazioni:
 
 ```text
 notification_id | id_arbitro | scadenza_certificato | tipo | stato | tentativi | creato_il | aggiornato_il | message_id | versione_app | errore
 ```
 
-Nome, cognome ed email non vengono persistiti.
-
-La chiave è stabile rispetto alla finestra di preavviso:
+Nome, cognome ed email non vengono persistiti. La chiave è stabile rispetto alla finestra di preavviso:
 
 ```text
 ID_ARBITRO|DATA_SCADENZA|CERTIFICATO_SCADENZA_V1
@@ -58,24 +54,26 @@ Stati:
 - `FAILED_PERMANENT`: errore certo e non ritentabile;
 - `UNKNOWN_REVIEW_REQUIRED`: esito incerto da verificare manualmente.
 
-`SENT`, `SENDING`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED` bloccano nuovi tentativi. Le chiavi duplicate bloccano l'esecuzione.
+Il test SMTP continua a creare una chiave distinta con tipo `TEST_CERTIFICATO_SCADENZA_V1`.
 
-## Migrazione dallo schema precedente
+## Aggiornamento dallo schema precedente
 
-La migrazione:
+L'aggiornamento:
 
-1. legge CONFIG e NOTIFICHE;
+1. legge CONFIG, NOTIFICHE e DASHBOARD;
 2. produce un'anteprima aggregata;
-3. salva un backup JSON prima dell'applicazione;
-4. sostituisce le vecchie chiavi con lo schema v2;
-5. converte `REMINDER_n` nel tipo stabile;
-6. elimina nome, cognome ed email dal registro;
-7. rifiuta collisioni tra chiavi convertite;
-8. lascia automazione e invii reali disattivati.
+3. salva un backup JSON prima di modificare un foglio esistente;
+4. converte la CONFIG dalle cinque colonne precedenti alle tre colonne correnti;
+5. sostituisce i vecchi interruttori con `INVIO_AUTOMATICO_ATTIVO=false`;
+6. preserva giorni, destinatario override e template;
+7. minimizza il registro e stabilizza le chiavi legacy;
+8. rifiuta collisioni tra chiavi convertite.
 
 ## DASHBOARD e ANOMALIE
 
-La dashboard contiene solo metriche aggregate. ANOMALIE conserva codice, origine, riga e campo, con messaggio limitato e sanitizzato. Non devono esservi copiati payload Google, credenziali o contenuti completi delle righe.
+La dashboard contiene metriche aggregate e mostra etichette comprensibili per lo stato complessivo. Gli identificatori tecnici delle metriche restano stabili per compatibilità.
+
+ANOMALIE conserva codice, origine, riga e campo, con messaggio limitato e sanitizzato. Non devono esservi copiati payload Google, credenziali o contenuti completi delle righe.
 
 ## Concorrenza
 
