@@ -2,6 +2,22 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.5] - 2026-07-20
+
+### Modificato
+
+- rimosse dalle Environment Variables `OPERATIVO_SHEET_NAME`, `OPERATIVO_HEADER_ROW` e `OPERATIVO_COLUMNS_A1`;
+- fissato nel codice il contratto canonico della sorgente: tab `Operativo`, intestazioni alla riga 2 e intervallo `A:AS`;
+- l'operatore configura ora soltanto `OPERATIVO_SPREADSHEET_ID` per il foglio sorgente;
+- allineati workflow manuale, modello produttivo, documentazione e test di contratto.
+
+### Compatibilità e sicurezza
+
+- nessuna modifica ai dati, alle formule o ai permessi del foglio `Operativo`;
+- nessuna modifica a selezione candidati, email, SMTP, registro o schema amministrativo;
+- eventuali vecchie Variables strutturali vengono ignorate e possono essere eliminate da GitHub;
+- `INVIO_AUTOMATICO_ATTIVO` resta spento e il modello produttivo resta non attivo.
+
 ## [0.14.4] - 2026-07-20
 
 ### Corretto
