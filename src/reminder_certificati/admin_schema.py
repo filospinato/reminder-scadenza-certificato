@@ -62,11 +62,7 @@ class VoceConfig:
     modificabile: bool
 
     def come_riga(self) -> tuple[str, ...]:
-        return (
-            self.chiave,
-            self.valore,
-            self.descrizione,
-        )
+        return self.chiave, self.valore, self.descrizione
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +194,7 @@ def crea_schema_amministrativo() -> SchemaFoglioAmministrativo:
         ("invii_riusciti", "0", "Invii confermati nell'ultima esecuzione."),
         ("anomalie", "0", "Anomalie rilevate nell'ultima esecuzione."),
         (
-            "invio_automatico_attivo",
+            "automazione_attiva",
             "NO",
             "Indica se gli invii programmati sono abilitati.",
         ),
