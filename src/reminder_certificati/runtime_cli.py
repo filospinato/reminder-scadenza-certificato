@@ -1,4 +1,4 @@
-"""Unica CLI operativa con default sicuri e output aggregato."""
+"""CLI unica con poche operazioni comprensibili e default sicuri."""
 
 from __future__ import annotations
 
@@ -54,127 +54,83 @@ def _data(value: str) -> date:
         raise argparse.ArgumentTypeError("usa il formato YYYY-MM-DD") from exc
 
 
-def _intero_positivo(value: str) -> int:
-    try:
-        risultato = int(value)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("deve essere un intero") from exc
-    if risultato < 1:
-        raise argparse.ArgumentTypeError("deve essere almeno 1")
-    return risultato
-
-
-def _aggiungi_data(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--today", type=_data, default=date.today())
-
-
-def _aggiungi_conferma_email(parser: argparse.ArgumentParser) -> None:
+def _aggiungi_data_tecnica(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--confirm-email-delivery",
-        action="store_true",
-        help="conferma esplicita richiesta per il test SMTP",
+        "--today",
+        type=_data,
+        default=date.today(),
+        help=argparse.SUPPRESS,
     )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="reminder-certificati",
-        description="Gestione del reminder certificati con un solo comando.",
+        description="Gestione semplice del reminder certificati.",
     )
     sub = parser.add_subparsers(dest="comando", required=True)
 
-    inizializza = sub.add_parser(
-        "init-admin",
-        help="inizializza un file vuoto già creato e condiviso dall'utente",
+    setup = sub.add_parser(
+        "setup-admin",
+        help="controlla o prepara automaticamente il foglio amministrativo",
     )
-    inizializza.add_argument("--spreadsheet-id", required=True)
-
-    migra = sub.add_parser(
-        "migrate-admin",
-        help="mostra o applica la migrazione controllata dello schema amministrativo",
+    setup.add_argument("--spreadsheet-id", required=True)
+    setup.add_argument(
+        "--apply",
+        action="store_true",
+        help="applica inizializzazione o aggiornamento; senza il flag mostra l'anteprima",
     )
-    migra.add_argument("--spreadsheet-id", required=True)
-    migra.add_argument("--apply", action="store_true")
-    migra.add_argument("--confirm-migration", action="store_true")
-    migra.add_argument(
+    setup.add_argument(
         "--backup-path",
         default="admin-migration-backup.json",
-        help="file JSON locale scritto prima di ogni migrazione applicata",
+        help="backup JSON creato automaticamente prima di aggiornare un foglio esistente",
     )
+
+    controllo = sub.add_parser(
+        "check",
+        help="controlla configurazione, dati e registro senza inviare email",
+    )
+    _aggiungi_data_tecnica(controllo)
 
     sub.add_parser(
-        "preflight",
-        help="verifica file, tab, intestazioni e CONFIG senza leggere righe operative",
-    )
-
-    registro = sub.add_parser(
         "registry-check",
-        help="collauda NOTIFICHE con una sola riga sintetica",
+        help="collauda NOTIFICHE con una sola riga interamente sintetica",
     )
-    registro.add_argument("--confirm-synthetic-write", action="store_true")
-
-    revisione = sub.add_parser(
-        "review-registry",
-        help="mostra conteggi aggregati degli stati che richiedono attenzione",
-    )
-    revisione.add_argument(
-        "--stale-hours",
-        type=_intero_positivo,
-        default=24,
-        help="età minima di una riga SENDING da considerare bloccata",
-    )
-
-    dry_run = sub.add_parser("dry-run", help="esegue il flusso senza inviare email")
-    _aggiungi_data(dry_run)
 
     test_smtp = sub.add_parser(
         "test-smtp",
-        help="invia al massimo una email al destinatario override",
+        help="invia al massimo una email al DESTINATARIO_OVERRIDE",
     )
-    _aggiungi_data(test_smtp)
-    _aggiungi_conferma_email(test_smtp)
+    _aggiungi_data_tecnica(test_smtp)
 
     produzione = sub.add_parser(
         "produzione",
-        help="esegue gli invii reali protetti dal gate di produzione",
+        help="esegue gli invii reali se INVIO_AUTOMATICO_ATTIVO è true",
     )
-    _aggiungi_data(produzione)
+    _aggiungi_data_tecnica(produzione)
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        if args.comando == "init-admin":
-            return _init_admin(args.spreadsheet_id)
-        if args.comando == "migrate-admin":
-            return _migrate_admin(
+        if args.comando == "setup-admin":
+            return _setup_admin(
                 spreadsheet_id=args.spreadsheet_id,
                 applica=bool(args.apply),
-                conferma=bool(args.confirm_migration),
                 backup_path=Path(args.backup_path),
             )
-        if args.comando == "preflight":
-            return esegui_preflight(os.environ)
+        if args.comando == "check":
+            return _check(oggi=args.today, ambiente=os.environ)
         if args.comando == "registry-check":
-            return esegui_collaudo_registro(
-                conferma=bool(args.confirm_synthetic_write),
-                ambiente=os.environ,
-            )
-        if args.comando == "review-registry":
-            return _review_registry(
-                ambiente=os.environ,
-                stale_hours=args.stale_hours,
-            )
+            return esegui_collaudo_registro(ambiente=os.environ)
         modalita = {
-            "dry-run": ModalitaEsecuzione.DRY_RUN,
             "test-smtp": ModalitaEsecuzione.TEST_SMTP,
             "produzione": ModalitaEsecuzione.PRODUZIONE,
         }[args.comando]
         return _run(
             modalita=modalita,
             oggi=args.today,
-            conferma_email=bool(getattr(args, "confirm_email_delivery", False)),
             ambiente=os.environ,
         )
     except Exception as exc:
@@ -184,40 +140,62 @@ def main() -> int:
         ) from exc
 
 
-def _init_admin(spreadsheet_id: str) -> int:
+def _setup_admin(
+    *,
+    spreadsheet_id: str,
+    applica: bool,
+    backup_path: Path,
+) -> int:
     identificativo = spreadsheet_id.strip()
     if not identificativo:
         raise ErroreCliRuntime(
             "crea prima uno Spreadsheet vuoto con l'account umano e passa il suo ID"
         )
+
     servizio = costruisci_servizio_sheets()
-    esito = InizializzatoreFoglioAmministrativo(
-        TrasportoStrutturaGoogleApi(servizio)
-    ).prepara(spreadsheet_id=identificativo)
-    _stampa(
-        {
-            "operation": "init-admin",
-            "tabs_configured": esito.tab_configurate,
-            "initialized_tabs": list(esito.tab_inizializzate),
-            "already_compliant_tabs": list(esito.tab_gia_conformi),
-            "contains_personal_data": False,
-            "email_delivery_enabled": False,
-        }
+    struttura = TrasportoStrutturaGoogleApi(servizio)
+    nomi = tuple(
+        str(nome).strip()
+        for nome in struttura.elenca_tab(spreadsheet_id=identificativo)
     )
-    return 0
 
+    if len(nomi) == 1:
+        nome_iniziale = nomi[0]
+        escaped = nome_iniziale.replace("'", "''")
+        matrice = struttura.leggi_valori(
+            spreadsheet_id=identificativo,
+            intervallo_a1=f"'{escaped}'!A1:ZZ",
+        )
+        if not _matrice_vuota(matrice):
+            raise ErroreCliRuntime(
+                "la singola tab iniziale contiene dati; nessuna modifica automatica è sicura"
+            )
+        esito = None
+        if applica:
+            esito = InizializzatoreFoglioAmministrativo(struttura).prepara(
+                spreadsheet_id=identificativo
+            )
+        _stampa(
+            {
+                "operation": "setup-admin",
+                "mode": "APPLY" if applica else "PREVIEW",
+                "action": "INITIALIZE",
+                "changes_required": True,
+                "changes": ["ADMIN_SCHEMA_V3"],
+                "tabs_configured": bool(esito and esito.tab_configurate),
+                "initialized_tabs": list(esito.tab_inizializzate) if esito else [],
+                "backup_written": False,
+                "automatic_delivery_enabled_after": False,
+                "pii_in_output": False,
+            }
+        )
+        return 0
 
-def _migrate_admin(
-    *,
-    spreadsheet_id: str,
-    applica: bool,
-    conferma: bool,
-    backup_path: Path,
-) -> int:
-    identificativo = spreadsheet_id.strip()
-    if not identificativo:
-        raise ErroreCliRuntime("spreadsheet_id mancante")
-    servizio = costruisci_servizio_sheets()
+    if len(nomi) != len(NOMI_TAB_AMMINISTRATIVE) or set(nomi) != set(
+        NOMI_TAB_AMMINISTRATIVE
+    ):
+        raise ErroreCliRuntime("tab amministrative mancanti o non conformi")
+
     trasporto = TrasportoMigrazioneGoogleApi(servizio)
     piano = prepara_piano(
         trasporto.leggi_valori(
@@ -233,34 +211,46 @@ def _migrate_admin(
             intervallo_a1="'DASHBOARD'!A:C",
         ),
     )
-    if applica:
-        if not conferma:
-            raise ErroreCliRuntime(
-                "--apply richiede anche --confirm-migration"
-            )
+    backup_scritto = False
+    if applica and piano.necessaria:
         piano.salva_backup(backup_path)
+        backup_scritto = True
         applica_piano(
             piano,
             trasporto=trasporto,
             spreadsheet_id=identificativo,
         )
+
     _stampa(
         {
-            "operation": "migrate-admin",
+            "operation": "setup-admin",
             "mode": "APPLY" if applica else "PREVIEW",
-            "migration_required": piano.necessaria,
+            "action": "MIGRATE" if piano.necessaria else "NONE",
+            "changes_required": piano.necessaria,
             "changes": list(piano.modifiche),
             "config_rows_after": max(0, len(piano.config_dopo) - 1),
             "notification_rows_after": max(0, len(piano.notifiche_dopo) - 1),
             "dashboard_rows_after": max(0, len(piano.dashboard_dopo) - 1),
-            "backup_written": applica,
-            "backup_path": str(backup_path) if applica else "",
-            "automation_enabled_after": False,
-            "real_delivery_enabled_after": False,
+            "backup_written": backup_scritto,
+            "backup_path": str(backup_path) if backup_scritto else "",
+            "automatic_delivery_enabled_after": False if piano.necessaria else None,
             "pii_in_output": False,
         }
     )
     return 0
+
+
+def _check(*, oggi: date, ambiente: Mapping[str, str]) -> int:
+    preflight = esegui_preflight(ambiente)
+    if preflight != 0:
+        return preflight
+    runtime = _run(
+        modalita=ModalitaEsecuzione.DRY_RUN,
+        oggi=oggi,
+        ambiente=ambiente,
+    )
+    registro = _review_registry(ambiente=ambiente, stale_hours=24)
+    return max(runtime, registro)
 
 
 def _review_registry(
@@ -289,9 +279,12 @@ def _review_registry(
     retry_esauriti = sum(1 for riga in righe if registro.tentativi_esauriti(riga))
     _stampa(
         {
-            "operation": "review-registry",
+            "operation": "registry-review",
             "row_count": len(righe),
-            "state_counts": dict(sorted(conteggi.items())),
+            "state_counts": {
+                _etichetta_stato_notifica(stato): numero
+                for stato, numero in sorted(conteggi.items())
+            },
             "stale_sending_count": sending_vecchi,
             "retry_exhausted_count": retry_esauriti,
             "permanent_failure_count": conteggi.get(
@@ -312,7 +305,6 @@ def _run(
     *,
     modalita: ModalitaEsecuzione,
     oggi: date,
-    conferma_email: bool,
     ambiente: Mapping[str, str],
 ) -> int:
     risorse = ConfigurazioneRisorseGoogle.da_ambiente(ambiente)
@@ -330,18 +322,19 @@ def _run(
         )
     )
 
-    consenso = False
+    consenso = modalita is not ModalitaEsecuzione.DRY_RUN
     trasporto = None
-    if configurazione.automazione_attiva:
-        consenso = _consenso_esterno(
-            modalita,
-            flag_cli=conferma_email,
-            ambiente=ambiente,
+    smtp_necessario = (
+        modalita is ModalitaEsecuzione.TEST_SMTP
+        or (
+            modalita is ModalitaEsecuzione.PRODUZIONE
+            and configurazione.automazione_attiva
         )
-        if modalita is not ModalitaEsecuzione.DRY_RUN:
-            trasporto = TrasportoSmtpMdaemon(
-                ConfigurazioneSmtp.da_ambiente(ambiente)
-            )
+    )
+    if smtp_necessario:
+        trasporto = TrasportoSmtpMdaemon(
+            ConfigurazioneSmtp.da_ambiente(ambiente)
+        )
 
     registro = RegistroPersistente(
         componenti.archivio_notifiche,
@@ -366,6 +359,7 @@ def _run(
         {
             "mode": esito.modalita.value,
             "status": esito.stato,
+            "status_label": _etichetta_stato_sistema(esito.stato),
             "input_row_count": esito.righe_lette,
             "valid_record_count": esito.righe_valide,
             "anomaly_count": esito.anomalie,
@@ -429,28 +423,33 @@ def _prima_riga_normalizzata(
     return valori[:fine]
 
 
-def _consenso_esterno(
-    modalita: ModalitaEsecuzione,
-    *,
-    flag_cli: bool,
-    ambiente: Mapping[str, str],
-) -> bool:
-    if modalita is ModalitaEsecuzione.DRY_RUN:
-        return False
-    if modalita is ModalitaEsecuzione.TEST_SMTP:
-        if not flag_cli or ambiente.get("ALLOW_EMAIL_DELIVERY", "").casefold() != "true":
-            raise ErroreCliRuntime(
-                "il test SMTP richiede --confirm-email-delivery e "
-                "ALLOW_EMAIL_DELIVERY=true"
-            )
-        return True
-    if modalita is ModalitaEsecuzione.PRODUZIONE:
-        if ambiente.get("PRODUCTION_ENABLED", "").casefold() != "true":
-            raise ErroreCliRuntime(
-                "la produzione richiede PRODUCTION_ENABLED=true"
-            )
-        return True
-    raise ErroreCliRuntime("modalità di esecuzione non supportata")
+def _matrice_vuota(matrice: Sequence[Sequence[Any]]) -> bool:
+    return not any(
+        str(cella).strip()
+        for riga in matrice
+        for cella in riga
+    )
+
+
+def _etichetta_stato_sistema(stato: str) -> str:
+    return {
+        "DISATTIVATO": "Invio automatico spento",
+        "DRY_RUN_OK": "Controllo completato",
+        "OK": "Esecuzione completata",
+        "ATTENZIONE": "Attenzione richiesta",
+        "REVISIONE_RICHIESTA": "Verifica manuale necessaria",
+        "ERRORE": "Errore",
+    }.get(stato, stato)
+
+
+def _etichetta_stato_notifica(stato: str) -> str:
+    return {
+        "SENDING": "Invio in corso",
+        "SENT": "Inviata",
+        "FAILED_RETRYABLE": "Da riprovare",
+        "FAILED_PERMANENT": "Errore definitivo",
+        "UNKNOWN_REVIEW_REQUIRED": "Verifica manuale necessaria",
+    }.get(stato, stato)
 
 
 def _stampa(payload: Mapping[str, object]) -> None:
