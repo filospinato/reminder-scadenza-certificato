@@ -26,7 +26,7 @@ def candidato(*, nome: str = "Mario", cognome: str = "Rossi") -> CandidatoNotifi
     )
 
 
-def test_apertura_usa_la_colonna_nome() -> None:
+def test_template_predefinito_usa_la_colonna_nome() -> None:
     messaggio = componi_email(candidato(nome="Mario", cognome="Rossi"))
     assert messaggio.testo.startswith("Ciao Mario, ricevi questa mail")
     assert messaggio.html.startswith("<p>Ciao Mario, ricevi questa mail")
@@ -40,19 +40,27 @@ def test_nome_composto_non_viene_troncato() -> None:
 def test_nome_e_cognome_completo_sono_disponibili_nei_template() -> None:
     config = ConfigurazioneEmail(
         corpo=(
-            "Il certificato di {{nome_completo}} "
+            "Gentile {{nome_completo}}, il certificato "
             "scade il {{data_scadenza}}."
         ),
         firma="Cordiali saluti,\nCIA Lazio",
     )
     messaggio = componi_email(candidato(nome="Anna", cognome="Verdi"), config)
     assert "Anna Verdi" in messaggio.testo
-    assert messaggio.testo.startswith("Ciao Anna, Il certificato")
+    assert messaggio.testo.startswith("Gentile Anna Verdi, il certificato")
 
 
-def test_nome_vuoto_produce_errore_controllato() -> None:
+def test_nome_vuoto_produce_errore_se_usato_dal_template() -> None:
     with pytest.raises(ErroreTemplate, match="nome"):
         componi_email(candidato(nome=""))
+
+
+def test_template_senza_nome_non_impone_un_saluto_nascosto() -> None:
+    config = ConfigurazioneEmail(corpo="Il certificato sta per scadere.")
+    messaggio = componi_email(candidato(nome=""), config)
+
+    assert messaggio.testo.startswith("Il certificato sta per scadere.")
+    assert "Ciao" not in messaggio.testo
 
 
 def test_data_e_firma_sono_presenti_in_testo_e_html() -> None:
@@ -88,7 +96,8 @@ def test_corpo_puo_avere_una_formulazione_libera() -> None:
     config = ConfigurazioneEmail(corpo="Il certificato sta per scadere.")
     messaggio = componi_email(candidato(), config)
 
-    assert messaggio.testo.startswith("Ciao Mario, Il certificato")
+    assert messaggio.testo.startswith("Il certificato sta per scadere.")
+    assert not messaggio.testo.startswith("Ciao")
 
 
 def test_corpo_vuoto_viene_rifiutato() -> None:
