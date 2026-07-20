@@ -2,59 +2,61 @@
 
 ## Arresto immediato
 
-Eseguire nell'ordine:
+1. Impostare `AUTOMAZIONE_ATTIVA=false` in CONFIG.
+2. Impostare `PREPRODUCTION_ENABLED=false` o `PRODUCTION_ENABLED=false` nell'Environment interessato.
+3. Annullare eventuali workflow in corso.
+4. Non cancellare righe di NOTIFICHE finché l'esito non è stato ricostruito.
 
-1. impostare `AUTOMAZIONE_ATTIVA=false` nella tab `CONFIG`;
-2. impostare `PREPRODUCTION_ENABLED=false` o `PRODUCTION_ENABLED=false` nell'environment GitHub interessato;
-3. annullare eventuali workflow in corso;
-4. non cancellare righe di `NOTIFICHE` finché l'esito non è stato ricostruito;
-5. annotare nella tab `ANOMALIE` un codice sintetico, senza copiare payload o dati personali.
+Con l'interruttore spento il runtime non legge le righe operative e non inizializza SMTP.
 
-`AUTOMAZIONE_ATTIVA` è l'unico interruttore operativo, usato sia nella gestione ordinaria sia nelle emergenze. Viene verificato prima della lettura completa della sorgente e prima di qualsiasi invio.
+## Diagnosi iniziale
 
-## Esito `UNKNOWN_REVIEW_REQUIRED`
+Eseguire:
 
-Non ritentare automaticamente. Verificare sul server SMTP, usando Message-ID e orario, se la consegna è stata accettata. Dopo la verifica:
+```bash
+reminder-certificati review-registry
+```
 
-- se consegnata, correggere lo stato a `SENT` con procedura controllata;
-- se certamente non consegnata, correggere a `FAILED_RETRYABLE`;
-- se resta dubbia, lasciare `UNKNOWN_REVIEW_REQUIRED`.
+Il comando mostra soltanto conteggi aggregati e non modifica il registro.
 
-## Riga bloccata in `SENDING`
+## `UNKNOWN_REVIEW_REQUIRED`
 
-Una riga `SENDING` può indicare un crash tra prenotazione e conclusione SMTP. Non trasformarla automaticamente in errore ritentabile. Verificare prima i log aggregati e il server SMTP. In assenza di prova certa, trattarla come esito incerto.
+Non ritentare automaticamente. Verificare sul server SMTP tramite Message-ID e orario:
 
-## Chiave duplicata in NOTIFICHE
+- consegna confermata: correggere a `SENT` con procedura controllata;
+- mancata consegna certa e temporanea: correggere a `FAILED_RETRYABLE` soltanto se restano tentativi;
+- dubbio residuo: lasciare `UNKNOWN_REVIEW_REQUIRED`.
 
-1. impostare `AUTOMAZIONE_ATTIVA=false`;
-2. esportare una copia amministrativa ristretta del solo foglio;
-3. confrontare le due righe senza pubblicarne i dati in issue o log;
-4. mantenere la riga con cronologia coerente e archiviare manualmente l'altra fuori dal foglio operativo;
-5. rieseguire `reminder-certificati preflight`;
-6. riattivare soltanto dopo revisione a quattro occhi.
+## `FAILED_PERMANENT`
+
+Indica un rifiuto certo o una configurazione non recuperabile automaticamente. Correggere la causa e decidere manualmente se creare una nuova notifica; non trasformare automaticamente lo stato in ritentabile.
+
+## Retry esauriti
+
+Dopo tre tentativi un `FAILED_RETRYABLE` non viene più prenotato. Verificare la causa e intervenire manualmente, senza azzerare il contatore alla cieca.
+
+## Riga `SENDING` vecchia
+
+Può indicare un crash tra prenotazione e conclusione SMTP. Non renderla automaticamente ritentabile. Verificare prima server SMTP, Message-ID e cronologia; in assenza di certezza trattarla come esito incerto.
 
 ## Schema alterato
 
-Non tentare di adattare automaticamente le colonne. Ripristinare intestazioni e ordine dal contratto in `SCHEMA_FOGLI.md`. L'inizializzatore rifiuta contenuti esistenti incompatibili e non li sovrascrive.
+Mantenere l'automazione spenta, creare una copia di sicurezza ed eseguire:
 
-## Revoca Google
+```bash
+reminder-certificati migrate-admin --spreadsheet-id ID
+```
 
-Per bloccare immediatamente Google:
+Applicare la migrazione soltanto dopo aver controllato l'anteprima. `preflight` deve risultare verde prima della riattivazione.
 
-- rimuovere dal service account il binding `roles/iam.workloadIdentityUser`;
-- oppure disabilitare il provider WIF;
-- oppure rimuovere la condivisione diretta dai due Spreadsheet.
+## Chiavi duplicate
 
-Non creare una chiave JSON come soluzione temporanea.
+La migrazione e il runtime rifiutano chiavi duplicate. Conservare il backup, ricostruire la cronologia e mantenere una sola riga coerente con revisione a quattro occhi. Non pubblicare tessere, Message-ID o contenuti del foglio in issue.
 
-## Compromissione SMTP
+## Revoca Google o compromissione SMTP
 
-1. disabilitare le credenziali sul server MDaemon;
-2. rimuovere o ruotare i GitHub Secrets;
-3. impostare `AUTOMAZIONE_ATTIVA=false` e disabilitare l'environment;
-4. controllare i Message-ID e i log del server;
-5. non inserire credenziali o log completi in GitHub issue.
+Per Google rimuovere il binding WIF, disabilitare il provider o revocare le condivisioni. Per SMTP disabilitare le credenziali sul server e ruotare i Secrets. Non creare chiavi JSON permanenti come soluzione temporanea.
 
-## Rollback applicativo
+## Rollback
 
-Ripristinare il precedente commit verde di `main` tramite una PR di revert. Non forzare `main` e non cancellare la cronologia. Mantenere `AUTOMAZIONE_ATTIVA=false` durante il rollback.
+Ripristinare l'ultimo commit verde tramite PR di revert, senza forzare `main`. Se lo schema del foglio è già stato migrato, non ripristinare una versione applicativa incompatibile senza un piano esplicito; mantenere sempre `AUTOMAZIONE_ATTIVA=false` durante il rollback.

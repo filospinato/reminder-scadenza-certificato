@@ -30,8 +30,9 @@ def test_collaudo_sintetico_usa_una_sola_riga_e_conclude_sent() -> None:
     assert esito.stato_finale is StatoNotifica.SENT
     assert len(matrice) == 2
     assert matrice[1][0] == "SYNTHETIC-REGISTRY-ABC123|2099-12-31|SYNTHETIC_REGISTRY_CHECK"
-    assert matrice[1][4] == "synthetic@example.invalid"
-    assert matrice[1][7] == "SENT"
+    assert matrice[1][1] == "SYNTHETIC-REGISTRY-ABC123"
+    assert matrice[1][4] == "SENT"
+    assert "synthetic@example.invalid" not in matrice[1]
 
 
 def test_collaudo_rifiuta_identificativo_non_sintetico_valido() -> None:

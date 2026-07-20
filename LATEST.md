@@ -1,64 +1,44 @@
 # Stato corrente
 
-**Versione di pacchetto:** 0.12.0  
-**Data:** 19 luglio 2026  
-**Stato:** codice pre-produzione semplificato e disattivato; risorse e collaudi esterni ancora mancanti
+**Versione di pacchetto:** 0.13.0  
+**Data:** 20 luglio 2026  
+**Stato:** codice pre-produzione rafforzato e disattivato; produzione e schedule non attive
 
 ## Funziona già
 
-- validazione e selezione dei record di `Operativo`;
-- preflight in sola lettura su file, tab e intestazioni;
-- inizializzazione sicura del foglio amministrativo;
-- un solo comando installato: `reminder-certificati`;
-- sottocomandi `init-admin`, `preflight`, `registry-check`, `dry-run`, `test-smtp` e `produzione`;
-- un solo interruttore operativo: `AUTOMAZIONE_ATTIVA`;
-- modalità determinata dal sottocomando, senza `MODALITA_TEST` in CONFIG;
-- registro persistente con una sola lettura completa per esecuzione;
-- anomalie persistenti deduplicate;
-- corpo email liberamente modificabile con placeholder autorizzati;
-- dashboard aggregata, SMTP MDaemon, WIF/OIDC e workflow manuale protetto;
-- modello schedulato conservato come esempio non attivo, con una sola esecuzione giornaliera.
+- schema amministrativo v2 con `SCHEMA_VERSION`;
+- migrazione con anteprima, conferma e backup;
+- preflight su tab, intestazioni e CONFIG reale;
+- lettura delle sole sei colonne necessarie di `Operativo`;
+- chiave di notifica stabile rispetto a `GIORNI_PREAVVISO`;
+- registro senza nome, cognome o email;
+- stati distinti per errore ritentabile, permanente e incerto;
+- massimo tre tentativi automatici;
+- diagnosi aggregata di righe bloccate ed esiti da revisionare;
+- arresto che non inizializza SMTP;
+- exit code non-zero per `ATTENZIONE` e `REVISIONE_RICHIESTA`;
+- WIF/OIDC, Environment protetti e workflow manuale;
+- modello produttivo non attivo.
 
-## Semplificazioni applicate
+## Migrazione necessaria
 
-- rimossa la CLI storica;
-- rimossi gli entry point separati per preflight e collaudo registro;
-- eliminato il comando duplicato `check-headers`;
-- sostituiti `SISTEMA_ATTIVO` e `KILL_SWITCH` con `AUTOMAZIONE_ATTIVA`;
-- eliminato `MODALITA_TEST` dalla CONFIG;
-- alleggerita la validazione dei metadati descrittivi della CONFIG;
-- rimosso il vincolo testuale che imponeva al corpo di iniziare con “ricevi questa mail”;
-- ridotta la schedule prevista da due esecuzioni a una al giorno.
+Il foglio amministrativo precedente deve essere portato allo schema v2 prima dei collaudi. La migrazione lascia obbligatoriamente:
 
-## Barriere di sicurezza mantenute
+```text
+AUTOMAZIONE_ATTIVA=false
+INVII_REALI_ABILITATI=false
+```
 
-- `Operativo` sempre in sola lettura;
-- credenziali Google permanenti rifiutate a runtime;
-- preflight senza lettura di righe operative;
-- collaudo del registro protetto da flag e variabile dedicata;
-- segreti SMTP disponibili soltanto nello step di invio;
-- produzione subordinata a Environment, `PRODUCTION_ENABLED`, CONFIG coerente e consenso dello step;
-- esiti SMTP incerti non ritentati automaticamente;
-- workflow schedulato assente da `.github/workflows`.
+## Esclusione intenzionale
 
-## Da creare o valorizzare esternamente
-
-- progetto Google Cloud, API, service account, pool e provider WIF;
-- GitHub Environments, Variables e binding IAM;
-- Spreadsheet amministrativo vuoto creato dall'account umano;
-- condivisione diretta dei due Spreadsheet;
-- parametri e credenziali MDaemon;
-- mittente, Reply-To, firma ufficiale e logo approvato;
-- seconda identità umana CIA di recupero.
+Il test SMTP non è stato trasformato in un test interamente sintetico, secondo la richiesta. Continua a usare il destinatario override e al massimo un messaggio.
 
 ## Prossimo passo
 
-Creare lo Spreadsheet amministrativo vuoto, predisporre Google Cloud e l'Environment `preproduction`, quindi eseguire nell'ordine:
+Dopo il merge della versione 0.13.0:
 
-```text
-reminder-certificati init-admin
-reminder-certificati preflight
-reminder-certificati registry-check
-reminder-certificati dry-run
-reminder-certificati test-smtp
-```
+1. creare una copia di sicurezza del foglio reale;
+2. migrare CONFIG e NOTIFICHE;
+3. verificare nuovamente che entrambi gli interruttori siano `false`;
+4. eseguire il preflight;
+5. proseguire con i collaudi esterni soltanto quando WIF e Environment saranno pronti.

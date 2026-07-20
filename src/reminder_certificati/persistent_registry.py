@@ -10,27 +10,43 @@ from .admin_store import RigaNotifica
 from .models import CandidatoNotifica
 from .registry import RecordNotifica, StatoNotifica
 
+MAX_TENTATIVI_INVIO = 3
+
 
 class ErroreRegistroPersistente(RuntimeError):
     """La transizione persistente non è sicura o non è applicabile."""
 
 
 class ArchivioRigheNotifica(Protocol):
-    def ottieni(self, notification_id: str) -> RigaNotifica | None:
-        """Restituisce la riga corrente per chiave."""
+    def ottieni(self, notification_id: str) -> RigaNotifica | None: ...
 
-    def salva(self, riga: RigaNotifica) -> RigaNotifica:
-        """Inserisce o aggiorna la riga in modo controllato."""
+    def salva(self, riga: RigaNotifica) -> RigaNotifica: ...
+
+    def elenca(self) -> tuple[RigaNotifica, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
 class RegistroPersistente:
     archivio: ArchivioRigheNotifica
     versione_app: str
+    massimo_tentativi: int = MAX_TENTATIVI_INVIO
+
+    def __post_init__(self) -> None:
+        if self.massimo_tentativi < 1:
+            raise ValueError("massimo_tentativi deve essere almeno 1")
 
     def puo_prenotare(self, notification_id: str) -> bool:
         esistente = self.archivio.ottieni(_chiave(notification_id))
-        return esistente is None or esistente.stato is StatoNotifica.FAILED_RETRYABLE
+        return esistente is None or (
+            esistente.stato is StatoNotifica.FAILED_RETRYABLE
+            and esistente.tentativi < self.massimo_tentativi
+        )
+
+    def tentativi_esauriti(self, riga: RigaNotifica) -> bool:
+        return (
+            riga.stato is StatoNotifica.FAILED_RETRYABLE
+            and riga.tentativi >= self.massimo_tentativi
+        )
 
     def prenota(
         self,
@@ -60,6 +76,8 @@ class RegistroPersistente:
             raise ErroreRegistroPersistente(
                 f"{candidato.notification_id}: stato {esistente.stato} non prenotabile"
             )
+        if esistente.tentativi >= self.massimo_tentativi:
+            raise ErroreRegistroPersistente("numero massimo di tentativi raggiunto")
         if istante < esistente.aggiornato_il:
             raise ErroreRegistroPersistente(
                 "l'istante non può precedere l'ultimo aggiornamento"
@@ -108,6 +126,20 @@ class RegistroPersistente:
             errore=_dettaglio(errore, "errore"),
         )
 
+    def segna_errore_permanente(
+        self,
+        candidato: CandidatoNotifica,
+        *,
+        errore: str,
+        ora: datetime | None = None,
+    ) -> RigaNotifica:
+        return self._transizione(
+            candidato,
+            nuovo_stato=StatoNotifica.FAILED_PERMANENT,
+            ora=ora,
+            errore=_dettaglio(errore, "errore"),
+        )
+
     def segna_esito_incerto(
         self,
         candidato: CandidatoNotifica,
@@ -121,6 +153,9 @@ class RegistroPersistente:
             ora=ora,
             errore=_dettaglio(errore, "errore"),
         )
+
+    def elenca(self) -> tuple[RigaNotifica, ...]:
+        return self.archivio.elenca()
 
     def _transizione(
         self,
@@ -166,23 +201,17 @@ def _verifica_identita(candidato: CandidatoNotifica, riga: RigaNotifica) -> None
     arbitro = candidato.arbitro
     attuale = (
         arbitro.id_arbitro.strip(),
-        arbitro.nome.strip(),
-        arbitro.cognome.strip(),
-        arbitro.email.strip(),
         arbitro.scadenza_certificato,
         candidato.tipo.strip(),
     )
     persistita = (
         riga.id_arbitro,
-        riga.nome,
-        riga.cognome,
-        riga.email,
         riga.scadenza_certificato,
         riga.tipo,
     )
     if attuale != persistita:
         raise ErroreRegistroPersistente(
-            "la notifica esistente non coincide con i dati correnti della stessa riga"
+            "la notifica esistente non coincide con il certificato corrente"
         )
 
 

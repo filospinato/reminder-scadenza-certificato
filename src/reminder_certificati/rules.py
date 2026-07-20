@@ -5,15 +5,15 @@ from datetime import date
 from .models import Arbitro, CandidatoNotifica
 from .validation import email_valida
 
+TIPO_NOTIFICA_SCADENZA = "CERTIFICATO_SCADENZA_V1"
+
 
 def notification_id(arbitro: Arbitro, tipo: str) -> str:
-    """Restituisce una chiave leggibile e deterministica anti-duplicazione."""
-
     return "|".join(
         (
             arbitro.id_arbitro.strip(),
             arbitro.scadenza_certificato.isoformat(),
-            tipo,
+            tipo.strip(),
         )
     )
 
@@ -24,17 +24,11 @@ def trova_candidati(
     oggi: date,
     giorni_preavviso: int = 30,
 ) -> list[CandidatoNotifica]:
-    """Seleziona gli arbitri attivi con certificato in scadenza nella finestra.
-
-    La finestra include oggi e il giorno limite. I certificati già scaduti non
-    vengono inclusi: saranno gestiti da un eventuale reminder separato.
-    """
-
     if giorni_preavviso < 0:
         raise ValueError("giorni_preavviso deve essere maggiore o uguale a zero")
 
     candidati: list[CandidatoNotifica] = []
-    tipo = f"REMINDER_{giorni_preavviso}"
+    tipo = TIPO_NOTIFICA_SCADENZA
 
     for arbitro in arbitri:
         if not arbitro.attivo or not email_valida(arbitro.email):

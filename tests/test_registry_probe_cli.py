@@ -22,7 +22,7 @@ def test_comando_non_legge_operativo_e_stampa_solo_esito_aggregato(
     monkeypatch.setattr(
         registry_probe_cli.ConfigurazioneRisorseGoogle,
         "da_ambiente",
-        lambda ambiente: risorse,
+        lambda ambiente, **kwargs: risorse,
     )
     monkeypatch.setattr(registry_probe_cli, "costruisci_servizio_sheets", lambda: object())
     monkeypatch.setattr(

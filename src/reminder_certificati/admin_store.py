@@ -11,9 +11,6 @@ from .registry import RecordNotifica, StatoNotifica
 COLONNE_NOTIFICHE: tuple[str, ...] = (
     "notification_id",
     "id_arbitro",
-    "nome",
-    "cognome",
-    "email",
     "scadenza_certificato",
     "tipo",
     "stato",
@@ -34,9 +31,6 @@ class ErroreArchivioNotifiche(RuntimeError):
 class RigaNotifica:
     notification_id: str
     id_arbitro: str
-    nome: str
-    cognome: str
-    email: str
     scadenza_certificato: date
     tipo: str
     stato: StatoNotifica
@@ -54,16 +48,13 @@ class RigaNotifica:
         record: RecordNotifica,
         *,
         versione_app: str,
-    ) -> RigaNotifica:
+    ) -> "RigaNotifica":
         if candidato.notification_id != record.notification_id:
             raise ValueError("candidato e record hanno notification_id differenti")
         arbitro = candidato.arbitro
         return cls(
             notification_id=record.notification_id,
             id_arbitro=arbitro.id_arbitro.strip(),
-            nome=arbitro.nome.strip(),
-            cognome=arbitro.cognome.strip(),
-            email=arbitro.email.strip(),
             scadenza_certificato=arbitro.scadenza_certificato,
             tipo=candidato.tipo.strip(),
             stato=record.stato,
@@ -79,9 +70,6 @@ class RigaNotifica:
         return {
             "notification_id": self.notification_id,
             "id_arbitro": self.id_arbitro,
-            "nome": self.nome,
-            "cognome": self.cognome,
-            "email": self.email,
             "scadenza_certificato": self.scadenza_certificato.isoformat(),
             "tipo": self.tipo,
             "stato": self.stato.value,
@@ -94,7 +82,7 @@ class RigaNotifica:
         }
 
     @classmethod
-    def da_mappa(cls, valori: Mapping[str, object]) -> RigaNotifica:
+    def da_mappa(cls, valori: Mapping[str, object]) -> "RigaNotifica":
         mancanti = [campo for campo in COLONNE_NOTIFICHE if campo not in valori]
         if mancanti:
             raise ErroreArchivioNotifiche(
@@ -107,11 +95,10 @@ class RigaNotifica:
             return cls(
                 notification_id=_obbligatorio(valori["notification_id"], "notification_id"),
                 id_arbitro=_obbligatorio(valori["id_arbitro"], "id_arbitro"),
-                nome=_obbligatorio(valori["nome"], "nome"),
-                cognome=_obbligatorio(valori["cognome"], "cognome"),
-                email=_obbligatorio(valori["email"], "email"),
                 scadenza_certificato=date.fromisoformat(
-                    _obbligatorio(valori["scadenza_certificato"], "scadenza_certificato")
+                    _obbligatorio(
+                        valori["scadenza_certificato"], "scadenza_certificato"
+                    )
                 ),
                 tipo=_obbligatorio(valori["tipo"], "tipo"),
                 stato=StatoNotifica(_obbligatorio(valori["stato"], "stato")),
@@ -127,11 +114,7 @@ class RigaNotifica:
 
 
 class ArchivioNotificheMemoria:
-    """Fake thread-safe della futura tab NOTIFICHE.
-
-    `salva` inserisce la prima versione della chiave e sostituisce le versioni
-    successive. Una sorgente iniziale con chiavi duplicate viene rifiutata.
-    """
+    """Fake thread-safe della tab NOTIFICHE."""
 
     def __init__(self, righe: Iterable[RigaNotifica] = ()) -> None:
         self._lock = Lock()
@@ -162,9 +145,12 @@ class ArchivioNotificheMemoria:
             self._righe[riga.notification_id] = riga
             return riga
 
-    def snapshot(self) -> tuple[RigaNotifica, ...]:
+    def elenca(self) -> tuple[RigaNotifica, ...]:
         with self._lock:
             return tuple(self._righe[chiave] for chiave in sorted(self._righe))
+
+    def snapshot(self) -> tuple[RigaNotifica, ...]:
+        return self.elenca()
 
 
 def _testo(value: object) -> str:

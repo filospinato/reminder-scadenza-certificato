@@ -39,6 +39,7 @@ def test_output_json_di_successo_mantiene_le_garanzie_minime(monkeypatch, capsys
         operativo_headers_ok = True
         admin_tabs_ok = True
         admin_headers_ok = True
+        admin_config_ok = True
         operativo_data_rows_read = 0
         writes_performed = 0
         smtp_checked = False
@@ -52,10 +53,10 @@ def test_output_json_di_successo_mantiene_le_garanzie_minime(monkeypatch, capsys
 
     assert google_preflight_cli.main() == 0
     payload = json.loads(capsys.readouterr().out)
-
     assert CHIAVI_MINIME <= set(payload)
     assert payload["operation"] == "google-preflight"
     assert payload["success"] is True
+    assert payload["admin_config_ok"] is True
     assert payload["operativo_data_rows_read"] == 0
     assert payload["writes_performed"] == 0
     assert payload["smtp_checked"] is False
@@ -71,7 +72,6 @@ def test_output_json_inatteso_non_espone_dettagli_sensibili(monkeypatch, capsys)
 
     assert google_preflight_cli.main() == 2
     payload = json.loads(capsys.readouterr().out)
-
     assert CHIAVI_MINIME <= set(payload)
     assert payload["error_code"] == CODICE_INATTESO
     assert payload["detail"] == "RuntimeError"

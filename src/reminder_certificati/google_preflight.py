@@ -1,9 +1,4 @@
-"""Preflight Google in sola lettura prima dei collaudi esterni.
-
-Il modulo verifica soltanto identificatori, metadati delle tab e righe di
-intestazione. Non legge righe operative, non scrive celle e non usa SMTP.
-Gli errori pubblici usano codici stabili e indicazioni operative prive di PII.
-"""
+"""Preflight Google in sola lettura prima dei collaudi esterni."""
 
 from __future__ import annotations
 
@@ -16,6 +11,7 @@ from .google_runtime import (
     COLONNE_OPERATIVO_OBBLIGATORIE,
     ConfigurazioneRisorseGoogle,
 )
+from .runtime_config import carica_configurazione
 
 
 class CodiceErrorePreflight(StrEnum):
@@ -24,6 +20,7 @@ class CodiceErrorePreflight(StrEnum):
     ADMIN_TAB_NON_CONFORMI = "PREFLIGHT_ADMIN_TABS_INVALID"
     ADMIN_INTESTAZIONI_NON_LEGGIBILI = "PREFLIGHT_ADMIN_HEADERS_UNREADABLE"
     ADMIN_INTESTAZIONI_NON_CONFORMI = "PREFLIGHT_ADMIN_HEADERS_INVALID"
+    ADMIN_CONFIG_NON_CONFORME = "PREFLIGHT_ADMIN_CONFIG_INVALID"
     OPERATIVO_NON_RAGGIUNGIBILE = "PREFLIGHT_OPERATIVO_UNREACHABLE"
     OPERATIVO_INTESTAZIONI_MANCANTI = "PREFLIGHT_OPERATIVO_HEADERS_MISSING"
 
@@ -36,8 +33,6 @@ class DiagnosticaPreflight:
 
 
 class ErrorePreflightGoogle(RuntimeError):
-    """Errore pubblico, stabile e privo di payload Google o identificatori."""
-
     def __init__(self, diagnostica: DiagnosticaPreflight) -> None:
         super().__init__(diagnostica.messaggio)
         self.diagnostica = diagnostica
@@ -54,12 +49,20 @@ class TrasportoPreflightGoogle(Protocol):
         riga: int,
     ) -> Sequence[Any]: ...
 
+    def leggi_valori(
+        self,
+        *,
+        spreadsheet_id: str,
+        intervallo_a1: str,
+    ) -> Sequence[Sequence[Any]]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class EsitoPreflightGoogle:
     operativo_headers_ok: bool
     admin_tabs_ok: bool
     admin_headers_ok: bool
+    admin_config_ok: bool
     operativo_data_rows_read: int = 0
     writes_performed: int = 0
     smtp_checked: bool = False
@@ -76,7 +79,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.RISORSE_COINCIDENTI,
                     "Operativo e amministrazione devono indicare file distinti.",
-                    "Correggere le Variables pubbliche dei due Spreadsheet e ripetere il preflight.",
+                    "Correggere le Variables dei due Spreadsheet e ripetere il preflight.",
                 )
             )
 
@@ -92,7 +95,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.ADMIN_NON_RAGGIUNGIBILE,
                     "Lo Spreadsheet amministrativo non è raggiungibile in lettura.",
-                    "Verificare condivisione, ID pubblico e identità WIF del service account.",
+                    "Verificare condivisione, ID e identità WIF del service account.",
                 )
             ) from exc
 
@@ -130,9 +133,24 @@ class PreflightGoogle:
                     DiagnosticaPreflight(
                         CodiceErrorePreflight.ADMIN_INTESTAZIONI_NON_CONFORMI,
                         "Le intestazioni amministrative non rispettano lo schema previsto.",
-                        "Confrontare la riga 1 delle tab con docs/SCHEMA_FOGLI.md senza modificare Operativo.",
+                        "Eseguire migrate-admin in anteprima e applicare la migrazione controllata.",
                     )
                 )
+
+        try:
+            config = self.trasporto.leggi_valori(
+                spreadsheet_id=risorse.admin_spreadsheet_id,
+                intervallo_a1="'CONFIG'!A:E",
+            )
+            carica_configurazione(config)
+        except Exception as exc:
+            raise ErrorePreflightGoogle(
+                DiagnosticaPreflight(
+                    CodiceErrorePreflight.ADMIN_CONFIG_NON_CONFORME,
+                    "Il contenuto della CONFIG non è compatibile con il runtime.",
+                    "Eseguire migrate-admin in anteprima e correggere le chiavi indicate.",
+                )
+            ) from exc
 
         try:
             intestazioni_operativo = _normalizza_intestazioni(
@@ -161,7 +179,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.OPERATIVO_INTESTAZIONI_MANCANTI,
                     "Operativo non contiene tutte le intestazioni usate dal reminder.",
-                    "Verificare la sola riga 2 e aggiornare la mappatura soltanto dopo controllo umano.",
+                    "Verificare la sola riga delle intestazioni e la mappatura canonica.",
                 )
             )
 
@@ -169,6 +187,7 @@ class PreflightGoogle:
             operativo_headers_ok=True,
             admin_tabs_ok=True,
             admin_headers_ok=True,
+            admin_config_ok=True,
         )
 
 
@@ -224,3 +243,24 @@ class TrasportoPreflightGoogleApi:
             return ()
         prima = valori[0]
         return tuple(prima) if isinstance(prima, Sequence) else ()
+
+    def leggi_valori(
+        self,
+        *,
+        spreadsheet_id: str,
+        intervallo_a1: str,
+    ) -> Sequence[Sequence[Any]]:
+        risposta = (
+            self.servizio.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=spreadsheet_id,
+                range=intervallo_a1,
+                majorDimension="ROWS",
+            )
+            .execute()
+        )
+        valori = risposta.get("values", []) if isinstance(risposta, Mapping) else []
+        if not isinstance(valori, Sequence) or isinstance(valori, (str, bytes)):
+            raise ValueError("values non valido")
+        return valori

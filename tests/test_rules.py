@@ -3,7 +3,11 @@ from datetime import date, timedelta
 import pytest
 
 from reminder_certificati.models import Arbitro
-from reminder_certificati.rules import notification_id, trova_candidati
+from reminder_certificati.rules import (
+    TIPO_NOTIFICA_SCADENZA,
+    notification_id,
+    trova_candidati,
+)
 
 
 def arbitro(*, offset: int, attivo: bool = True, email: str = "mario@example.it") -> Arbitro:
@@ -39,9 +43,16 @@ def test_esclude_inattivi_ed_email_non_valide() -> None:
     assert candidati == []
 
 
-def test_chiave_deterministica_non_dipende_dal_template() -> None:
+def test_chiave_deterministica_non_dipende_dalla_finestra() -> None:
     record = arbitro(offset=10)
-    assert notification_id(record, "REMINDER_30") == "A-10|2026-07-27|REMINDER_30"
+    trenta = trova_candidati([record], oggi=date(2026, 7, 17), giorni_preavviso=30)[0]
+    quarantacinque = trova_candidati(
+        [record], oggi=date(2026, 7, 17), giorni_preavviso=45
+    )[0]
+    attesa = f"A-10|2026-07-27|{TIPO_NOTIFICA_SCADENZA}"
+    assert trenta.notification_id == attesa
+    assert quarantacinque.notification_id == attesa
+    assert notification_id(record, TIPO_NOTIFICA_SCADENZA) == attesa
 
 
 def test_preavviso_negativo_non_valido() -> None:

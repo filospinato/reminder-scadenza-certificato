@@ -8,10 +8,14 @@ from reminder_certificati.monitoring import AnomalieMemoria, DashboardMemoria
 from reminder_certificati.orchestrator import ModalitaEsecuzione, OrchestratoreReminder
 from reminder_certificati.persistent_registry import RegistroPersistente
 from reminder_certificati.registry import StatoNotifica
+from reminder_certificati.rules import TIPO_NOTIFICA_SCADENZA
 from reminder_certificati.runtime_config import ConfigurazioneRuntime
-from reminder_certificati.smtp_transport import TrasportoEmailMemoria
+from reminder_certificati.smtp_transport import (
+    ErroreSmtpPermanente,
+    TrasportoEmailMemoria,
+)
 
-VERSIONE = "0.12.0"
+VERSIONE = "0.13.0"
 _INTESTAZIONI = [
     "id_arbitro",
     "nome",
@@ -59,7 +63,7 @@ def _candidato(
         email=email,
         scadenza_certificato=scadenza,
     )
-    tipo = "REMINDER_30"
+    tipo = TIPO_NOTIFICA_SCADENZA
     return CandidatoNotifica(
         arbitro=arbitro,
         tipo=tipo,
@@ -77,9 +81,7 @@ def test_automazione_disattivata_blocca_prima_della_lettura() -> None:
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
     )
-
     esito = orchestratore.esegui(oggi=date(2026, 7, 17))
-
     assert esito.stato == "DISATTIVATO"
     assert esito.righe_lette == 0
     assert dashboard.ultima is not None
@@ -98,12 +100,10 @@ def test_dry_run_compone_senza_override_scritture_o_invio() -> None:
         versione_app=VERSIONE,
         registro=RegistroPersistente(archivio, versione_app=VERSIONE),
     )
-
     esito = orchestratore.esegui(
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.DRY_RUN,
     )
-
     assert esito.stato == "DRY_RUN_OK"
     assert esito.candidati == 1
     assert esito.messaggi_composti == 1
@@ -136,12 +136,10 @@ def test_dry_run_salta_registrate_e_applica_limite_dopo_deduplicazione() -> None
         versione_app=VERSIONE,
         registro=registro,
     )
-
     esito = orchestratore.esegui(
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.DRY_RUN,
     )
-
     assert esito.candidati == 2
     assert esito.notifiche_gia_presenti == 1
     assert esito.messaggi_composti == 1
@@ -161,22 +159,19 @@ def test_test_smtp_invia_solo_all_override_e_lo_registra() -> None:
         registro=registro,
         trasporto_email=smtp,
     )
-
     esito = orchestratore.esegui(
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.TEST_SMTP,
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
-
     assert esito.invii_riusciti == 1
     assert smtp.inviati[0].destinatario == "test@example.invalid"
     righe = archivio.snapshot()
     assert len(righe) == 1
-    assert righe[0].tipo == "TEST_REMINDER_30"
+    assert righe[0].tipo == f"TEST_{TIPO_NOTIFICA_SCADENZA}"
     assert righe[0].stato is StatoNotifica.SENT
-    assert righe[0].nome == "Anna Maria"
-    assert righe[0].email == "test@example.invalid"
+    assert righe[0].id_arbitro == "A-1"
 
 
 def test_test_smtp_invia_al_massimo_un_messaggio() -> None:
@@ -195,14 +190,12 @@ def test_test_smtp_invia_al_massimo_un_messaggio() -> None:
         ),
         trasporto_email=smtp,
     )
-
     esito = orchestratore.esegui(
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.TEST_SMTP,
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
-
     assert esito.candidati == 2
     assert esito.invii_tentati == 1
     assert len(smtp.inviati) == 1
@@ -227,10 +220,8 @@ def test_seconda_esecuzione_test_non_duplica() -> None:
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
-
     orchestratore.esegui(**kwargs)
     seconda = orchestratore.esegui(**kwargs)
-
     assert seconda.notifiche_gia_presenti == 1
     assert seconda.invii_tentati == 0
     assert len(smtp.inviati) == 1
@@ -248,7 +239,6 @@ def test_produzione_richiede_invii_reali_abilitati() -> None:
         ),
         trasporto_email=TrasportoEmailMemoria(),
     )
-
     try:
         orchestratore.esegui(
             oggi=date(2026, 7, 17),
@@ -273,13 +263,33 @@ def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:
         registro=RegistroPersistente(archivio, versione_app=VERSIONE),
         trasporto_email=smtp,
     )
-
     esito = orchestratore.esegui(
         oggi=date(2026, 7, 17),
         modalita=ModalitaEsecuzione.TEST_SMTP,
         consenso_esterno_invio=True,
         ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
     )
-
     assert esito.stato == "REVISIONE_RICHIESTA"
     assert archivio.snapshot()[0].stato is StatoNotifica.UNKNOWN_REVIEW_REQUIRED
+
+
+def test_errore_smtp_permanente_diventa_failed_permanent() -> None:
+    archivio = ArchivioNotificheMemoria()
+    smtp = TrasportoEmailMemoria(errore=ErroreSmtpPermanente("rifiutata"))
+    orchestratore = OrchestratoreReminder(
+        sorgente=_sorgente(),
+        configurazione=_config(),
+        dashboard=DashboardMemoria(),
+        anomalie=AnomalieMemoria(),
+        versione_app=VERSIONE,
+        registro=RegistroPersistente(archivio, versione_app=VERSIONE),
+        trasporto_email=smtp,
+    )
+    esito = orchestratore.esegui(
+        oggi=date(2026, 7, 17),
+        modalita=ModalitaEsecuzione.TEST_SMTP,
+        consenso_esterno_invio=True,
+        ora=datetime(2026, 7, 17, 10, tzinfo=timezone.utc),
+    )
+    assert esito.stato == "ATTENZIONE"
+    assert archivio.snapshot()[0].stato is StatoNotifica.FAILED_PERMANENT

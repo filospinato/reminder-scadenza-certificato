@@ -1,8 +1,4 @@
-"""Contratto sicuro dello Spreadsheet amministrativo separato.
-
-Il modulo descrive soltanto struttura e valori iniziali sintetici. Non crea
-Spreadsheet, non contatta Google e non contiene dati personali reali.
-"""
+"""Contratto sicuro dello Spreadsheet amministrativo separato."""
 
 from __future__ import annotations
 
@@ -12,8 +8,8 @@ from enum import StrEnum
 from .admin_store import COLONNE_NOTIFICHE
 from .email_templates import ConfigurazioneEmail
 
-
 NOME_SPREADSHEET_AMMINISTRATIVO = "Reminder certificati CIA Lazio — Gestione"
+VERSIONE_SCHEMA_AMMINISTRATIVO = 2
 NOMI_TAB_AMMINISTRATIVE: tuple[str, ...] = (
     "CONFIG",
     "NOTIFICHE",
@@ -141,6 +137,13 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
     email = ConfigurazioneEmail()
     voci = (
         VoceConfig(
+            "SCHEMA_VERSION",
+            str(VERSIONE_SCHEMA_AMMINISTRATIVO),
+            TipoValoreConfig.INTERO,
+            "Versione del contratto del foglio amministrativo.",
+            False,
+        ),
+        VoceConfig(
             "AUTOMAZIONE_ATTIVA",
             "false",
             TipoValoreConfig.BOOLEANO,
@@ -186,7 +189,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "CORPO_EMAIL",
             email.corpo,
             TipoValoreConfig.TEMPLATE,
-            "Corpo modificabile del promemoria.",
+            "Testo inserito dopo il saluto automatico Ciao [nome],.",
             True,
         ),
         VoceConfig(
@@ -231,6 +234,7 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
         raise ErroreSchemaAmministrativo("CONFIG contiene chiavi duplicate")
 
     valori_attesi = {
+        "SCHEMA_VERSION": str(VERSIONE_SCHEMA_AMMINISTRATIVO),
         "AUTOMAZIONE_ATTIVA": "false",
         "INVII_REALI_ABILITATI": "false",
     }

@@ -14,15 +14,12 @@ from .data_sources import ErroreSorgenteDati, tabella_da_matrice
 
 
 class TrasportoNotificheSheets(Protocol):
-    """Operazioni minime richieste alla Google Sheets API."""
-
     def leggi_valori(
         self,
         *,
         spreadsheet_id: str,
         intervallo_a1: str,
-    ) -> Sequence[Sequence[Any]]:
-        """Legge intestazioni e righe della tab NOTIFICHE."""
+    ) -> Sequence[Sequence[Any]]: ...
 
     def aggiungi_riga(
         self,
@@ -30,8 +27,7 @@ class TrasportoNotificheSheets(Protocol):
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> int:
-        """Accoda una riga e restituisce il numero assegnato da Sheets."""
+    ) -> int: ...
 
     def aggiorna_riga(
         self,
@@ -39,8 +35,7 @@ class TrasportoNotificheSheets(Protocol):
         spreadsheet_id: str,
         intervallo_a1: str,
         valori: Sequence[Any],
-    ) -> None:
-        """Sostituisce una riga già individuata in modo univoco."""
+    ) -> None: ...
 
 
 def _obbligatorio(value: str, campo: str) -> str:
@@ -61,17 +56,10 @@ def _valori_riga(riga: RigaNotifica) -> tuple[str, ...]:
 
 @dataclass(slots=True)
 class ArchivioNotificheGoogleSheets:
-    """Adapter del registro con una sola lettura completa per esecuzione.
-
-    Il workflow serializza le esecuzioni che scrivono sullo stesso foglio. Dopo
-    il primo accesso l'adapter mantiene un indice locale e lo aggiorna dopo ogni
-    append o update, evitando di rileggere NOTIFICHE per ogni transizione.
-    """
-
     trasporto: TrasportoNotificheSheets
     spreadsheet_id: str
     nome_scheda: str = "NOTIFICHE"
-    colonne_a1: str = "A:N"
+    colonne_a1: str = "A:K"
     _indice: dict[str, tuple[int, RigaNotifica]] | None = field(
         default=None,
         init=False,
@@ -130,6 +118,10 @@ class ArchivioNotificheGoogleSheets:
         elemento = self._carica_indice().get(chiave)
         return elemento[1] if elemento is not None else None
 
+    def elenca(self) -> tuple[RigaNotifica, ...]:
+        indice = self._carica_indice()
+        return tuple(indice[chiave][1] for chiave in sorted(indice))
+
     def salva(self, riga: RigaNotifica) -> RigaNotifica:
         spreadsheet_id, nome_scheda, _ = self._configurazione()
         indice = self._carica_indice()
@@ -141,7 +133,7 @@ class ArchivioNotificheGoogleSheets:
             if esistente is None:
                 numero_riga = self.trasporto.aggiungi_riga(
                     spreadsheet_id=spreadsheet_id,
-                    intervallo_a1=f"'{scheda}'!A:N",
+                    intervallo_a1=f"'{scheda}'!A:K",
                     valori=valori,
                 )
                 if numero_riga < 2:
@@ -162,7 +154,7 @@ class ArchivioNotificheGoogleSheets:
                 )
             self.trasporto.aggiorna_riga(
                 spreadsheet_id=spreadsheet_id,
-                intervallo_a1=f"'{scheda}'!A{numero_riga}:N{numero_riga}",
+                intervallo_a1=f"'{scheda}'!A{numero_riga}:K{numero_riga}",
                 valori=valori,
             )
             indice[riga.notification_id] = (numero_riga, riga)
@@ -177,8 +169,6 @@ class ArchivioNotificheGoogleSheets:
 
 @dataclass(slots=True)
 class TrasportoNotificheMemoria:
-    """Fake tabellare che riproduce lettura, append e update di Sheets."""
-
     matrice: list[list[Any]]
     letture: int = 0
 
@@ -214,7 +204,7 @@ class TrasportoNotificheMemoria:
     ) -> None:
         _obbligatorio(spreadsheet_id, "spreadsheet_id")
         riferimento = _obbligatorio(intervallo_a1, "intervallo_a1")
-        match = re.search(r"!A(\d+):N\d+$", riferimento)
+        match = re.search(r"!A(\d+):K\d+$", riferimento)
         if match is None:
             raise ErroreArchivioNotifiche(
                 f"intervallo di aggiornamento non valido: {riferimento}"
@@ -229,8 +219,6 @@ class TrasportoNotificheMemoria:
 
 @dataclass(frozen=True, slots=True)
 class TrasportoNotificheGoogleApi:
-    """Ponte verso un servizio Google Sheets già autenticato."""
-
     servizio: Any
 
     def leggi_valori(
