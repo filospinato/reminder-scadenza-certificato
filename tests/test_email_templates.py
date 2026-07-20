@@ -1,4 +1,5 @@
 from datetime import date
+import html
 
 import pytest
 
@@ -71,7 +72,9 @@ def test_cognome_maiuscolo_di_operativo_diventa_leggibile(
     messaggio = componi_email(candidato(cognome=cognome_operativo), config)
 
     assert messaggio.testo.startswith(f"Cognome: {cognome_atteso}.")
-    assert messaggio.html.startswith(f"<p>Cognome: {cognome_atteso}.</p>")
+    assert messaggio.html.startswith(
+        f"<p>Cognome: {html.escape(cognome_atteso)}.</p>"
+    )
 
 
 def test_nome_completo_normalizza_nome_e_cognome() -> None:
