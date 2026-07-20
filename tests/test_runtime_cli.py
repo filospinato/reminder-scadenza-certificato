@@ -80,7 +80,7 @@ def _predisponi_run_fake(monkeypatch: pytest.MonkeyPatch, *, attiva: bool, stato
     monkeypatch.setattr(
         runtime_cli,
         "costruisci_componenti_google",
-        lambda **kwargs: componenti,
+        lambda **kwargs: components if False else componenti,
     )
     monkeypatch.setattr(runtime_cli, "_verifica_struttura_admin", lambda *args, **kwargs: None)
     monkeypatch.setattr(runtime_cli, "leggi_matrice_config", lambda **kwargs: [[]])
@@ -134,7 +134,7 @@ def test_errore_cli_non_stampa_notification_id(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(sys, "argv", ["reminder-certificati", "dry-run"])
 
     def fallisce(*args, **kwargs):
-        raise RuntimeError("duplicato A-123|2026-08-01|CERTIFICATO_SCADENZA_V1")
+        raise RuntimeError("duplicato A-123|2026-08-01|REMINDER_30")
 
     monkeypatch.setattr(runtime_cli, "_run", fallisce)
     with pytest.raises(SystemExit) as exc_info:
