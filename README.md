@@ -4,12 +4,13 @@ Sistema per individuare gli arbitri con certificato medico prossimo alla scadenz
 
 ## Stato del progetto
 
-La versione **0.13.0** rafforza schema, registro e comportamento operativo, ma non attiva risorse, schedule o invii reali.
+La versione **0.13.1** esclude esplicitamente dai reminder le categorie non tenute a caricare il certificato medico, senza attivare risorse, schedule o invii reali.
 
 Sono implementati:
 
 - lettura e validazione di `Operativo`, con intestazioni in riga 2;
-- lettura delle sole sei colonne necessarie tramite `batchGet`;
+- lettura delle sole otto colonne necessarie tramite `batchGet`, incluse `Qualifica` e `Abilitazione`;
+- esclusione esplicita di benemeriti e osservatori dai candidati al reminder;
 - chiave anti-duplicazione stabile anche se cambia `GIORNI_PREAVVISO`;
 - stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED`;
 - massimo tre tentativi automatici per gli errori ritentabili;

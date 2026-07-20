@@ -75,6 +75,8 @@ MAPPATURA_OPERATIVO_REALE = MappaturaColonne(
     email="e-Mail",
     scadenza_certificato="Data Scadenza Certificato",
     attivo="Fa attività quest'anno",
+    qualifica="Qualifica",
+    abilitazione="Abilitazione",
 )
 
 COLONNE_OPERATIVO_OBBLIGATORIE: tuple[str, ...] = (
