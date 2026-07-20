@@ -60,6 +60,8 @@ def test_esclude_inattivi_ed_email_non_valide() -> None:
         ("Arbitro D'Onore", "Benemerito"),
         ("Osservatore Regionale", "Osservatore"),
         ("osservatore", ""),
+        ("Arbitro Fuori Quadro", "Fuori Quadro"),
+        ("fuori quadro", ""),
     ],
 )
 def test_esclude_categorie_non_tenute_al_certificato(
@@ -75,20 +77,10 @@ def test_esclude_categorie_non_tenute_al_certificato(
     assert trova_candidati([record], oggi=date(2026, 7, 17)) == []
 
 
-def test_non_esclude_arbitri_operativi_o_fuori_quadro_per_la_sola_qualifica() -> None:
+def test_non_esclude_arbitri_operativi() -> None:
     oggi = date(2026, 7, 17)
-    candidati = trova_candidati(
-        [
-            arbitro(offset=10),
-            arbitro(
-                offset=11,
-                qualifica="Arbitro Fuori Quadro",
-                abilitazione="Fuori Quadro",
-            ),
-        ],
-        oggi=oggi,
-    )
-    assert [c.giorni_residui for c in candidati] == [10, 11]
+    candidati = trova_candidati([arbitro(offset=10)], oggi=oggi)
+    assert [c.giorni_residui for c in candidati] == [10]
 
 
 def test_chiave_deterministica_non_dipende_dalla_finestra() -> None:
