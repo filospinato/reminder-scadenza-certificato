@@ -61,6 +61,24 @@ def test_credenziali_smtp_non_sono_variables() -> None:
     assert "SMTP_FROM_NAME" not in pubbliche
 
 
+def test_struttura_operativo_non_e_una_configurazione_github() -> None:
+    testo = "\n".join(
+        percorso.read_text(encoding="utf-8")
+        for percorso in (
+            WORKFLOW_ORDINARIO,
+            WORKFLOW_MANUTENZIONE,
+            MODELLO_PRODUZIONE,
+            CONTRATTO,
+        )
+    )
+    for nome in (
+        "OPERATIVO_SHEET_NAME",
+        "OPERATIVO_HEADER_ROW",
+        "OPERATIVO_COLUMNS_A1",
+    ):
+        assert nome not in testo
+
+
 def test_non_esistono_gate_ridondanti() -> None:
     testo = "\n".join(
         percorso.read_text(encoding="utf-8")
