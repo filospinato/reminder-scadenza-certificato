@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WORKFLOW = Path(".github/workflows/manual-preproduction.yml")
+ORDINARIO = Path(".github/workflows/manual-preproduction.yml")
+MANUTENZIONE = Path(".github/workflows/manual-maintenance.yml")
 
 
-def _testo() -> str:
-    return WORKFLOW.read_text(encoding="utf-8")
+def test_workflow_ordinario_espone_solo_le_due_azioni_quotidiane() -> None:
+    testo = ORDINARIO.read_text(encoding="utf-8")
 
-
-def test_workflow_espone_le_operazioni_della_cli_unica():
-    testo = _testo()
+    assert "default: check" in testo
+    assert "- check" in testo
+    assert "- test-smtp" in testo
     for operazione in (
         "preflight",
         "init-admin",
@@ -18,54 +19,34 @@ def test_workflow_espone_le_operazioni_della_cli_unica():
         "registry-check",
         "review-registry",
         "dry-run",
-        "test-smtp",
     ):
-        assert f"- {operazione}" in testo
-    assert "check-headers" not in testo
-    assert "reminder-certificati preflight" in testo
-    assert "reminder-certificati registry-check --confirm-synthetic-write" in testo
-    assert "reminder-certificati review-registry" in testo
-    assert "run: reminder-certificati-runtime" not in testo
+        assert f"- {operazione}" not in testo
+    assert "reminder-certificati check" in testo
+    assert "reminder-certificati test-smtp" in testo
+    assert "today:" not in testo
 
 
-def test_migrazione_richiede_conferma_e_salva_backup():
-    testo = _testo()
-    indice = testo.index("inputs.operation == 'migrate-admin'")
-    blocco = testo[indice : testo.index("inputs.operation == 'registry-check'", indice)]
-    assert "inputs.confirm_admin_migration" in blocco
-    assert "--apply --confirm-migration" in blocco
-    assert "admin-migration-backup.json" in blocco
-    assert "actions/upload-artifact@v4" in blocco
-    assert "retention-days: 3" in blocco
-    assert "${{ secrets." not in blocco
+def test_workflow_ordinario_non_usa_gate_o_conferme_duplicate() -> None:
+    testo = ORDINARIO.read_text(encoding="utf-8")
+
+    for valore in (
+        "PREPRODUCTION_ENABLED",
+        "ALLOW_EMAIL_DELIVERY",
+        "--confirm-email-delivery",
+        "confirm_email_delivery",
+    ):
+        assert valore not in testo
+    assert "environment: preproduction" in testo
+    assert "group: reminder-certificati-runtime" in testo
 
 
-def test_scrittura_sintetica_richiede_doppio_consenso_senza_segreti_smtp():
-    testo = _testo()
-    indice = testo.index("inputs.operation == 'registry-check'")
-    blocco = testo[indice : testo.index("inputs.operation == 'review-registry'", indice)]
-    assert "inputs.confirm_synthetic_registry_write" in blocco
-    assert 'ALLOW_SYNTHETIC_REGISTRY_WRITE: "true"' in blocco
-    assert "--confirm-synthetic-write" in blocco
-    assert "${{ secrets." not in blocco
-    assert "ALLOW_EMAIL_DELIVERY" not in blocco
-
-
-def test_preflight_non_riceve_consensi_di_scrittura_o_email():
-    testo = _testo()
-    indice = testo.index("inputs.operation == 'preflight'")
-    blocco = testo[indice : testo.index("inputs.operation == 'init-admin'", indice)]
-    assert "reminder-certificati preflight" in blocco
-    assert "ALLOW_SYNTHETIC_REGISTRY_WRITE" not in blocco
-    assert "ALLOW_EMAIL_DELIVERY" not in blocco
-    assert "${{ secrets." not in blocco
-
-
-def test_segreti_smtp_restano_nel_solo_test_email():
-    testo = _testo()
-    indice = testo.index("inputs.operation == 'test-smtp'")
+def test_segreti_smtp_restano_nel_solo_test_email() -> None:
+    testo = ORDINARIO.read_text(encoding="utf-8")
+    indice = testo.index("- name: Invia una email di prova")
+    prima = testo[:indice]
     blocco = testo[indice:]
-    assert "${{ secrets." not in testo[:indice]
+
+    assert "${{ secrets." not in prima
     for nome in (
         "SMTP_HOST",
         "SMTP_PORT",
@@ -75,12 +56,28 @@ def test_segreti_smtp_restano_nel_solo_test_email():
         "SMTP_PASSWORD",
     ):
         assert f"${{{{ secrets.{nome} }}}}" in blocco
-    assert 'ALLOW_EMAIL_DELIVERY: "true"' in blocco
+    assert "SMTP_FROM_NAME" not in testo
 
 
-def test_workflow_mantiene_environment_lock_e_installazione_riproducibile():
-    testo = _testo()
-    assert "environment: preproduction" in testo
-    assert "group: reminder-certificati-runtime" in testo
-    assert "PREPRODUCTION_ENABLED: ${{ vars.PREPRODUCTION_ENABLED }}" in testo
-    assert "pip install --upgrade pip" not in testo
+def test_workflow_manutenzione_separa_setup_e_registro() -> None:
+    testo = MANUTENZIONE.read_text(encoding="utf-8")
+
+    for operazione in ("setup-preview", "setup-apply", "registry-check"):
+        assert f"- {operazione}" in testo
+    assert "reminder-certificati setup-admin" in testo
+    assert "--apply --backup-path admin-migration-backup.json" in testo
+    assert "actions/upload-artifact@v4" in testo
+    assert "reminder-certificati registry-check" in testo
+    assert "--confirm-migration" not in testo
+    assert "--confirm-synthetic-write" not in testo
+    assert "ALLOW_SYNTHETIC_REGISTRY_WRITE" not in testo
+    assert "${{ secrets." not in testo
+
+
+def test_i_due_workflow_mantengono_wif_lock_e_installazione_riproducibile() -> None:
+    for percorso in (ORDINARIO, MANUTENZIONE):
+        testo = percorso.read_text(encoding="utf-8")
+        assert "environment: preproduction" in testo
+        assert "group: reminder-certificati-runtime" in testo
+        assert "google-github-actions/auth@v3" in testo
+        assert "pip install --upgrade pip" not in testo
