@@ -69,6 +69,21 @@ def test_migra_config_legacy_e_lascia_tutto_disattivato() -> None:
     assert piano.necessaria is True
 
 
+def test_migra_versione_schema_errata_anche_con_chiavi_correnti() -> None:
+    schema = crea_schema_amministrativo()
+    config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
+    for riga in config:
+        if riga and riga[0] == "SCHEMA_VERSION":
+            riga[1] = "1"
+        if riga and riga[0] == "AUTOMAZIONE_ATTIVA":
+            riga[1] = "true"
+    piano = prepara_piano(config, [list(COLONNE_NOTIFICHE)])
+    valori = {riga[0]: riga[1] for riga in piano.config_dopo[1:]}
+    assert valori["SCHEMA_VERSION"] == "2"
+    assert valori["AUTOMAZIONE_ATTIVA"] == "false"
+    assert piano.necessaria is True
+
+
 def test_migra_notifiche_rimuovendo_pii_e_stabilizzando_la_chiave() -> None:
     piano = prepara_piano(_config_legacy(), _notifiche_legacy(_riga_legacy()))
     assert piano.notifiche_dopo[0] == COLONNE_NOTIFICHE
