@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 15
     environment: production
     env:
+      PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
@@ -34,8 +35,6 @@ jobs:
       - name: Verifica abilitazione production
         id: gate
         shell: bash
-        env:
-          PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}
         run: |
           set -euo pipefail
           if [[ "${PRODUCTION_ENABLED:-}" == "true" ]]; then
@@ -83,8 +82,7 @@ jobs:
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          ALLOW_EMAIL_DELIVERY: "true"
-        run: reminder-certificati produzione --confirm-email-delivery
+        run: reminder-certificati produzione
 
 # Prima dell'attivazione:
 # 1. vincolare WIF anche a questo workflow_ref o all'environment production;
