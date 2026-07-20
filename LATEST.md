@@ -1,6 +1,6 @@
 # Stato corrente
 
-**Versione di pacchetto:** 0.13.1  
+**Versione di pacchetto:** 0.13.2  
 **Data:** 20 luglio 2026  
 **Stato:** codice pre-produzione rafforzato e disattivato; produzione e schedule non attive
 
@@ -10,6 +10,7 @@
 - migrazione con anteprima, conferma e backup;
 - preflight su tab, intestazioni e CONFIG reale;
 - lettura delle sole otto colonne necessarie di `Operativo`, incluse `Qualifica` e `Abilitazione`;
+- interpretazione di `Fa attività quest'anno`: cella vuota = attivo, annotazione non affermativa = inattivo;
 - esclusione esplicita di benemeriti e osservatori dai reminder per il certificato medico;
 - chiave di notifica stabile rispetto a `GIORNI_PREAVVISO`;
 - registro senza nome, cognome o email;
@@ -20,6 +21,10 @@
 - exit code non-zero per `ATTENZIONE` e `REVISIONE_RICHIESTA`;
 - WIF/OIDC, Environment protetti e workflow manuale;
 - modello produttivo non attivo.
+
+## Regola attività
+
+La colonna `Fa attività quest'anno` usa la convenzione del foglio reale: una cella vuota identifica chi fa attività. `No`, indipendentemente dalle maiuscole, e qualsiasi altra annotazione non affermativa identificano chi non fa attività. I valori affermativi espliciti già supportati, come `Sì`, `true`, `attivo` e `operativo`, restano compatibili.
 
 ## Regola categorie
 
@@ -40,7 +45,7 @@ Il test SMTP non è stato trasformato in un test interamente sintetico, secondo 
 
 ## Prossimo passo
 
-Dopo il merge della versione 0.13.1:
+Dopo il merge della versione 0.13.2:
 
 1. creare una copia di sicurezza del foglio reale;
 2. migrare CONFIG e NOTIFICHE;
