@@ -10,6 +10,7 @@ from reminder_certificati.admin_migration import (
 )
 from reminder_certificati.admin_schema import (
     COLONNE_CONFIG,
+    COLONNE_DASHBOARD,
     VERSIONE_SCHEMA_AMMINISTRATIVO,
     crea_schema_amministrativo,
 )
@@ -31,6 +32,20 @@ def _config_legacy() -> list[list[str]]:
         ["CORPO_EMAIL", "Corpo {{data_scadenza}}", "TEMPLATE", "vecchio", "true"],
         ["FIRMA_TESTO", "Firma", "TEMPLATE", "vecchio", "true"],
     ]
+
+
+def _dashboard_legacy() -> list[list[str]]:
+    return [
+        list(COLONNE_DASHBOARD),
+        ["stato_sistema", "DISATTIVATO", "Stato operativo complessivo."],
+        ["righe_lette", "0", "Righe lette."],
+        ["kill_switch", "ATTIVO", "Vecchia barriera operativa."],
+    ]
+
+
+def _dashboard_corrente() -> list[list[str]]:
+    schema = crea_schema_amministrativo()
+    return [list(riga) for riga in schema.ottieni_tab("DASHBOARD").matrice()]
 
 
 def _notifiche_legacy(*righe: list[str]) -> list[list[str]]:
@@ -57,7 +72,11 @@ def _riga_legacy(tipo: str = "REMINDER_30", id_arbitro: str = "A-1") -> list[str
 
 
 def test_migra_config_legacy_e_lascia_tutto_disattivato() -> None:
-    piano = prepara_piano(_config_legacy(), _notifiche_legacy())
+    piano = prepara_piano(
+        _config_legacy(),
+        _notifiche_legacy(),
+        _dashboard_legacy(),
+    )
     valori = {riga[0]: riga[1] for riga in piano.config_dopo[1:]}
     assert valori["SCHEMA_VERSION"] == str(VERSIONE_SCHEMA_AMMINISTRATIVO)
     assert valori["AUTOMAZIONE_ATTIVA"] == "false"
@@ -69,6 +88,19 @@ def test_migra_config_legacy_e_lascia_tutto_disattivato() -> None:
     assert piano.necessaria is True
 
 
+def test_migra_dashboard_legacy_senza_perdere_le_altre_metriche() -> None:
+    piano = prepara_piano(
+        _config_legacy(),
+        _notifiche_legacy(),
+        _dashboard_legacy(),
+    )
+    metriche = {riga[0]: riga[1:] for riga in piano.dashboard_dopo[1:]}
+    assert "kill_switch" not in metriche
+    assert metriche["automazione_attiva"][0] == "NO"
+    assert metriche["righe_lette"][0] == "0"
+    assert "DASHBOARD_SCHEMA_V2" in piano.modifiche
+
+
 def test_migra_versione_schema_errata_anche_con_chiavi_correnti() -> None:
     schema = crea_schema_amministrativo()
     config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
@@ -77,15 +109,25 @@ def test_migra_versione_schema_errata_anche_con_chiavi_correnti() -> None:
             riga[1] = "1"
         if riga and riga[0] == "AUTOMAZIONE_ATTIVA":
             riga[1] = "true"
-    piano = prepara_piano(config, [list(COLONNE_NOTIFICHE)])
+    piano = prepara_piano(
+        config,
+        [list(COLONNE_NOTIFICHE)],
+        _dashboard_corrente(),
+    )
     valori = {riga[0]: riga[1] for riga in piano.config_dopo[1:]}
+    dashboard = {riga[0]: riga[1] for riga in piano.dashboard_dopo[1:]}
     assert valori["SCHEMA_VERSION"] == "2"
     assert valori["AUTOMAZIONE_ATTIVA"] == "false"
+    assert dashboard["automazione_attiva"] == "NO"
     assert piano.necessaria is True
 
 
 def test_migra_notifiche_rimuovendo_pii_e_stabilizzando_la_chiave() -> None:
-    piano = prepara_piano(_config_legacy(), _notifiche_legacy(_riga_legacy()))
+    piano = prepara_piano(
+        _config_legacy(),
+        _notifiche_legacy(_riga_legacy()),
+        _dashboard_legacy(),
+    )
     assert piano.notifiche_dopo[0] == COLONNE_NOTIFICHE
     assert len(piano.notifiche_dopo[1]) == 11
     riga = dict(zip(COLONNE_NOTIFICHE, piano.notifiche_dopo[1], strict=True))
@@ -100,9 +142,11 @@ def test_migrazione_corrente_e_idempotente() -> None:
     schema = crea_schema_amministrativo()
     config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
     notifiche = [list(COLONNE_NOTIFICHE)]
-    piano = prepara_piano(config, notifiche)
+    dashboard = _dashboard_corrente()
+    piano = prepara_piano(config, notifiche, dashboard)
     assert piano.necessaria is False
     assert piano.modifiche == ()
+    assert piano.dashboard_dopo == tuple(tuple(riga) for riga in dashboard)
 
 
 def test_rifiuta_collisioni_prodotte_dalla_chiave_stabile() -> None:
@@ -113,15 +157,18 @@ def test_rifiuta_collisioni_prodotte_dalla_chiave_stabile() -> None:
                 _riga_legacy("REMINDER_30"),
                 _riga_legacy("REMINDER_45"),
             ),
+            _dashboard_legacy(),
         )
 
 
 def test_backup_conserva_esattamente_lo_stato_precedente(tmp_path: Path) -> None:
     config = _config_legacy()
     notifiche = _notifiche_legacy(_riga_legacy())
-    piano = prepara_piano(config, notifiche)
+    dashboard = _dashboard_legacy()
+    piano = prepara_piano(config, notifiche, dashboard)
     path = tmp_path / "backup.json"
     piano.salva_backup(path)
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["config"] == config
     assert payload["notifiche"] == notifiche
+    assert payload["dashboard"] == dashboard
