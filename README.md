@@ -76,6 +76,8 @@ La tab usa tre sole colonne: `chiave`, `valore`, `descrizione`. Le chiavi sono:
 {{giorni_residui}}
 ```
 
+I placeholder anagrafici `{{nome}}`, `{{cognome}}` e `{{nome_completo}}` vengono normalizzati soltanto durante la composizione della mail: gli spazi ripetuti sono uniformati e ogni parte riceve l'iniziale maiuscola, senza modificare i valori nel foglio `Operativo`.
+
 Il valore predefinito inizia con `Ciao {{nome}},`, ma può essere sostituito con qualsiasi formulazione valida direttamente dal foglio.
 
 Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite di invio non è più una decisione dell'operatore.
