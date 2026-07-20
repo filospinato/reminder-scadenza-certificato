@@ -2,6 +2,7 @@ import pytest
 
 from reminder_certificati.admin_schema import crea_schema_amministrativo
 from reminder_certificati.runtime_config import (
+    LIMITE_INVII_PER_ESECUZIONE,
     ErroreConfigurazioneRuntime,
     carica_configurazione,
 )
@@ -25,36 +26,30 @@ def test_configurazione_iniziale_e_disattivata() -> None:
 
     assert config.automazione_attiva is False
     assert config.destinatario_override is None
+    assert config.limite_invii_per_esecuzione == 10
     assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_dry_run_puo_essere_preparato_senza_override_smtp() -> None:
-    matrice = _matrice_config()
-    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
+def test_controllo_puo_funzionare_con_invii_automatici_spenti() -> None:
+    config = carica_configurazione(_matrice_config())
 
-    config = carica_configurazione(matrice)
-
-    assert config.elaborazione_consentita is True
+    assert config.elaborazione_consentita is False
     assert config.destinatario_override is None
-    assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_test_smtp_accetta_override_quando_configurato() -> None:
+def test_test_smtp_accetta_override_anche_con_automazione_spenta() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
     _imposta(matrice, "DESTINATARIO_OVERRIDE", "test@example.invalid")
 
     config = carica_configurazione(matrice)
 
-    assert config.elaborazione_consentita is True
+    assert config.automazione_attiva is False
     assert config.destinatario_override == "test@example.invalid"
-    assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
-def test_invii_reali_richiedono_configurazione_coerente_e_consenso_esterno() -> None:
+def test_produzione_richiede_il_solo_interruttore_del_foglio() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "AUTOMAZIONE_ATTIVA", "true")
-    _imposta(matrice, "INVII_REALI_ABILITATI", "true")
+    _imposta(matrice, "INVIO_AUTOMATICO_ATTIVO", "true")
 
     config = carica_configurazione(matrice)
 
@@ -62,12 +57,12 @@ def test_invii_reali_richiedono_configurazione_coerente_e_consenso_esterno() -> 
     assert config.invio_reale_consentito(consenso_esterno=True) is True
 
 
-def test_rifiuta_invii_reali_con_automazione_disattivata() -> None:
+def test_limite_interno_non_e_una_chiave_configurabile() -> None:
     matrice = _matrice_config()
-    _imposta(matrice, "INVII_REALI_ABILITATI", "true")
+    chiavi = {riga[0] for riga in matrice[1:]}
 
-    with pytest.raises(ErroreConfigurazioneRuntime, match="AUTOMAZIONE_ATTIVA"):
-        carica_configurazione(matrice)
+    assert "LIMITE_INVII_PER_ESECUZIONE" not in chiavi
+    assert LIMITE_INVII_PER_ESECUZIONE == 10
 
 
 def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:
@@ -84,8 +79,7 @@ def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:
 
 def test_accetta_descrizioni_modificate_e_corpo_libero() -> None:
     matrice = _matrice_config()
-    matrice[1][3] = "Descrizione modificata dall'amministratore"
-    matrice[1][4] = "testo libero non funzionale"
+    matrice[1][2] = "Descrizione modificata dall'amministratore"
     _imposta(matrice, "CORPO_EMAIL", "Il certificato scade il {{data_scadenza}}.")
 
     config = carica_configurazione(matrice)
@@ -93,13 +87,13 @@ def test_accetta_descrizioni_modificate_e_corpo_libero() -> None:
     assert config.email.corpo.startswith("Il certificato")
 
 
-def test_rifiuta_corpo_vuoto_e_limiti_fuori_intervallo() -> None:
+def test_rifiuta_corpo_vuoto_e_giorni_fuori_intervallo() -> None:
     matrice = _matrice_config()
     _imposta(matrice, "CORPO_EMAIL", "")
     with pytest.raises(ErroreConfigurazioneRuntime, match="CORPO_EMAIL"):
         carica_configurazione(matrice)
 
     matrice = _matrice_config()
-    _imposta(matrice, "LIMITE_INVII_PER_ESECUZIONE", "10000")
+    _imposta(matrice, "GIORNI_PREAVVISO", "10000")
     with pytest.raises(ErroreConfigurazioneRuntime, match="compreso"):
         carica_configurazione(matrice)
