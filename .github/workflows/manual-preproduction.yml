@@ -11,7 +11,9 @@ on:
         options:
           - preflight
           - init-admin
+          - migrate-admin
           - registry-check
+          - review-registry
           - dry-run
           - test-smtp
       today:
@@ -19,6 +21,11 @@ on:
         required: false
         default: ""
         type: string
+      confirm_admin_migration:
+        description: Conferma aggiuntiva per applicare la migrazione amministrativa
+        required: true
+        default: false
+        type: boolean
       confirm_synthetic_registry_write:
         description: Conferma aggiuntiva per la sola scrittura sintetica nel registro
         required: true
@@ -107,6 +114,24 @@ jobs:
           fi
           reminder-certificati init-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
 
+      - name: Applica migrazione amministrativa con backup
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && inputs.confirm_admin_migration
+        run: reminder-certificati migrate-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID" --apply --confirm-migration --backup-path admin-migration-backup.json
+
+      - name: Carica backup della migrazione
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && inputs.confirm_admin_migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-migration-backup
+          path: admin-migration-backup.json
+          retention-days: 3
+
+      - name: Rifiuta migrazione senza conferma
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'migrate-admin' && !inputs.confirm_admin_migration
+        run: |
+          echo "Conferma della migrazione amministrativa non fornita" >&2
+          exit 2
+
       - name: Collauda il registro con una riga sintetica
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'registry-check' && inputs.confirm_synthetic_registry_write
         env:
@@ -118,6 +143,10 @@ jobs:
         run: |
           echo "Conferma della scrittura sintetica non fornita" >&2
           exit 2
+
+      - name: Rivedi il registro in forma aggregata
+        if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'review-registry'
+        run: reminder-certificati review-registry
 
       - name: Esegui dry-run aggregato
         if: steps.gate.outputs.enabled == 'true' && inputs.operation == 'dry-run'
