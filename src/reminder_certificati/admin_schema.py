@@ -9,7 +9,7 @@ from .admin_store import COLONNE_NOTIFICHE
 from .email_templates import ConfigurazioneEmail
 
 NOME_SPREADSHEET_AMMINISTRATIVO = "Reminder certificati CIA Lazio — Gestione"
-VERSIONE_SCHEMA_AMMINISTRATIVO = 2
+VERSIONE_SCHEMA_AMMINISTRATIVO = 3
 NOMI_TAB_AMMINISTRATIVE: tuple[str, ...] = (
     "CONFIG",
     "NOTIFICHE",
@@ -20,9 +20,7 @@ NOMI_TAB_AMMINISTRATIVE: tuple[str, ...] = (
 COLONNE_CONFIG: tuple[str, ...] = (
     "chiave",
     "valore",
-    "tipo",
     "descrizione",
-    "modificabile",
 )
 COLONNE_DASHBOARD: tuple[str, ...] = (
     "metrica",
@@ -67,9 +65,7 @@ class VoceConfig:
         return (
             self.chiave,
             self.valore,
-            self.tipo.value,
             self.descrizione,
-            "true" if self.modificabile else "false",
         )
 
 
@@ -140,21 +136,14 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "SCHEMA_VERSION",
             str(VERSIONE_SCHEMA_AMMINISTRATIVO),
             TipoValoreConfig.INTERO,
-            "Versione del contratto del foglio amministrativo.",
+            "Versione tecnica del foglio; è gestita dal programma e non va modificata.",
             False,
         ),
         VoceConfig(
-            "AUTOMAZIONE_ATTIVA",
+            "INVIO_AUTOMATICO_ATTIVO",
             "false",
             TipoValoreConfig.BOOLEANO,
-            "Unico interruttore operativo: false arresta elaborazione e invii.",
-            True,
-        ),
-        VoceConfig(
-            "INVII_REALI_ABILITATI",
-            "false",
-            TipoValoreConfig.BOOLEANO,
-            "Barriera modificabile soltanto durante il go-live controllato.",
+            "Unico interruttore: true consente gli invii programmati, false li arresta.",
             True,
         ),
         VoceConfig(
@@ -165,17 +154,10 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             True,
         ),
         VoceConfig(
-            "LIMITE_INVII_PER_ESECUZIONE",
-            "10",
-            TipoValoreConfig.INTERO,
-            "Numero massimo di messaggi processabili in una singola esecuzione.",
-            True,
-        ),
-        VoceConfig(
             "DESTINATARIO_OVERRIDE",
             "",
             TipoValoreConfig.EMAIL_OPZIONALE,
-            "Indirizzo sostitutivo richiesto soltanto per una prova SMTP.",
+            "Indirizzo sostitutivo usato soltanto per una prova SMTP.",
             True,
         ),
         VoceConfig(
@@ -196,7 +178,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "FIRMA_TESTO",
             email.firma,
             TipoValoreConfig.TEMPLATE,
-            "Firma testuale; logo e firma ufficiale richiedono approvazione separata.",
+            "Firma testuale del messaggio.",
             True,
         ),
     )
@@ -207,7 +189,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
 def crea_schema_amministrativo() -> SchemaFoglioAmministrativo:
     config = tuple(voce.come_riga() for voce in configurazione_iniziale_sicura())
     dashboard = (
-        ("stato_sistema", "DISATTIVATO", "Stato operativo complessivo."),
+        ("stato_sistema", "Spento", "Stato operativo complessivo."),
         ("ultima_esecuzione", "", "Timestamp UTC dell'ultima esecuzione conclusa."),
         ("heartbeat", "", "Timestamp UTC dell'ultimo segnale di vita."),
         ("righe_lette", "0", "Righe lette dalla sorgente nell'ultima esecuzione."),
@@ -215,7 +197,11 @@ def crea_schema_amministrativo() -> SchemaFoglioAmministrativo:
         ("invii_tentati", "0", "Invii tentati nell'ultima esecuzione."),
         ("invii_riusciti", "0", "Invii confermati nell'ultima esecuzione."),
         ("anomalie", "0", "Anomalie rilevate nell'ultima esecuzione."),
-        ("automazione_attiva", "NO", "Stato dell'unico interruttore operativo."),
+        (
+            "invio_automatico_attivo",
+            "NO",
+            "Indica se gli invii programmati sono abilitati.",
+        ),
     )
     return SchemaFoglioAmministrativo(
         nome_spreadsheet=NOME_SPREADSHEET_AMMINISTRATIVO,
@@ -235,8 +221,7 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
 
     valori_attesi = {
         "SCHEMA_VERSION": str(VERSIONE_SCHEMA_AMMINISTRATIVO),
-        "AUTOMAZIONE_ATTIVA": "false",
-        "INVII_REALI_ABILITATI": "false",
+        "INVIO_AUTOMATICO_ATTIVO": "false",
     }
     for chiave, valore in valori_attesi.items():
         voce = per_chiave.get(chiave)
