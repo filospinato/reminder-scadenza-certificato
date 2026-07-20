@@ -36,7 +36,10 @@ def run(*, conferma: bool, ambiente: Mapping[str, str]) -> int:
             "richiesta anche ALLOW_SYNTHETIC_REGISTRY_WRITE=true"
         )
 
-    risorse = ConfigurazioneRisorseGoogle.da_ambiente(ambiente)
+    risorse = ConfigurazioneRisorseGoogle.da_ambiente(
+        ambiente,
+        richiedi_operativo=False,
+    )
     servizio = costruisci_servizio_sheets()
     archivio = ArchivioNotificheGoogleSheets(
         trasporto=TrasportoNotificheGoogleApi(servizio),
