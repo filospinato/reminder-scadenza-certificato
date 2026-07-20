@@ -40,7 +40,7 @@ SMTP_REPLY_TO
 ```
 <!-- END PRODUCTION VARIABLES -->
 
-La produzione usa l'Environment protetto e l'unico interruttore `INVIO_AUTOMATICO_ATTIVO` nella tab `CONFIG`. Non richiede `PRODUCTION_ENABLED` o altri acknowledgement duplicati.
+La produzione usa l'Environment protetto e l'unico interruttore `INVIO_AUTOMATICO_ATTIVO` nella tab `CONFIG`. Non richiede ulteriori acknowledgement o interruttori duplicati.
 
 ## Secrets SMTP
 
