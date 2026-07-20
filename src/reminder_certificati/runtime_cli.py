@@ -72,7 +72,7 @@ def _aggiungi_conferma_email(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--confirm-email-delivery",
         action="store_true",
-        help="conferma esplicita richiesta per qualsiasi invio SMTP",
+        help="conferma esplicita richiesta per il test SMTP",
     )
 
 
@@ -136,10 +136,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     produzione = sub.add_parser(
         "produzione",
-        help="esegue gli invii reali protetti",
+        help="esegue gli invii reali protetti dal gate di produzione",
     )
     _aggiungi_data(produzione)
-    _aggiungi_conferma_email(produzione)
     return parser
 
 
@@ -438,11 +437,20 @@ def _consenso_esterno(
 ) -> bool:
     if modalita is ModalitaEsecuzione.DRY_RUN:
         return False
-    if not flag_cli or ambiente.get("ALLOW_EMAIL_DELIVERY", "").casefold() != "true":
-        raise ErroreCliRuntime(
-            "l'invio richiede --confirm-email-delivery e ALLOW_EMAIL_DELIVERY=true"
-        )
-    return True
+    if modalita is ModalitaEsecuzione.TEST_SMTP:
+        if not flag_cli or ambiente.get("ALLOW_EMAIL_DELIVERY", "").casefold() != "true":
+            raise ErroreCliRuntime(
+                "il test SMTP richiede --confirm-email-delivery e "
+                "ALLOW_EMAIL_DELIVERY=true"
+            )
+        return True
+    if modalita is ModalitaEsecuzione.PRODUZIONE:
+        if ambiente.get("PRODUCTION_ENABLED", "").casefold() != "true":
+            raise ErroreCliRuntime(
+                "la produzione richiede PRODUCTION_ENABLED=true"
+            )
+        return True
+    raise ErroreCliRuntime("modalità di esecuzione non supportata")
 
 
 def _stampa(payload: Mapping[str, object]) -> None:
