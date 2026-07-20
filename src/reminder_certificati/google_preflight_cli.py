@@ -33,6 +33,7 @@ def run(ambiente: Mapping[str, str]) -> int:
                 "operativo_headers_ok": esito.operativo_headers_ok,
                 "admin_tabs_ok": esito.admin_tabs_ok,
                 "admin_headers_ok": esito.admin_headers_ok,
+                "admin_config_ok": esito.admin_config_ok,
                 "operativo_data_rows_read": esito.operativo_data_rows_read,
                 "writes_performed": esito.writes_performed,
                 "smtp_checked": esito.smtp_checked,
