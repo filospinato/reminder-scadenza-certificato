@@ -88,7 +88,10 @@ class OrchestratoreReminder:
         if not self.versione_app.strip():
             raise ErroreOrchestrazione("versione_app mancante")
 
-        if not self.configurazione.automazione_attiva:
+        if (
+            modalita is ModalitaEsecuzione.PRODUZIONE
+            and not self.configurazione.automazione_attiva
+        ):
             esito = _esito_vuoto(modalita, "DISATTIVATO")
             self._aggiorna_dashboard(esito, istante, codice_errore="")
             return esito
@@ -313,7 +316,7 @@ class OrchestratoreReminder:
             return
         if not consenso_esterno:
             raise ErroreOrchestrazione(
-                "un workflow protetto deve fornire il consenso esterno all'invio"
+                "il comando deve autorizzare esplicitamente la modalità di invio"
             )
         if modalita is ModalitaEsecuzione.TEST_SMTP:
             if self.configurazione.destinatario_override is None:
@@ -323,7 +326,7 @@ class OrchestratoreReminder:
             consenso_esterno=consenso_esterno
         ):
             raise ErroreOrchestrazione(
-                "le barriere per l'invio reale non sono tutte abilitate"
+                "INVIO_AUTOMATICO_ATTIVO deve essere true per la produzione"
             )
 
     def _registra_anomalia(
