@@ -2,22 +2,22 @@
 
 ## Arresto immediato
 
-1. Impostare `AUTOMAZIONE_ATTIVA=false` in CONFIG.
-2. Impostare `PREPRODUCTION_ENABLED=false` o `PRODUCTION_ENABLED=false` nell'Environment interessato.
-3. Annullare eventuali workflow in corso.
-4. Non cancellare righe di NOTIFICHE finché l'esito non è stato ricostruito.
+1. Impostare `INVIO_AUTOMATICO_ATTIVO=false` nella tab `CONFIG`.
+2. Annullare eventuali workflow produttivi già in corso.
+3. Se necessario, revocare temporaneamente le credenziali SMTP o l'accesso WIF.
+4. Non cancellare righe di `NOTIFICHE` finché l'esito non è stato ricostruito.
 
-Con l'interruttore spento il runtime non legge le righe operative e non inizializza SMTP.
+Con l'interruttore spento una nuova esecuzione produttiva non legge le righe operative e non inizializza SMTP. `check` e `test-smtp` restano intenzionalmente disponibili come operazioni manuali separate.
 
 ## Diagnosi iniziale
 
 Eseguire:
 
 ```bash
-reminder-certificati review-registry
+reminder-certificati check
 ```
 
-Il comando mostra soltanto conteggi aggregati e non modifica il registro.
+Il controllo mostra risultati aggregati, verifica anche il registro e non invia email.
 
 ## `UNKNOWN_REVIEW_REQUIRED`
 
@@ -37,21 +37,21 @@ Dopo tre tentativi un `FAILED_RETRYABLE` non viene più prenotato. Verificare la
 
 ## Riga `SENDING` vecchia
 
-Può indicare un crash tra prenotazione e conclusione SMTP. Non renderla automaticamente ritentabile. Verificare prima server SMTP, Message-ID e cronologia; in assenza di certezza trattarla come esito incerto.
+Può indicare un'interruzione tra prenotazione e conclusione SMTP. Non renderla automaticamente ritentabile. Verificare prima server SMTP, Message-ID e cronologia; in assenza di certezza trattarla come esito incerto.
 
 ## Schema alterato
 
-Mantenere l'automazione spenta, creare una copia di sicurezza ed eseguire:
+Mantenere l'invio automatico spento, creare una copia di sicurezza ed eseguire:
 
 ```bash
-reminder-certificati migrate-admin --spreadsheet-id ID
+reminder-certificati setup-admin --spreadsheet-id ID
 ```
 
-Applicare la migrazione soltanto dopo aver controllato l'anteprima. `preflight` deve risultare verde prima della riattivazione.
+Controllare l'anteprima e applicare l'aggiornamento con `--apply` soltanto dopo aver verificato il piano. Al termine eseguire `check` prima di riattivare gli invii programmati.
 
 ## Chiavi duplicate
 
-La migrazione e il runtime rifiutano chiavi duplicate. Conservare il backup, ricostruire la cronologia e mantenere una sola riga coerente con revisione a quattro occhi. Non pubblicare tessere, Message-ID o contenuti del foglio in issue.
+Il setup e il runtime rifiutano chiavi duplicate. Conservare il backup, ricostruire la cronologia e mantenere una sola riga coerente con revisione a quattro occhi. Non pubblicare tessere, Message-ID o contenuti del foglio in issue.
 
 ## Revoca Google o compromissione SMTP
 
@@ -59,4 +59,4 @@ Per Google rimuovere il binding WIF, disabilitare il provider o revocare le cond
 
 ## Rollback
 
-Ripristinare l'ultimo commit verde tramite PR di revert, senza forzare `main`. Se lo schema del foglio è già stato migrato, non ripristinare una versione applicativa incompatibile senza un piano esplicito; mantenere sempre `AUTOMAZIONE_ATTIVA=false` durante il rollback.
+Ripristinare l'ultimo commit verde tramite PR di revert, senza forzare `main`. Se lo schema del foglio è già stato aggiornato, non ripristinare una versione applicativa incompatibile senza un piano esplicito; mantenere sempre `INVIO_AUTOMATICO_ATTIVO=false` durante il rollback.
