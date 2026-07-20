@@ -2,27 +2,17 @@
 
 Sistema per individuare gli arbitri con certificato medico prossimo alla scadenza e inviare promemoria individuali tramite SMTP MDaemon.
 
-## Stato del progetto
+## Principi operativi
 
-La versione **0.13.0** rafforza schema, registro e comportamento operativo, ma non attiva risorse, schedule o invii reali.
+- `Operativo` è sempre letto in sola lettura e soltanto nelle colonne necessarie;
+- il foglio amministrativo contiene CONFIG, registro, dashboard e anomalie;
+- `AUTOMAZIONE_ATTIVA` abilita l'elaborazione;
+- `INVII_REALI_ABILITATI` abilita separatamente gli invii agli indirizzi reali;
+- il test SMTP usa esclusivamente `DESTINATARIO_OVERRIDE` e richiede doppia conferma;
+- la produzione richiede Environment protetto e `PRODUCTION_ENABLED=true`;
+- credenziali Google permanenti e dati personali nei log sono rifiutati.
 
-Sono implementati:
-
-- lettura e validazione di `Operativo`, con intestazioni in riga 2;
-- lettura delle sole sei colonne necessarie tramite `batchGet`;
-- chiave anti-duplicazione stabile anche se cambia `GIORNI_PREAVVISO`;
-- stati `SENDING`, `SENT`, `FAILED_RETRYABLE`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED`;
-- massimo tre tentativi automatici per gli errori ritentabili;
-- registro persistente minimizzato, senza nome, cognome o email;
-- schema amministrativo versionato con `SCHEMA_VERSION=2`;
-- migrazione amministrativa con anteprima, conferma e backup;
-- preflight che valida tab, intestazioni e contenuto della CONFIG;
-- un solo interruttore operativo, `AUTOMAZIONE_ATTIVA`;
-- arresto senza lettura completa di `Operativo` e senza inizializzazione SMTP;
-- output aggregato e codici di uscita non-zero per attenzione o revisione;
-- workflow manuale protetto e modello schedulato non attivo.
-
-## Avvio locale
+## Installazione
 
 Richiede Python 3.11 o successivo.
 
@@ -49,15 +39,15 @@ reminder-certificati preflight
 ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati registry-check --confirm-synthetic-write
 reminder-certificati review-registry
 reminder-certificati dry-run
-reminder-certificati test-smtp --confirm-email-delivery
-reminder-certificati produzione --confirm-email-delivery
+ALLOW_EMAIL_DELIVERY=true reminder-certificati test-smtp --confirm-email-delivery
+PRODUCTION_ENABLED=true reminder-certificati produzione
 ```
 
-`migrate-admin` opera in anteprima se non riceve `--apply`. L'applicazione richiede anche `--confirm-migration`, salva prima un backup JSON e lascia sempre `AUTOMAZIONE_ATTIVA=false` e `INVII_REALI_ABILITATI=false` quando effettua una migrazione.
+`migrate-admin` opera in anteprima senza `--apply`. L'applicazione richiede anche `--confirm-migration`, salva un backup JSON e lascia disattivati sia `AUTOMAZIONE_ATTIVA` sia `INVII_REALI_ABILITATI`.
 
-`preflight` controlla anche chiavi, valori funzionali e versione della CONFIG. Non legge righe anagrafiche di `Operativo`, non scrive e non usa SMTP.
+`preflight` verifica risorse, tab, intestazioni, versione dello schema e valori funzionali della CONFIG senza leggere righe anagrafiche di `Operativo`, scrivere celle o usare SMTP.
 
-`review-registry` restituisce solo conteggi aggregati di righe `SENDING` vecchie, retry esauriti, errori permanenti ed esiti incerti.
+`review-registry` restituisce soltanto conteggi aggregati degli stati che richiedono attenzione.
 
 ## CONFIG
 
@@ -73,35 +63,47 @@ Le chiavi funzionali sono:
 - `CORPO_EMAIL`;
 - `FIRMA_TESTO`.
 
-Con `AUTOMAZIONE_ATTIVA=false`, il comando termina come `DISATTIVATO` prima di leggere le righe operative e prima di validare o costruire SMTP.
+Con `AUTOMAZIONE_ATTIVA=false`, il runtime termina prima di leggere le righe operative e prima di inizializzare SMTP.
 
-## Registro
+## Registro e codici di uscita
 
-La chiave è:
+La chiave anti-duplicazione è:
 
 ```text
 ID_ARBITRO|DATA_SCADENZA|CERTIFICATO_SCADENZA_V1
 ```
 
-Il registro conserva soltanto identificativo, scadenza, tipo, stato, tentativi, timestamp, Message-ID, versione ed errore sintetico. Nome, cognome ed email non vengono persistiti.
-
-- `FAILED_RETRYABLE` è riprenotabile fino a tre tentativi complessivi;
-- `FAILED_PERMANENT` non viene ritentato;
-- `UNKNOWN_REVIEW_REQUIRED` richiede verifica umana;
-- `SENDING` vecchi sono segnalati da `review-registry`.
-
-Il test SMTP mantiene il comportamento attuale richiesto: usa l'override come destinatario e invia al massimo un messaggio.
-
-## Codici di uscita
+Il registro non conserva nome, cognome o email. Gli stati distinguono invii in corso, riusciti, ritentabili, permanenti ed esiti incerti da revisionare.
 
 - `0`: esecuzione regolare o sistema disattivato;
 - `2`: errore operativo o registro da revisionare;
 - `3`: stato `ATTENZIONE`;
 - `4`: stato `REVISIONE_RICHIESTA`.
 
-## Barriere di produzione
+## Produzione
 
-Gli invii reali richiedono contemporaneamente Environment protetto, `PRODUCTION_ENABLED=true`, `AUTOMAZIONE_ATTIVA=true`, `INVII_REALI_ABILITATI=true`, `ALLOW_EMAIL_DELIVERY=true` e conferma CLI. Il workflow di produzione resta soltanto in `docs/workflows/production.yml.example`.
+Il modello schedulato resta in `docs/workflows/production.yml.example` finché il go-live non è autorizzato. Gli invii reali richiedono contemporaneamente:
+
+- Environment GitHub `production` protetto;
+- `PRODUCTION_ENABLED=true`;
+- `AUTOMAZIONE_ATTIVA=true`;
+- `INVII_REALI_ABILITATI=true`;
+- configurazione Google e SMTP valida.
+
+`ALLOW_EMAIL_DELIVERY` e `--confirm-email-delivery` appartengono soltanto al test SMTP manuale e non al workflow schedulato.
+
+## Fonti di verità
+
+Per evitare documentazione duplicata:
+
+- `pyproject.toml` contiene la versione corrente del pacchetto;
+- `CHANGELOG.md` contiene la cronologia delle versioni;
+- `ROADMAP.md` contiene esclusivamente il lavoro ancora aperto;
+- `docs/OPERATIONS.md` contiene le procedure ordinarie;
+- `docs/DEPLOYMENT_CHECKLIST.md` contiene il percorso di go-live;
+- `docs/EMERGENCY.md` contiene le procedure di arresto e incidente.
+
+Le issue coordinano il lavoro ma non duplicano versione, stato o roadmap.
 
 ## Guide
 
@@ -110,3 +112,4 @@ Gli invii reali richiedono contemporaneamente Environment protetto, `PRODUCTION_
 - [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md)
 - [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md)
 - [`docs/PREFLIGHT_DIAGNOSTICA.md`](docs/PREFLIGHT_DIAGNOSTICA.md)
+- [`docs/HANDOFF.md`](docs/HANDOFF.md)
