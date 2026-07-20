@@ -11,6 +11,7 @@ from .data_sources import AdapterGoogleSheets, LettoreGoogleApi
 from .google_credentials_guard import verifica_credenziali_google_temporanee
 from .monitoring import (
     AnomalieGoogleSheets,
+    ArchivioDashboard,
     DashboardGoogleSheets,
     TrasportoMonitoraggioGoogleApi,
 )
@@ -18,6 +19,7 @@ from .notifications_sheets import (
     ArchivioNotificheGoogleSheets,
     TrasportoNotificheGoogleApi,
 )
+from .readable_dashboard import DashboardLeggibile
 from .validation import MappaturaColonne
 
 
@@ -104,7 +106,7 @@ def costruisci_servizio_sheets() -> Any:
 class ComponentiGoogle:
     sorgente_operativo: AdapterGoogleSheets
     archivio_notifiche: ArchivioNotificheGoogleSheets
-    dashboard: DashboardGoogleSheets
+    dashboard: ArchivioDashboard
     anomalie: AnomalieGoogleSheets
     trasporto_struttura: TrasportoStrutturaGoogleApi
     lettore: LettoreGoogleApi
@@ -118,6 +120,10 @@ def costruisci_componenti_google(
     lettore = LettoreGoogleApi(servizio)
     trasporto_notifiche = TrasportoNotificheGoogleApi(servizio)
     trasporto_monitoraggio = TrasportoMonitoraggioGoogleApi(servizio)
+    dashboard_google = DashboardGoogleSheets(
+        trasporto=trasporto_monitoraggio,
+        spreadsheet_id=risorse.admin_spreadsheet_id,
+    )
     return ComponentiGoogle(
         sorgente_operativo=AdapterGoogleSheets(
             lettore=lettore,
@@ -131,10 +137,7 @@ def costruisci_componenti_google(
             trasporto=trasporto_notifiche,
             spreadsheet_id=risorse.admin_spreadsheet_id,
         ),
-        dashboard=DashboardGoogleSheets(
-            trasporto=trasporto_monitoraggio,
-            spreadsheet_id=risorse.admin_spreadsheet_id,
-        ),
+        dashboard=DashboardLeggibile(dashboard_google),
         anomalie=AnomalieGoogleSheets(
             trasporto=trasporto_monitoraggio,
             spreadsheet_id=risorse.admin_spreadsheet_id,
