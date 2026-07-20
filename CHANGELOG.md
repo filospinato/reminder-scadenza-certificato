@@ -2,6 +2,20 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.4] - 2026-07-20
+
+### Corretto
+
+- il sanitizzatore dei messaggi riconosce ora qualsiasi identificativo con struttura `ID|DATA|TIPO`, senza dipendere dal vecchio formato `REMINDER_n`;
+- coperti gli identificativi produttivi `CERTIFICATO_SCADENZA_V1`, quelli di prova, il formato storico e il collaudo sintetico del registro;
+- gestiti anche gli identificativi seguiti da punteggiatura nei messaggi di errore.
+
+### Sicurezza e compatibilità
+
+- tessera, data di scadenza e tipo di notifica non vengono più lasciati nei dettagli sanitizzati quando compare il formato corrente;
+- nessuna modifica a selezione dei candidati, email, SMTP, Google Sheets, registro o workflow;
+- nessun aggiornamento del foglio amministrativo necessario.
+
 ## [0.14.3] - 2026-07-20
 
 ### Modificato
