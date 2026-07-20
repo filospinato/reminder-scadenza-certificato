@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from datetime import date
 
 
-def _normalizza_nome_proprio(nome: str) -> str:
-    """Uniforma spazi e maiuscole di un nome proveniente da Operativo."""
+def _normalizza_nome_proprio(valore: str) -> str:
+    """Uniforma spazi e maiuscole di nomi e cognomi provenienti da Operativo."""
 
-    return " ".join(nome.split()).title()
+    return " ".join(valore.split()).title()
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,10 +30,20 @@ class Arbitro:
         return _normalizza_nome_proprio(self.nome)
 
     @property
-    def nome_completo(self) -> str:
-        """Nominativo completo ricomposto dalle colonne nome e cognome."""
+    def cognome_per_template(self) -> str:
+        """Cognome leggibile per i template, anche se Operativo usa il maiuscolo."""
 
-        return " ".join(parte for parte in (self.nome.strip(), self.cognome.strip()) if parte)
+        return _normalizza_nome_proprio(self.cognome)
+
+    @property
+    def nome_completo(self) -> str:
+        """Nominativo completo normalizzato dalle colonne nome e cognome."""
+
+        return " ".join(
+            parte
+            for parte in (self.nome_per_saluto, self.cognome_per_template)
+            if parte
+        )
 
 
 @dataclass(frozen=True, slots=True)
