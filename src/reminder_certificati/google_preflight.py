@@ -79,7 +79,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.RISORSE_COINCIDENTI,
                     "Operativo e amministrazione devono indicare file distinti.",
-                    "Correggere le Variables dei due Spreadsheet e ripetere il preflight.",
+                    "Correggere le Variables dei due Spreadsheet e ripetere il controllo.",
                 )
             )
 
@@ -106,7 +106,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.ADMIN_TAB_NON_CONFORMI,
                     "Le tab amministrative sono mancanti o non conformi.",
-                    "Eseguire o verificare init-admin sul solo Spreadsheet amministrativo.",
+                    "Eseguire setup-admin sullo Spreadsheet amministrativo.",
                 )
             )
 
@@ -133,14 +133,14 @@ class PreflightGoogle:
                     DiagnosticaPreflight(
                         CodiceErrorePreflight.ADMIN_INTESTAZIONI_NON_CONFORMI,
                         "Le intestazioni amministrative non rispettano lo schema previsto.",
-                        "Eseguire migrate-admin in anteprima e applicare la migrazione controllata.",
+                        "Eseguire setup-admin in anteprima e applicare l'aggiornamento con backup.",
                     )
                 )
 
         try:
             config = self.trasporto.leggi_valori(
                 spreadsheet_id=risorse.admin_spreadsheet_id,
-                intervallo_a1="'CONFIG'!A:E",
+                intervallo_a1="'CONFIG'!A:C",
             )
             carica_configurazione(config)
         except Exception as exc:
@@ -148,7 +148,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.ADMIN_CONFIG_NON_CONFORME,
                     "Il contenuto della CONFIG non è compatibile con il runtime.",
-                    "Eseguire migrate-admin in anteprima e correggere le chiavi indicate.",
+                    "Eseguire setup-admin in anteprima e correggere le chiavi indicate.",
                 )
             ) from exc
 
@@ -179,7 +179,7 @@ class PreflightGoogle:
                 DiagnosticaPreflight(
                     CodiceErrorePreflight.OPERATIVO_INTESTAZIONI_MANCANTI,
                     "Operativo non contiene tutte le intestazioni usate dal reminder.",
-                    "Verificare la sola riga delle intestazioni e la mappatura canonica.",
+                    "Verificare la riga delle intestazioni e la mappatura configurata.",
                 )
             )
 
