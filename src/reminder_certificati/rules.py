@@ -6,7 +6,7 @@ from .models import Arbitro, CandidatoNotifica
 from .validation import email_valida
 
 TIPO_NOTIFICA_SCADENZA = "CERTIFICATO_SCADENZA_V1"
-_CATEGORIE_ESCLUSE_CERTIFICATO = ("benemerito", "osservatore")
+_CATEGORIE_ESCLUSE_CERTIFICATO = ("benemerito", "osservatore", "fuori quadro")
 
 
 def notification_id(arbitro: Arbitro, tipo: str) -> str:
