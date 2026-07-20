@@ -6,6 +6,7 @@ from reminder_certificati.admin_schema import (
     COLONNE_DASHBOARD,
     NOMI_TAB_AMMINISTRATIVE,
     NOME_SPREADSHEET_AMMINISTRATIVO,
+    VERSIONE_SCHEMA_AMMINISTRATIVO,
     DefinizioneTab,
     ErroreSchemaAmministrativo,
     SchemaFoglioAmministrativo,
@@ -26,26 +27,41 @@ def test_schema_canonico_crea_le_quattro_tab() -> None:
     assert schema.ottieni_tab("ANOMALIE").intestazioni == COLONNE_ANOMALIE
 
 
-def test_config_iniziale_resta_disattivata() -> None:
+def test_config_iniziale_ha_un_solo_interruttore() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
-    assert voci["AUTOMAZIONE_ATTIVA"].valore == "false"
-    assert voci["INVII_REALI_ABILITATI"].valore == "false"
-    assert voci["INVII_REALI_ABILITATI"].modificabile is True
+    assert VERSIONE_SCHEMA_AMMINISTRATIVO == 3
+    assert voci["INVIO_AUTOMATICO_ATTIVO"].valore == "false"
     assert voci["DESTINATARIO_OVERRIDE"].valore == ""
     assert voci["GIORNI_PREAVVISO"].valore == "30"
-    assert voci["LIMITE_INVII_PER_ESECUZIONE"].valore == "10"
-    assert "SISTEMA_ATTIVO" not in voci
-    assert "MODALITA_TEST" not in voci
-    assert "KILL_SWITCH" not in voci
+    for chiave in (
+        "AUTOMAZIONE_ATTIVA",
+        "INVII_REALI_ABILITATI",
+        "LIMITE_INVII_PER_ESECUZIONE",
+        "SISTEMA_ATTIVO",
+        "MODALITA_TEST",
+        "KILL_SWITCH",
+    ):
+        assert chiave not in voci
 
 
-def test_config_contiene_solo_campi_usati_dal_runtime() -> None:
+def test_config_visibile_contiene_solo_tre_colonne() -> None:
+    assert COLONNE_CONFIG == ("chiave", "valore", "descrizione")
+    matrice = crea_schema_amministrativo().ottieni_tab("CONFIG").matrice()
+    assert all(len(riga) == 3 for riga in matrice)
+
+
+def test_config_contiene_destinatario_e_template_modificabili() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
-    assert "SALUTO_EMAIL" not in voci
-    assert "CONTATTO_SUPPORTO" not in voci
-    assert voci["CORPO_EMAIL"].valore
+    for chiave in (
+        "DESTINATARIO_OVERRIDE",
+        "OGGETTO_EMAIL",
+        "CORPO_EMAIL",
+        "FIRMA_TESTO",
+    ):
+        assert chiave in voci
+        assert voci[chiave].modificabile is True
 
 
 def test_notifiche_e_anomalie_non_contengono_righe_iniziali() -> None:
@@ -55,11 +71,11 @@ def test_notifiche_e_anomalie_non_contengono_righe_iniziali() -> None:
     assert schema.ottieni_tab("ANOMALIE").righe_iniziali == ()
 
 
-def test_dashboard_parte_disattivata_con_conteggi_a_zero() -> None:
+def test_dashboard_parte_spenta_con_conteggi_a_zero() -> None:
     dashboard = crea_schema_amministrativo().ottieni_tab("DASHBOARD")
     valori = {riga[0]: riga[1] for riga in dashboard.righe_iniziali}
 
-    assert valori["stato_sistema"] == "DISATTIVATO"
+    assert valori["stato_sistema"] == "Spento"
     assert valori["automazione_attiva"] == "NO"
     assert valori["righe_lette"] == "0"
     assert valori["invii_tentati"] == "0"
