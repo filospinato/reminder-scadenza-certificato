@@ -9,7 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from .admin_schema import COLONNE_CONFIG, configurazione_iniziale_sicura
+from .admin_schema import (
+    COLONNE_CONFIG,
+    VERSIONE_SCHEMA_AMMINISTRATIVO,
+    configurazione_iniziale_sicura,
+)
 from .admin_store import COLONNE_NOTIFICHE
 from .rules import TIPO_NOTIFICA_SCADENZA
 from .runtime_config import carica_configurazione
@@ -126,8 +130,15 @@ def _config_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
     if not matrice or matrice[0] != COLONNE_CONFIG:
         return False
     canoniche = {voce.chiave for voce in configurazione_iniziale_sicura()}
-    presenti = {riga[0] for riga in matrice[1:] if riga and riga[0]}
-    return presenti == canoniche
+    valori = {
+        riga[0]: riga[1]
+        for riga in matrice[1:]
+        if len(riga) == len(COLONNE_CONFIG) and riga[0]
+    }
+    return (
+        set(valori) == canoniche
+        and valori.get("SCHEMA_VERSION") == str(VERSIONE_SCHEMA_AMMINISTRATIVO)
+    )
 
 
 def _migra_config(
@@ -152,6 +163,8 @@ def _migra_config(
     righe: list[tuple[str, ...]] = [COLONNE_CONFIG]
     for voce in configurazione_iniziale_sicura():
         valore = valori.get(voce.chiave, voce.valore)
+        if voce.chiave == "SCHEMA_VERSION":
+            valore = str(VERSIONE_SCHEMA_AMMINISTRATIVO)
         if forza_disattivazione and voce.chiave in {
             "AUTOMAZIONE_ATTIVA",
             "INVII_REALI_ABILITATI",
