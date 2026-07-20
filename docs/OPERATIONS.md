@@ -1,90 +1,48 @@
 # Runbook operativo
 
-Questo documento è la guida eseguibile per preparare, controllare, usare e arrestare il sistema; contiene procedure operative, non stato di avanzamento o cronologia delle versioni.
+Questo documento descrive le operazioni disponibili e il loro significato; i dettagli di attivazione esterna restano nella checklist di deployment.
 
 ## Stato sicuro
 
-Lo stato iniziale e quello successivo a ogni migrazione sono:
+`INVIO_AUTOMATICO_ATTIVO=false` è lo stato iniziale e quello ripristinato dopo ogni aggiornamento del foglio amministrativo.
 
-- `AUTOMAZIONE_ATTIVA=false`;
-- `INVII_REALI_ABILITATI=false`;
-- nessun workflow di produzione attivo.
+Il controllo senza invio e la prova sul destinatario override restano disponibili anche quando l'invio automatico è spento.
 
-Con l'automazione spenta il runtime non legge le righe di `Operativo` e non inizializza SMTP.
+## Uso ordinario
 
-## Preparazione o aggiornamento
+Il workflow ordinario presenta due sole scelte:
 
-1. Predisporre WIF, Environment e condivisioni Google.
-2. Per un file vuoto eseguire `reminder-certificati init-admin --spreadsheet-id ID`.
-3. Per un file esistente eseguire l'anteprima:
+- `check`, che verifica configurazione, dati, candidati e registro senza inviare;
+- `test-smtp`, che mantiene il comportamento corrente e invia al massimo un messaggio al `DESTINATARIO_OVERRIDE`.
 
-```bash
-reminder-certificati migrate-admin --spreadsheet-id ID
-```
+## Manutenzione
 
-4. Controllare le modifiche aggregate e applicare con backup:
+Il workflow di manutenzione presenta tre scelte:
 
-```bash
-reminder-certificati migrate-admin --spreadsheet-id ID \
-  --apply --confirm-migration \
-  --backup-path admin-migration-backup.json
-```
+- `setup-preview`, per vedere se il foglio richiede preparazione o aggiornamento;
+- `setup-apply`, per applicare l'operazione prevista con backup quando necessario;
+- `registry-check`, per collaudare una sola riga sintetica nella tab `NOTIFICHE`.
 
-5. Eseguire `reminder-certificati preflight`.
-6. Eseguire il collaudo sintetico di NOTIFICHE.
-7. Impostare `AUTOMAZIONE_ATTIVA=true`, lasciando gli invii reali spenti.
-8. Eseguire il dry-run.
-9. Configurare override e SMTP soltanto per il test controllato.
+## CONFIG
 
-## Comandi
+La tab contiene soltanto `chiave`, `valore` e `descrizione`. Le impostazioni modificabili sono:
 
-```bash
-reminder-certificati preflight
-ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati registry-check --confirm-synthetic-write
-reminder-certificati review-registry
-reminder-certificati dry-run
-ALLOW_EMAIL_DELIVERY=true reminder-certificati test-smtp --confirm-email-delivery
-PRODUCTION_ENABLED=true reminder-certificati produzione
-```
+- `INVIO_AUTOMATICO_ATTIVO`;
+- `GIORNI_PREAVVISO`;
+- `DESTINATARIO_OVERRIDE`;
+- `OGGETTO_EMAIL`;
+- `CORPO_EMAIL`;
+- `FIRMA_TESTO`.
 
-## Preflight
+`SCHEMA_VERSION` è gestita dal programma. Il limite di 10 messaggi per esecuzione è interno e non richiede decisioni dell'operatore.
 
-Controlla file distinti, tab, intestazioni, chiavi funzionali e `SCHEMA_VERSION` della CONFIG. Legge la sola riga delle intestazioni di `Operativo`, non le righe anagrafiche.
+## Stati leggibili
 
-## Registro
+I riepiloghi traducono gli stati tecnici in etichette come “Controllo completato”, “Attenzione richiesta”, “Errore definitivo” e “Verifica manuale necessaria”. Gli stati originali restano conservati internamente per non alterare la macchina a stati.
 
-`review-registry` mostra soltanto conteggi aggregati di:
+## File collegati
 
-- stati presenti;
-- `SENDING` più vecchi della soglia, 24 ore per default;
-- `FAILED_RETRYABLE` che hanno raggiunto tre tentativi;
-- `FAILED_PERMANENT`;
-- `UNKNOWN_REVIEW_REQUIRED`.
-
-Non corregge automaticamente alcuna riga.
-
-## Stati e codici di uscita
-
-| Stato | Significato | Exit code |
-|---|---|---:|
-| `DISATTIVATO` | interruttore spento | 0 |
-| `DRY_RUN_OK` / `OK` | esecuzione regolare | 0 |
-| `ATTENZIONE` | errori ritentabili, permanenti o di composizione | 3 |
-| `REVISIONE_RICHIESTA` | esito incerto | 4 |
-| `ERRORE` | errore fatale | 2 |
-
-Un workflow con `ATTENZIONE` non deve apparire verde.
-
-## Modifica di CONFIG
-
-L'operatore modifica normalmente soltanto la colonna `valore`. Non deve modificare `SCHEMA_VERSION`, rinominare chiavi, duplicare righe o inserire segreti. `AUTOMAZIONE_ATTIVA` resta il comando ordinario e di emergenza; `INVII_REALI_ABILITATI` è la barriera separata per gli invii agli indirizzi reali.
-
-## Test SMTP
-
-Il test SMTP usa `DESTINATARIO_OVERRIDE`, invia al massimo un messaggio e richiede contemporaneamente l'input manuale del workflow, `ALLOW_EMAIL_DELIVERY=true` e `--confirm-email-delivery`. Queste conferme appartengono soltanto al collaudo manuale.
-
-## Produzione
-
-Il modello schedulato resta fuori da `.github/workflows` fino al go-live. La produzione richiede Environment protetto, `PRODUCTION_ENABLED=true`, `AUTOMAZIONE_ATTIVA=true`, `INVII_REALI_ABILITATI=true` e configurazione SMTP valida.
-
-Il workflow non imposta `ALLOW_EMAIL_DELIVERY` e non passa `--confirm-email-delivery`: sarebbero conferme automatiche prive di decisione umana. Il runtime verifica direttamente `PRODUCTION_ENABLED`.
+- `docs/DEPLOYMENT_CHECKLIST.md` descrive i passaggi esterni ancora necessari;
+- `docs/EMERGENCY.md` descrive l'arresto e la gestione degli incidenti;
+- `docs/SCHEMA_FOGLI.md` documenta le tab e le colonne;
+- `docs/TEST_PLAN.md` definisce i collaudi richiesti.
