@@ -2,6 +2,22 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.1] - 2026-07-20
+
+### Modificato
+
+- `CORPO_EMAIL` contiene ora il messaggio completo, compreso l'eventuale saluto;
+- il valore predefinito usa `Ciao {{nome}},` direttamente nel template del foglio;
+- il renderer non aggiunge più saluti o altre frasi implicite;
+- l'operatore può sostituire, spostare o rimuovere il saluto modificando soltanto la CONFIG;
+- aggiornati test e documentazione senza cambiare lo schema amministrativo v3.
+
+### Compatibilità e sicurezza
+
+- output predefinito testuale e HTML invariato;
+- placeholder consentiti e protezioni contro template non validi invariati;
+- nessuna modifica a SMTP, registro, selezione dei candidati o workflow.
+
 ## [0.14.0] - 2026-07-20
 
 ### Modificato

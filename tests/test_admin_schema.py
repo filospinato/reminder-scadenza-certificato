@@ -64,6 +64,14 @@ def test_config_contiene_destinatario_e_template_modificabili() -> None:
         assert voci[chiave].modificabile is True
 
 
+def test_corpo_predefinito_contiene_il_saluto_configurabile() -> None:
+    voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
+
+    assert voci["CORPO_EMAIL"].valore.startswith("Ciao {{nome}}, ricevi")
+    assert "{{data_scadenza}}" in voci["CORPO_EMAIL"].valore
+    assert "messaggio completo" in voci["CORPO_EMAIL"].descrizione.casefold()
+
+
 def test_notifiche_e_anomalie_non_contengono_righe_iniziali() -> None:
     schema = crea_schema_amministrativo()
 

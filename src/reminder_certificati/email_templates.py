@@ -21,8 +21,8 @@ class ErroreTemplate(ValueError):
 class ConfigurazioneEmail:
     oggetto: str = "Certificato medico in scadenza"
     corpo: str = (
-        "ricevi questa mail perché il certificato medico presente nei nostri "
-        "archivi risulta in scadenza il {{data_scadenza}}.\n\n"
+        "Ciao {{nome}}, ricevi questa mail perché il certificato medico presente "
+        "nei nostri archivi risulta in scadenza il {{data_scadenza}}.\n\n"
         "Ti invitiamo a provvedere al rinnovo e alla trasmissione della nuova "
         "documentazione secondo le modalità previste."
     )
@@ -87,14 +87,11 @@ def componi_email(
 ) -> MessaggioEmail:
     """Compone testo e HTML senza effettuare alcun invio.
 
-    L'apertura usa direttamente la colonna ``nome`` della stessa riga di
-    Operativo che fornisce cognome, email e scadenza.
+    Oggetto, corpo completo e firma vengono renderizzati esattamente dai template
+    configurati. Il codice non aggiunge saluti o altre frasi implicite.
     """
 
     valori = _valori(candidato)
-    if not valori["nome"]:
-        raise ErroreTemplate("nome: valore mancante per il saluto personalizzato")
-
     oggetto = _render(configurazione.oggetto, valori, campo="oggetto")
     corpo = _render(configurazione.corpo, valori, campo="corpo")
     firma = _render(configurazione.firma, valori, campo="firma")
@@ -102,21 +99,8 @@ def componi_email(
     if "\n" in oggetto or "\r" in oggetto:
         raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")
 
-    apertura = f"Ciao {valori['nome']}, {corpo}"
-    testo = f"{apertura}\n\n{firma}"
-
-    paragrafi_corpo = corpo.split("\n\n")
-    primo_paragrafo = (
-        f"<p>Ciao {html.escape(valori['nome'])}, "
-        f"{_contenuto_paragrafo_html(paragrafi_corpo[0])}</p>"
-    )
-    altri_paragrafi = [
-        f"<p>{_contenuto_paragrafo_html(paragrafo)}</p>"
-        for paragrafo in paragrafi_corpo[1:]
-    ]
-    html_completo = "".join(
-        [primo_paragrafo, *altri_paragrafi, *_paragrafi_html(firma)]
-    )
+    testo = f"{corpo}\n\n{firma}"
+    html_completo = "".join([*_paragrafi_html(corpo), *_paragrafi_html(firma)])
 
     return MessaggioEmail(
         destinatario=candidato.arbitro.email.strip(),
