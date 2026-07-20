@@ -323,7 +323,7 @@ class TrasportoMonitoraggioGoogleApi:
 _EMAIL_RE = re.compile(r"(?i)\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 _TOKEN_RE = re.compile(r"(?i)\b(?:ya29\.|gh[ps]_|sk-|eyJ)[A-Za-z0-9._-]+")
 _NOTIFICATION_ID_RE = re.compile(
-    r"(?i)(?<!\S)[^|\s]+\|\d{4}-\d{2}-\d{2}\|(?:TEST_)?REMINDER_\d+(?!\S)"
+    r"(?i)(?<!\S)[^|\s]+\|\d{4}-\d{2}-\d{2}\|[^|\s]+"
 )
 
 
@@ -358,7 +358,7 @@ def _testo_breve(value: str, campo: str, massimo: int) -> str:
 def _opzionale_breve(value: str | None, massimo: int) -> str | None:
     if value is None:
         return None
-    normalizzato = str(value).strip()
+    normalizzato = value.strip()
     return normalizzato[:massimo] or None
 
 
