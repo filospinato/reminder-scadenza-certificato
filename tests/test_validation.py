@@ -44,6 +44,27 @@ def test_accetta_formati_data_e_stato_previsti() -> None:
     assert esito.anomalie == ()
 
 
+@pytest.mark.parametrize("valore", ["", "   ", None])
+def test_stato_vuoto_significa_che_fa_attivita(valore: object) -> None:
+    esito = valida_righe([riga(attivo=valore)])
+
+    assert len(esito.arbitri) == 1
+    assert esito.arbitri[0].attivo is True
+    assert esito.anomalie == ()
+
+
+@pytest.mark.parametrize(
+    "valore",
+    ["No", "no", "NO", "sospeso", "non convocabile", "altro"],
+)
+def test_qualsiasi_annotazione_non_affermativa_significa_inattivo(valore: str) -> None:
+    esito = valida_righe([riga(attivo=valore)])
+
+    assert len(esito.arbitri) == 1
+    assert esito.arbitri[0].attivo is False
+    assert esito.anomalie == ()
+
+
 def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
     esito = valida_righe(
         [
@@ -65,7 +86,6 @@ def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
         CodiceAnomalia.COGNOME_MANCANTE,
         CodiceAnomalia.EMAIL_NON_VALIDA,
         CodiceAnomalia.SCADENZA_NON_VALIDA,
-        CodiceAnomalia.STATO_NON_VALIDO,
     }
 
 
