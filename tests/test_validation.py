@@ -92,6 +92,8 @@ def test_mappatura_colonne_personalizzata() -> None:
         email="Email",
         scadenza_certificato="Scadenza",
         attivo="Stato",
+        qualifica="Qualifica",
+        abilitazione="Abilitazione",
     )
     esito = valida_righe(
         [
@@ -102,6 +104,8 @@ def test_mappatura_colonne_personalizzata() -> None:
                 "Email": "anna@example.it",
                 "Scadenza": "2026-09-01",
                 "Stato": "Sì",
+                "Qualifica": "Arbitro Benemerito",
+                "Abilitazione": "Benemerito",
             }
         ],
         mappatura=mapping,
@@ -109,6 +113,8 @@ def test_mappatura_colonne_personalizzata() -> None:
     assert esito.arbitri[0].id_arbitro == "A-9"
     assert esito.arbitri[0].nome_per_saluto == "Anna Maria"
     assert esito.arbitri[0].nome_completo == "Anna Maria Verdi"
+    assert esito.arbitri[0].qualifica == "Arbitro Benemerito"
+    assert esito.arbitri[0].abilitazione == "Benemerito"
 
 
 def test_cognome_e_colonna_obbligatoria() -> None:
