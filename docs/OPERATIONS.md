@@ -1,5 +1,7 @@
 # Runbook operativo
 
+Questo documento è la guida eseguibile per preparare, controllare, usare e arrestare il sistema; contiene procedure operative, non stato di avanzamento o cronologia delle versioni.
+
 ## Stato sicuro
 
 Lo stato iniziale e quello successivo a ogni migrazione sono:
