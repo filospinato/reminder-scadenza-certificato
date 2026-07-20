@@ -41,7 +41,7 @@ def _valori(candidato: CandidatoNotifica) -> dict[str, str]:
     arbitro = candidato.arbitro
     return {
         "nome": arbitro.nome_per_saluto,
-        "cognome": arbitro.cognome.strip(),
+        "cognome": arbitro.cognome_per_template,
         "nome_completo": arbitro.nome_completo,
         "data_scadenza": arbitro.scadenza_certificato.strftime("%d/%m/%Y"),
         "giorni_residui": str(candidato.giorni_residui),

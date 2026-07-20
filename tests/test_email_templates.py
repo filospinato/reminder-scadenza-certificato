@@ -1,4 +1,5 @@
 from datetime import date
+import html
 
 import pytest
 
@@ -51,6 +52,40 @@ def test_nome_maiuscolo_di_operativo_diventa_leggibile(
 
     assert messaggio.testo.startswith(f"Ciao {nome_atteso}, ricevi questa mail")
     assert messaggio.html.startswith(f"<p>Ciao {nome_atteso}, ricevi questa mail")
+
+
+@pytest.mark.parametrize(
+    ("cognome_operativo", "cognome_atteso"),
+    (
+        ("ROSSI", "Rossi"),
+        ("DE LUCA", "De Luca"),
+        ("D'ANGELO", "D'Angelo"),
+        ("ROSSI-BIANCHI", "Rossi-Bianchi"),
+        ("  DE   LUCA  ", "De Luca"),
+    ),
+)
+def test_cognome_maiuscolo_di_operativo_diventa_leggibile(
+    cognome_operativo: str,
+    cognome_atteso: str,
+) -> None:
+    config = ConfigurazioneEmail(corpo="Cognome: {{cognome}}.")
+    messaggio = componi_email(candidato(cognome=cognome_operativo), config)
+
+    assert messaggio.testo.startswith(f"Cognome: {cognome_atteso}.")
+    assert messaggio.html.startswith(
+        f"<p>Cognome: {html.escape(cognome_atteso)}.</p>"
+    )
+
+
+def test_nome_completo_normalizza_nome_e_cognome() -> None:
+    config = ConfigurazioneEmail(corpo="Gentile {{nome_completo}}, promemoria.")
+    messaggio = componi_email(
+        candidato(nome="PIER SILVIO", cognome="DE LUCA"),
+        config,
+    )
+
+    assert messaggio.testo.startswith("Gentile Pier Silvio De Luca, promemoria.")
+    assert messaggio.html.startswith("<p>Gentile Pier Silvio De Luca, promemoria.</p>")
 
 
 def test_nome_composto_non_viene_troncato() -> None:
