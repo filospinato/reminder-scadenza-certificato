@@ -1,24 +1,18 @@
 # Schema dei fogli amministrativi
 
-Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Deve essere creato dall'amministratore umano, fuori dal database operativo e da cartelle con condivisione ereditata ampia.
+Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Le tab richieste sono `CONFIG`, `NOTIFICHE`, `DASHBOARD` e `ANOMALIE`; il loro ordine visuale non è significativo.
 
-Le tab richieste sono:
+## Versione dello schema
+
+La versione corrente è **2** ed è registrata in CONFIG come:
 
 ```text
-CONFIG | NOTIFICHE | DASHBOARD | ANOMALIE
+SCHEMA_VERSION | 2
 ```
 
-L'inizializzatore le crea in questo ordine per uniformità. Il runtime le individua per nome: un successivo riordino visuale non blocca l'automazione.
+`SCHEMA_VERSION` è gestita dal programma. Un foglio precedente deve essere aggiornato con `reminder-certificati migrate-admin`, prima in anteprima e poi con conferma e backup.
 
-## Inizializzazione e verifica
-
-- Richiede l'ID di uno Spreadsheet già creato e condiviso dall'identità umana.
-- Se il file contiene una sola tab completamente vuota, la rinomina in `CONFIG` e aggiunge le altre tre.
-- Scrive le matrici canoniche soltanto nelle tab vuote.
-- Non sovrascrive mai una tab già popolata.
-- Durante le normali esecuzioni verifica presenza delle tab e riga delle intestazioni.
-
-## Tab `CONFIG`
+## CONFIG
 
 Intestazioni:
 
@@ -28,81 +22,61 @@ chiave | valore | tipo | descrizione | modificabile
 
 | Chiave | Valore iniziale | Scopo |
 |---|---:|---|
-| `AUTOMAZIONE_ATTIVA` | `false` | unico interruttore operativo; `false` arresta elaborazione e invii |
-| `INVII_REALI_ABILITATI` | `false` | seconda barriera attivata soltanto nel go-live controllato |
+| `SCHEMA_VERSION` | `2` | versione del contratto amministrativo |
+| `AUTOMAZIONE_ATTIVA` | `false` | unico interruttore operativo |
+| `INVII_REALI_ABILITATI` | `false` | barriera separata per il go-live |
 | `GIORNI_PREAVVISO` | `30` | finestra inclusiva |
-| `LIMITE_INVII_PER_ESECUZIONE` | `10` | limite massimo per avvio |
+| `LIMITE_INVII_PER_ESECUZIONE` | `10` | massimo per esecuzione |
 | `DESTINATARIO_OVERRIDE` | vuoto | destinatario del test SMTP |
-| `OGGETTO_EMAIL` | predefinito sintetico | oggetto del promemoria |
-| `CORPO_EMAIL` | testo predefinito | corpo del messaggio |
-| `FIRMA_TESTO` | firma provvisoria | da sostituire dopo approvazione |
+| `OGGETTO_EMAIL` | predefinito | oggetto del promemoria |
+| `CORPO_EMAIL` | predefinito | testo dopo il saluto automatico |
+| `FIRMA_TESTO` | provvisoria | firma testuale |
 
-La modalità non è conservata nel foglio: viene determinata dal sottocomando `dry-run`, `test-smtp` o `produzione`.
+Il preflight valida intestazioni, presenza delle chiavi, valori funzionali e versione. Le colonne `tipo`, `descrizione` e `modificabile` restano informative.
 
-Il saluto `Ciao {{nome}},` è fisso nel codice. Il corpo è liberamente modificabile e può usare soltanto i placeholder autorizzati.
+## NOTIFICHE
 
-Vincoli principali:
-
-- finestra tra 0 e 365 giorni;
-- limite tra 1 e 500;
-- override richiesto soltanto per `test-smtp`;
-- oggetto, corpo e firma non possono essere vuoti;
-- l'oggetto non può contenere ritorni a capo;
-- `INVII_REALI_ABILITATI=true` richiede `AUTOMAZIONE_ATTIVA=true`.
-
-Le colonne descrittive `tipo`, `descrizione` e `modificabile` aiutano l'operatore, ma il runtime non si blocca per una loro modifica editoriale.
-
-## Tab `NOTIFICHE`
-
-Intestazioni:
+Intestazioni dello schema v2:
 
 ```text
-notification_id | id_arbitro | nome | cognome | email | scadenza_certificato | tipo | stato | tentativi | creato_il | aggiornato_il | message_id | versione_app | errore
+notification_id | id_arbitro | scadenza_certificato | tipo | stato | tentativi | creato_il | aggiornato_il | message_id | versione_app | errore
 ```
 
-La chiave è:
+Nome, cognome ed email non vengono persistiti.
+
+La chiave è stabile rispetto alla finestra di preavviso:
 
 ```text
-ID_ARBITRO|DATA_SCADENZA|TIPO_NOTIFICA
+ID_ARBITRO|DATA_SCADENZA|CERTIFICATO_SCADENZA_V1
 ```
 
-Regole:
+Stati:
 
-- la prenotazione crea `SENDING` prima della chiamata SMTP;
-- `SENT`, `SENDING` e `UNKNOWN_REVIEW_REQUIRED` bloccano nuovi tentativi;
-- soltanto `FAILED_RETRYABLE` può tornare a `SENDING`;
-- `creato_il` è immutabile e `aggiornato_il` non può regredire;
-- più righe con la stessa chiave bloccano l'esecuzione.
+- `SENDING`: prenotazione avvenuta, esito non ancora concluso;
+- `SENT`: invio confermato;
+- `FAILED_RETRYABLE`: errore ritentabile, fino a tre tentativi complessivi;
+- `FAILED_PERMANENT`: errore certo e non ritentabile;
+- `UNKNOWN_REVIEW_REQUIRED`: esito incerto da verificare manualmente.
 
-L'adapter legge la tab una volta per esecuzione, crea un indice `notification_id → riga` e lo aggiorna localmente dopo append o update.
+`SENT`, `SENDING`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED` bloccano nuovi tentativi. Le chiavi duplicate bloccano l'esecuzione.
 
-## Tab `DASHBOARD`
+## Migrazione dallo schema precedente
 
-Intestazioni:
+La migrazione:
 
-```text
-metrica | valore | descrizione
-```
+1. legge CONFIG e NOTIFICHE;
+2. produce un'anteprima aggregata;
+3. salva un backup JSON prima dell'applicazione;
+4. sostituisce le vecchie chiavi con lo schema v2;
+5. converte `REMINDER_n` nel tipo stabile;
+6. elimina nome, cognome ed email dal registro;
+7. rifiuta collisioni tra chiavi convertite;
+8. lascia automazione e invii reali disattivati.
 
-La fotografia aggregata comprende stato, heartbeat UTC, righe lette e valide, candidati, notifiche già presenti, invii, esiti incerti, anomalie, `automazione_attiva`, versione e codice dell'eventuale errore fatale. Non contiene nominativi o email.
+## DASHBOARD e ANOMALIE
 
-## Tab `ANOMALIE`
+La dashboard contiene solo metriche aggregate. ANOMALIE conserva codice, origine, riga e campo, con messaggio limitato e sanitizzato. Non devono esservi copiati payload Google, credenziali o contenuti completi delle righe.
 
-Intestazioni:
+## Concorrenza
 
-```text
-anomalia_id | rilevata_il | severita | origine | codice | riga_sorgente | campo | messaggio | versione_app | risolta_il
-```
-
-`anomalia_id` è deterministico. L'adapter legge una volta gli ID ancora aperti e non accoda duplicati a ogni esecuzione. Il messaggio è limitato e sanitizzato.
-
-## Scritture Google
-
-Tutte le scritture usano `valueInputOption=RAW`.
-
-- l'inizializzatore scrive soltanto in tab vuote;
-- `NOTIFICHE` usa append per nuove chiavi e update per le transizioni;
-- `DASHBOARD` aggiorna la fotografia in una richiesta;
-- `ANOMALIE` accoda soltanto anomalie nuove.
-
-Google Sheets non offre una transazione tra ricerca e scrittura. Le esecuzioni sono serializzate tramite il gruppo `concurrency` condiviso dai workflow.
+Google Sheets non offre una transazione completa tra ricerca e scrittura. Tutti i workflow canonici condividono il gruppo `reminder-certificati-runtime`; gli invii non devono essere lanciati contemporaneamente da percorsi esterni non coordinati.
