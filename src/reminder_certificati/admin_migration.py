@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from .admin_schema import COLONNE_CONFIG, configurazione_iniziale_sicura
 from .admin_store import COLONNE_NOTIFICHE
 from .rules import TIPO_NOTIFICA_SCADENZA
+from .runtime_config import carica_configurazione
 
 COLONNE_NOTIFICHE_LEGACY: tuple[str, ...] = (
     "notification_id",
@@ -78,8 +79,15 @@ def prepara_piano(
 ) -> PianoMigrazione:
     config_prima = _normalizza(config)
     notifiche_prima = _normalizza(notifiche)
-    config_dopo = _migra_config(config_prima)
     notifiche_dopo = _migra_notifiche(notifiche_prima)
+    config_legacy = not _config_corrente(config_prima)
+    migrazione_necessaria = config_legacy or notifiche_dopo != notifiche_prima
+    config_dopo = _migra_config(
+        config_prima,
+        forza_disattivazione=migrazione_necessaria,
+    )
+    carica_configurazione(config_dopo)
+
     modifiche: list[str] = []
     if config_dopo != config_prima:
         modifiche.append("CONFIG_SCHEMA_V2")
@@ -114,8 +122,18 @@ def applica_piano(
     )
 
 
+def _config_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
+    if not matrice or matrice[0] != COLONNE_CONFIG:
+        return False
+    canoniche = {voce.chiave for voce in configurazione_iniziale_sicura()}
+    presenti = {riga[0] for riga in matrice[1:] if riga and riga[0]}
+    return presenti == canoniche
+
+
 def _migra_config(
     matrice: tuple[tuple[str, ...], ...],
+    *,
+    forza_disattivazione: bool,
 ) -> tuple[tuple[str, ...], ...]:
     if not matrice or matrice[0] != COLONNE_CONFIG:
         raise ErroreMigrazioneAmministrativa("CONFIG: intestazioni non riconosciute")
@@ -131,25 +149,14 @@ def _migra_config(
         per_chiave[chiave] = riga
 
     valori = {chiave: riga[1] for chiave, riga in per_chiave.items()}
-    canoniche = configurazione_iniziale_sicura()
     righe: list[tuple[str, ...]] = [COLONNE_CONFIG]
-    for voce in canoniche:
-        valore = voce.valore
-        if voce.chiave in valori:
-            valore = valori[voce.chiave]
-        elif voce.chiave == "AUTOMAZIONE_ATTIVA":
-            valore = "false"
-        elif voce.chiave == "INVII_REALI_ABILITATI":
-            valore = "false"
-        elif voce.chiave in {
-            "GIORNI_PREAVVISO",
-            "LIMITE_INVII_PER_ESECUZIONE",
-            "DESTINATARIO_OVERRIDE",
-            "OGGETTO_EMAIL",
-            "CORPO_EMAIL",
-            "FIRMA_TESTO",
+    for voce in configurazione_iniziale_sicura():
+        valore = valori.get(voce.chiave, voce.valore)
+        if forza_disattivazione and voce.chiave in {
+            "AUTOMAZIONE_ATTIVA",
+            "INVII_REALI_ABILITATI",
         }:
-            valore = valori.get(voce.chiave, voce.valore)
+            valore = "false"
         righe.append(
             (
                 voce.chiave,
@@ -159,14 +166,6 @@ def _migra_config(
                 "true" if voce.modificabile else "false",
             )
         )
-
-    # Ogni migrazione lascia intenzionalmente il sistema spento.
-    righe = [
-        tuple("false" if riga[0] in {"AUTOMAZIONE_ATTIVA", "INVII_REALI_ABILITATI"} and indice == 1 else cella for indice, cella in enumerate(riga))
-        if riga and riga[0] in {"AUTOMAZIONE_ATTIVA", "INVII_REALI_ABILITATI"}
-        else riga
-        for riga in righe
-    ]
     return tuple(righe)
 
 
@@ -274,5 +273,8 @@ class TrasportoMigrazioneGoogleApi:
             spreadsheetId=spreadsheet_id,
             range=f"'{escaped}'!A1",
             valueInputOption="RAW",
-            body={"majorDimension": "ROWS", "values": [list(riga) for riga in valori]},
+            body={
+                "majorDimension": "ROWS",
+                "values": [list(riga) for riga in valori],
+            },
         ).execute()
