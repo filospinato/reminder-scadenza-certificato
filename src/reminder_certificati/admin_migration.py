@@ -230,8 +230,8 @@ def _dashboard_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
             return False
         chiavi.add(chiave)
     return (
-        "invio_automatico_attivo" in chiavi
-        and "automazione_attiva" not in chiavi
+        "automazione_attiva" in chiavi
+        and "invio_automatico_attivo" not in chiavi
         and "kill_switch" not in chiavi
     )
 
@@ -266,24 +266,24 @@ def _migra_dashboard(
 
     descrizione = "Indica se gli invii programmati sono abilitati."
     righe: list[tuple[str, ...]] = [COLONNE_DASHBOARD]
-    nuova_presente = "invio_automatico_attivo" in chiavi_originali
+    metrica_presente = "automazione_attiva" in chiavi_originali
     for riga in matrice[1:]:
         if not any(cella.strip() for cella in riga):
             continue
         chiave = riga[0].strip()
-        if chiave in {"kill_switch", "automazione_attiva"}:
-            if nuova_presente:
+        if chiave in {"kill_switch", "invio_automatico_attivo"}:
+            if metrica_presente:
                 continue
-            righe.append(("invio_automatico_attivo", "NO", descrizione))
-            nuova_presente = True
+            righe.append(("automazione_attiva", "NO", descrizione))
+            metrica_presente = True
             continue
-        if chiave == "invio_automatico_attivo" and forza_disattivazione:
-            righe.append(("invio_automatico_attivo", "NO", descrizione))
+        if chiave == "automazione_attiva" and forza_disattivazione:
+            righe.append(("automazione_attiva", "NO", descrizione))
             continue
         righe.append(riga)
 
-    if not nuova_presente:
-        righe.append(("invio_automatico_attivo", "NO", descrizione))
+    if not metrica_presente:
+        righe.append(("automazione_attiva", "NO", descrizione))
     return tuple(righe)
 
 
