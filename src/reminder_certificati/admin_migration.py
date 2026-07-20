@@ -1,4 +1,4 @@
-"""Migrazione esplicita e conservativa dello Spreadsheet amministrativo."""
+"""Migrazione conservativa dello Spreadsheet amministrativo."""
 
 from __future__ import annotations
 
@@ -20,6 +20,13 @@ from .admin_store import COLONNE_NOTIFICHE
 from .rules import TIPO_NOTIFICA_SCADENZA
 from .runtime_config import carica_configurazione
 
+COLONNE_CONFIG_V2: tuple[str, ...] = (
+    "chiave",
+    "valore",
+    "tipo",
+    "descrizione",
+    "modificabile",
+)
 COLONNE_NOTIFICHE_LEGACY: tuple[str, ...] = (
     "notification_id",
     "id_arbitro",
@@ -118,11 +125,11 @@ def prepara_piano(
 
     modifiche: list[str] = []
     if config_dopo != config_prima:
-        modifiche.append("CONFIG_SCHEMA_V2")
+        modifiche.append("CONFIG_SCHEMA_V3")
     if notifiche_dopo != notifiche_prima:
         modifiche.append("NOTIFICHE_MINIMIZZATE")
     if dashboard is not None and dashboard_dopo != dashboard_prima:
-        modifiche.append("DASHBOARD_SCHEMA_V2")
+        modifiche.append("DASHBOARD_SCHEMA_V3")
     return PianoMigrazione(
         config_prima=config_prima,
         notifiche_prima=notifiche_prima,
@@ -180,39 +187,32 @@ def _migra_config(
     *,
     forza_disattivazione: bool,
 ) -> tuple[tuple[str, ...], ...]:
-    if not matrice or matrice[0] != COLONNE_CONFIG:
+    if not matrice or matrice[0] not in {COLONNE_CONFIG, COLONNE_CONFIG_V2}:
         raise ErroreMigrazioneAmministrativa("CONFIG: intestazioni non riconosciute")
-    per_chiave: dict[str, tuple[str, ...]] = {}
+    larghezza = len(matrice[0])
+    valori: dict[str, str] = {}
     for riga in matrice[1:]:
         if not any(cella.strip() for cella in riga):
             continue
-        if len(riga) != len(COLONNE_CONFIG):
+        if len(riga) != larghezza:
             raise ErroreMigrazioneAmministrativa("CONFIG: riga con larghezza non valida")
         chiave = riga[0].strip()
-        if not chiave or chiave in per_chiave:
+        if not chiave or chiave in valori:
             raise ErroreMigrazioneAmministrativa("CONFIG: chiave vuota o duplicata")
-        per_chiave[chiave] = riga
+        valori[chiave] = riga[1]
 
-    valori = {chiave: riga[1] for chiave, riga in per_chiave.items()}
+    attivazione_precedente = valori.get(
+        "INVIO_AUTOMATICO_ATTIVO",
+        valori.get("AUTOMAZIONE_ATTIVA", "false"),
+    )
     righe: list[tuple[str, ...]] = [COLONNE_CONFIG]
     for voce in configurazione_iniziale_sicura():
         valore = valori.get(voce.chiave, voce.valore)
         if voce.chiave == "SCHEMA_VERSION":
             valore = str(VERSIONE_SCHEMA_AMMINISTRATIVO)
-        if forza_disattivazione and voce.chiave in {
-            "AUTOMAZIONE_ATTIVA",
-            "INVII_REALI_ABILITATI",
-        }:
-            valore = "false"
-        righe.append(
-            (
-                voce.chiave,
-                valore,
-                voce.tipo.value,
-                voce.descrizione,
-                "true" if voce.modificabile else "false",
-            )
-        )
+        elif voce.chiave == "INVIO_AUTOMATICO_ATTIVO":
+            valore = "false" if forza_disattivazione else attivazione_precedente
+        righe.append((voce.chiave, valore, voce.descrizione))
     return tuple(righe)
 
 
@@ -229,7 +229,11 @@ def _dashboard_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
         if not chiave or chiave in chiavi:
             return False
         chiavi.add(chiave)
-    return "automazione_attiva" in chiavi and "kill_switch" not in chiavi
+    return (
+        "invio_automatico_attivo" in chiavi
+        and "automazione_attiva" not in chiavi
+        and "kill_switch" not in chiavi
+    )
 
 
 def _migra_dashboard(
@@ -260,26 +264,26 @@ def _migra_dashboard(
             )
         chiavi_originali.add(chiave)
 
-    descrizione = "Stato dell'unico interruttore operativo."
+    descrizione = "Indica se gli invii programmati sono abilitati."
     righe: list[tuple[str, ...]] = [COLONNE_DASHBOARD]
-    automazione_presente = "automazione_attiva" in chiavi_originali
+    nuova_presente = "invio_automatico_attivo" in chiavi_originali
     for riga in matrice[1:]:
         if not any(cella.strip() for cella in riga):
             continue
         chiave = riga[0].strip()
-        if chiave == "kill_switch":
-            if automazione_presente:
+        if chiave in {"kill_switch", "automazione_attiva"}:
+            if nuova_presente:
                 continue
-            righe.append(("automazione_attiva", "NO", descrizione))
-            automazione_presente = True
+            righe.append(("invio_automatico_attivo", "NO", descrizione))
+            nuova_presente = True
             continue
-        if chiave == "automazione_attiva" and forza_disattivazione:
-            righe.append(("automazione_attiva", "NO", descrizione))
+        if chiave == "invio_automatico_attivo" and forza_disattivazione:
+            righe.append(("invio_automatico_attivo", "NO", descrizione))
             continue
         righe.append(riga)
 
-    if not automazione_presente:
-        righe.append(("automazione_attiva", "NO", descrizione))
+    if not nuova_presente:
+        righe.append(("invio_automatico_attivo", "NO", descrizione))
     return tuple(righe)
 
 
