@@ -10,6 +10,7 @@ from reminder_certificati.admin_store import (
 )
 from reminder_certificati.models import Arbitro, CandidatoNotifica
 from reminder_certificati.registry import RecordNotifica, StatoNotifica
+from reminder_certificati.rules import TIPO_NOTIFICA_SCADENZA
 
 ORA = datetime(2026, 7, 17, 10, 0, tzinfo=timezone.utc)
 
@@ -24,15 +25,15 @@ def candidato() -> CandidatoNotifica:
     )
     return CandidatoNotifica(
         arbitro=arbitro,
-        tipo="REMINDER_30",
+        tipo=TIPO_NOTIFICA_SCADENZA,
         giorni_residui=15,
-        notification_id="A-1|2026-08-01|REMINDER_30",
+        notification_id=f"A-1|2026-08-01|{TIPO_NOTIFICA_SCADENZA}",
     )
 
 
 def record(stato: StatoNotifica = StatoNotifica.SENDING) -> RecordNotifica:
     return RecordNotifica(
-        notification_id="A-1|2026-08-01|REMINDER_30",
+        notification_id=f"A-1|2026-08-01|{TIPO_NOTIFICA_SCADENZA}",
         stato=stato,
         tentativi=1,
         creato_il=ORA,
@@ -41,24 +42,26 @@ def record(stato: StatoNotifica = StatoNotifica.SENDING) -> RecordNotifica:
     )
 
 
-def test_riga_contiene_tutti_i_dati_amministrativi() -> None:
-    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
+def test_riga_persiste_solo_i_dati_necessari() -> None:
+    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.13.0")
     valori = riga.come_mappa()
-    assert valori["nome"] == "Anna Maria"
-    assert valori["cognome"] == "Verdi"
-    assert valori["email"] == "anna@example.it"
+    assert "nome" not in valori
+    assert "cognome" not in valori
+    assert "email" not in valori
+    assert valori["id_arbitro"] == "A-1"
+    assert valori["scadenza_certificato"] == "2026-08-01"
     assert valori["stato"] == "SENDING"
-    assert valori["versione_app"] == "0.6.0"
+    assert valori["versione_app"] == "0.13.0"
 
 
 def test_round_trip_mappa_preserva_record() -> None:
-    originale = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
+    originale = RigaNotifica.da_record(candidato(), record(), versione_app="0.13.0")
     assert RigaNotifica.da_mappa(originale.come_mappa()) == originale
 
 
 def test_salva_inserisce_e_aggiorna_senza_duplicare() -> None:
     archivio = ArchivioNotificheMemoria()
-    iniziale = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
+    iniziale = RigaNotifica.da_record(candidato(), record(), versione_app="0.13.0")
     archivio.salva(iniziale)
 
     inviato = RecordNotifica(
@@ -69,7 +72,7 @@ def test_salva_inserisce_e_aggiorna_senza_duplicare() -> None:
         aggiornato_il=datetime(2026, 7, 17, 10, 1, tzinfo=timezone.utc),
         message_id="<test@example.it>",
     )
-    archivio.salva(RigaNotifica.da_record(candidato(), inviato, versione_app="0.6.0"))
+    archivio.salva(RigaNotifica.da_record(candidato(), inviato, versione_app="0.13.0"))
 
     assert len(archivio.snapshot()) == 1
     salvata = archivio.ottieni(iniziale.notification_id)
@@ -78,14 +81,14 @@ def test_salva_inserisce_e_aggiorna_senza_duplicare() -> None:
 
 
 def test_rifiuta_chiavi_duplicate_nella_sorgente() -> None:
-    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
+    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.13.0")
     with pytest.raises(ErroreArchivioNotifiche, match="duplicato"):
         ArchivioNotificheMemoria([riga, riga])
 
 
 def test_rifiuta_regressione_temporale() -> None:
     archivio = ArchivioNotificheMemoria()
-    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.6.0")
+    riga = RigaNotifica.da_record(candidato(), record(), versione_app="0.13.0")
     archivio.salva(riga)
     precedente = replace(
         riga,
@@ -104,4 +107,4 @@ def test_rifiuta_record_e_candidato_non_allineati() -> None:
         aggiornato_il=ORA,
     )
     with pytest.raises(ValueError, match="differenti"):
-        RigaNotifica.da_record(candidato(), diverso, versione_app="0.6.0")
+        RigaNotifica.da_record(candidato(), diverso, versione_app="0.13.0")
