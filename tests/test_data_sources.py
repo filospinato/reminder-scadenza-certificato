@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,6 +20,7 @@ from reminder_certificati.data_sources import (
 class LettoreFake:
     matrice: list[list[Any]]
     chiamate: list[tuple[str, str]] = field(default_factory=list)
+    chiamate_batch: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
 
     def leggi_valori(
         self,
@@ -27,7 +29,34 @@ class LettoreFake:
         intervallo_a1: str,
     ) -> list[list[Any]]:
         self.chiamate.append((spreadsheet_id, intervallo_a1))
-        return self.matrice
+        return [list(self.matrice[0])]
+
+    def leggi_intervalli(
+        self,
+        *,
+        spreadsheet_id: str,
+        intervalli_a1: tuple[str, ...],
+    ) -> list[list[list[Any]]]:
+        self.chiamate_batch.append((spreadsheet_id, intervalli_a1))
+        risultato: list[list[list[Any]]] = []
+        for intervallo in intervalli_a1:
+            match = re.search(r"!([A-Z]+)\d+:\1$", intervallo)
+            assert match is not None
+            indice = _indice_colonna(match.group(1))
+            risultato.append(
+                [
+                    [riga[indice] if indice < len(riga) else ""]
+                    for riga in self.matrice[1:]
+                ]
+            )
+        return risultato
+
+
+def _indice_colonna(colonna: str) -> int:
+    valore = 0
+    for carattere in colonna:
+        valore = valore * 26 + ord(carattere) - ord("A") + 1
+    return valore - 1
 
 
 def matrice_valida() -> list[list[Any]]:
@@ -90,7 +119,7 @@ def test_rifiuta_righe_che_non_sono_sequenze_di_celle() -> None:
         tabella_da_matrice([["ID"], "A-1"], nome_sorgente="test")  # type: ignore[list-item]
 
 
-def test_adapter_costruisce_intervallo_a1_e_protegge_apostrofi() -> None:
+def test_adapter_legge_intestazioni_e_solo_le_colonne_necessarie() -> None:
     lettore = LettoreFake(matrice_valida())
     adapter = AdapterGoogleSheets(
         lettore=lettore,
@@ -99,7 +128,22 @@ def test_adapter_costruisce_intervallo_a1_e_protegge_apostrofi() -> None:
         colonne_a1="A:F",
     )
     tabella = adapter.leggi()
-    assert lettore.chiamate == [("spreadsheet-test", "'Arbitri d''Italia'!A1:F")]
+    assert lettore.chiamate == [
+        ("spreadsheet-test", "'Arbitri d''Italia'!A1:F1")
+    ]
+    assert lettore.chiamate_batch == [
+        (
+            "spreadsheet-test",
+            (
+                "'Arbitri d''Italia'!A2:A",
+                "'Arbitri d''Italia'!B2:B",
+                "'Arbitri d''Italia'!C2:C",
+                "'Arbitri d''Italia'!D2:D",
+                "'Arbitri d''Italia'!E2:E",
+                "'Arbitri d''Italia'!F2:F",
+            ),
+        )
+    ]
     assert tabella.nome_sorgente == "Google Sheets:Arbitri d'Italia"
     assert tabella.prima_riga_dati == 2
     assert tabella.righe[0]["id_arbitro"] == "A-1"
@@ -115,7 +159,8 @@ def test_adapter_legge_intestazioni_dalla_riga_due_di_operativo() -> None:
         riga_intestazioni=2,
     )
     tabella = adapter.leggi()
-    assert lettore.chiamate == [("sheet", "'Operativo'!A2:F")]
+    assert lettore.chiamate == [("sheet", "'Operativo'!A2:F2")]
+    assert lettore.chiamate_batch[0][1][0] == "'Operativo'!A3:A"
     assert tabella.prima_riga_dati == 3
 
 
@@ -124,7 +169,7 @@ def test_adapter_legge_intestazioni_dalla_riga_due_di_operativo() -> None:
     [
         ("", "Operativo", "A:ZZ", 1, "spreadsheet_id"),
         ("sheet", "", "A:ZZ", 1, "nome_scheda"),
-        ("sheet", "Operativo", "", 1, "intervallo colonne"),
+        ("sheet", "Operativo", "", 1, "forma A:ZZ"),
         ("sheet", "Operativo", "A:ZZ", 0, "riga_intestazioni"),
         ("sheet", "Operativo", "A2:ZZ", 1, "forma A:ZZ"),
     ],
@@ -189,10 +234,10 @@ class ServizioGoogleFake:
         self.richiesta = richiesta
         self.parametri: dict[str, Any] | None = None
 
-    def spreadsheets(self) -> ServizioGoogleFake:
+    def spreadsheets(self):
         return self
 
-    def values(self) -> ServizioGoogleFake:
+    def values(self):
         return self
 
     def get(self, **kwargs: Any) -> RichiestaFake:
@@ -204,12 +249,12 @@ def test_lettore_google_api_usa_sola_lettura_per_righe() -> None:
     servizio = ServizioGoogleFake(RichiestaFake({"values": matrice_valida()}))
     valori = LettoreGoogleApi(servizio).leggi_valori(
         spreadsheet_id="sheet",
-        intervallo_a1="'Operativo'!A2:F",
+        intervallo_a1="'Operativo'!A2:F2",
     )
     assert valori == matrice_valida()
     assert servizio.parametri == {
         "spreadsheetId": "sheet",
-        "range": "'Operativo'!A2:F",
+        "range": "'Operativo'!A2:F2",
         "majorDimension": "ROWS",
     }
 
@@ -221,12 +266,12 @@ def test_lettore_google_api_converte_errori_e_risposte_non_valide() -> None:
     with pytest.raises(ErroreSorgenteDati, match="PermissionError"):
         LettoreGoogleApi(servizio_errore).leggi_valori(
             spreadsheet_id="sheet",
-            intervallo_a1="'Operativo'!A2:F",
+            intervallo_a1="'Operativo'!A2:F2",
         )
 
     servizio_risposta = ServizioGoogleFake(RichiestaFake({"values": "non-matrice"}))
     with pytest.raises(ErroreSorgenteDati, match="campo values non valido"):
         LettoreGoogleApi(servizio_risposta).leggi_valori(
             spreadsheet_id="sheet",
-            intervallo_a1="'Operativo'!A2:F",
+            intervallo_a1="'Operativo'!A2:F2",
         )
