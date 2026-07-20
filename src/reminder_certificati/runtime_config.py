@@ -1,15 +1,15 @@
-"""Lettura rigorosa della tab CONFIG e barriere di attivazione.
-
-La configurazione del foglio non è sufficiente da sola ad abilitare invii reali:
-serve anche un consenso esterno esplicito fornito dal workflow.
-"""
+"""Lettura rigorosa della tab CONFIG e barriere di attivazione."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from .admin_schema import COLONNE_CONFIG, configurazione_iniziale_sicura
+from .admin_schema import (
+    COLONNE_CONFIG,
+    VERSIONE_SCHEMA_AMMINISTRATIVO,
+    configurazione_iniziale_sicura,
+)
 from .email_templates import ConfigurazioneEmail
 from .validation import email_valida
 
@@ -20,6 +20,7 @@ class ErroreConfigurazioneRuntime(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ConfigurazioneRuntime:
+    schema_version: int
     automazione_attiva: bool
     invii_reali_abilitati: bool
     giorni_preavviso: int
@@ -32,8 +33,6 @@ class ConfigurazioneRuntime:
         return self.automazione_attiva
 
     def invio_reale_consentito(self, *, consenso_esterno: bool) -> bool:
-        """Richiede simultaneamente foglio e consenso del workflow."""
-
         return (
             consenso_esterno
             and self.automazione_attiva
@@ -91,6 +90,17 @@ def carica_configurazione(
             "CONFIG: chiavi sconosciute: " + ", ".join(sconosciute)
         )
 
+    schema_version = _intero_limitato(
+        righe["SCHEMA_VERSION"]["valore"],
+        campo="SCHEMA_VERSION",
+        minimo=1,
+        massimo=999,
+    )
+    if schema_version != VERSIONE_SCHEMA_AMMINISTRATIVO:
+        raise ErroreConfigurazioneRuntime(
+            "CONFIG: versione schema non supportata; eseguire migrate-admin"
+        )
+
     automazione_attiva = _booleano(
         righe["AUTOMAZIONE_ATTIVA"]["valore"],
         "AUTOMAZIONE_ATTIVA",
@@ -135,6 +145,7 @@ def carica_configurazione(
         )
 
     return ConfigurazioneRuntime(
+        schema_version=schema_version,
         automazione_attiva=automazione_attiva,
         invii_reali_abilitati=invii_reali,
         giorni_preavviso=giorni,
