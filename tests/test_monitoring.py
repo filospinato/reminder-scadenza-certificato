@@ -25,17 +25,30 @@ def _anomalia() -> AnomaliaRuntime:
     )
 
 
-def test_sanitizza_email_token_notification_id_e_riduce_righe() -> None:
+def test_sanitizza_email_token_e_riduce_righe() -> None:
     risultato = sanitizza_messaggio(
-        "Errore per mario@example.it\nAuthorization: sk-test-segreto "
-        "A-123|2026-08-01|REMINDER_30"
+        "Errore per mario@example.it\nAuthorization: sk-test-segreto"
     )
 
     assert "mario@example.it" not in risultato
     assert "sk-test-segreto" not in risultato
-    assert "A-123" not in risultato
-    assert "notification-id-rimosso" in risultato
     assert "\n" not in risultato
+
+
+def test_sanitizza_identificativi_notifica_indipendentemente_dal_tipo() -> None:
+    identificativi = (
+        "A-123|2026-08-01|CERTIFICATO_SCADENZA_V1",
+        "B-456|2026-08-02|TEST_CERTIFICATO_SCADENZA_V1",
+        "C-789|2026-08-03|REMINDER_30",
+        "SYNTHETIC-REGISTRY-abc123|2099-12-31|SYNTHETIC_REGISTRY_CHECK",
+    )
+
+    for identificativo in identificativi:
+        risultato = sanitizza_messaggio(f"Errore {identificativo}: stato non valido")
+
+        assert identificativo not in risultato
+        assert identificativo.split("|", maxsplit=1)[0] not in risultato
+        assert "notification-id-rimosso" in risultato
 
 
 def test_anomalia_id_e_stabile_e_i_duplicati_aperti_non_si_accodano() -> None:
