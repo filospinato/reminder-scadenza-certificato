@@ -40,6 +40,18 @@ def test_workflow_ordinario_non_usa_gate_o_conferme_duplicate() -> None:
     assert "group: reminder-certificati-runtime" in testo
 
 
+def test_workflow_ordinario_configura_solo_l_id_di_operativo() -> None:
+    testo = ORDINARIO.read_text(encoding="utf-8")
+
+    assert "${{ vars.OPERATIVO_SPREADSHEET_ID }}" in testo
+    for nome in (
+        "OPERATIVO_SHEET_NAME",
+        "OPERATIVO_HEADER_ROW",
+        "OPERATIVO_COLUMNS_A1",
+    ):
+        assert nome not in testo
+
+
 def test_segreti_smtp_restano_nel_solo_test_email() -> None:
     testo = ORDINARIO.read_text(encoding="utf-8")
     indice = testo.index("- name: Invia una email di prova")
