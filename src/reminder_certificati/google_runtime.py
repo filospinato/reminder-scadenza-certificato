@@ -154,5 +154,5 @@ def leggi_matrice_config(
         raise ErroreGoogleRuntime("ADMIN_SPREADSHEET_ID mancante")
     return lettore.leggi_valori(
         spreadsheet_id=identificativo,
-        intervallo_a1="'CONFIG'!A:E",
+        intervallo_a1="'CONFIG'!A:C",
     )
