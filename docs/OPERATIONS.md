@@ -41,8 +41,8 @@ reminder-certificati preflight
 ALLOW_SYNTHETIC_REGISTRY_WRITE=true reminder-certificati registry-check --confirm-synthetic-write
 reminder-certificati review-registry
 reminder-certificati dry-run
-reminder-certificati test-smtp --confirm-email-delivery
-reminder-certificati produzione --confirm-email-delivery
+ALLOW_EMAIL_DELIVERY=true reminder-certificati test-smtp --confirm-email-delivery
+PRODUCTION_ENABLED=true reminder-certificati produzione
 ```
 
 ## Preflight
@@ -75,12 +75,14 @@ Un workflow con `ATTENZIONE` non deve apparire verde.
 
 ## Modifica di CONFIG
 
-L'operatore modifica normalmente soltanto la colonna `valore`. Non deve modificare `SCHEMA_VERSION`, rinominare chiavi, duplicare righe o inserire segreti. `AUTOMAZIONE_ATTIVA` resta l'unico comando ordinario e di emergenza; `INVII_REALI_ABILITATI` è solo una barriera aggiuntiva per la produzione.
+L'operatore modifica normalmente soltanto la colonna `valore`. Non deve modificare `SCHEMA_VERSION`, rinominare chiavi, duplicare righe o inserire segreti. `AUTOMAZIONE_ATTIVA` resta il comando ordinario e di emergenza; `INVII_REALI_ABILITATI` è la barriera separata per gli invii agli indirizzi reali.
 
-## Modalità test
+## Test SMTP
 
-Il test SMTP mantiene il flusso corrente: usa `DESTINATARIO_OVERRIDE`, invia al massimo un messaggio e richiede doppio consenso. La modifica che lo renderebbe interamente sintetico non fa parte della versione 0.13.0.
+Il test SMTP usa `DESTINATARIO_OVERRIDE`, invia al massimo un messaggio e richiede contemporaneamente l'input manuale del workflow, `ALLOW_EMAIL_DELIVERY=true` e `--confirm-email-delivery`. Queste conferme appartengono soltanto al collaudo manuale.
 
 ## Produzione
 
-Il modello schedulato resta fuori da `.github/workflows`. Prima dell'attivazione servono collaudi reali, contenuti approvati, Environment protetto e autorizzazione esplicita.
+Il modello schedulato resta fuori da `.github/workflows` fino al go-live. La produzione richiede Environment protetto, `PRODUCTION_ENABLED=true`, `AUTOMAZIONE_ATTIVA=true`, `INVII_REALI_ABILITATI=true` e configurazione SMTP valida.
+
+Il workflow non imposta `ALLOW_EMAIL_DELIVERY` e non passa `--confirm-email-delivery`: sarebbero conferme automatiche prive di decisione umana. Il runtime verifica direttamente `PRODUCTION_ENABLED`.
