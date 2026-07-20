@@ -27,12 +27,13 @@ def test_modello_usa_environment_wif_e_lock_condiviso():
     assert "google-github-actions/auth@v3" in testo
 
 
-def test_produzione_richiede_un_gate_esterno_e_le_barriere_runtime():
+def test_produzione_usa_un_solo_gate_esterno_reale():
     testo = _testo()
     assert "PRODUCTION_ENABLED: ${{ vars.PRODUCTION_ENABLED }}" in testo
     assert '"${PRODUCTION_ENABLED:-}" == "true"' in testo
-    assert 'ALLOW_EMAIL_DELIVERY: "true"' in testo
-    assert "reminder-certificati produzione --confirm-email-delivery" in testo
+    assert "run: reminder-certificati produzione" in testo
+    assert "ALLOW_EMAIL_DELIVERY" not in testo
+    assert "--confirm-email-delivery" not in testo
 
 
 def test_modello_ha_una_sola_esecuzione_giornaliera():
