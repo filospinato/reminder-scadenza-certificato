@@ -11,21 +11,21 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 - [ ] condividere `Operativo` in sola lettura e il foglio amministrativo in modifica;
 - [ ] configurare una seconda identità umana di recupero.
 
-## 2. Migrazione e collaudi Google
+## 2. Aggiornamento e collaudi Google
 
 - [ ] creare una copia di sicurezza del foglio amministrativo reale;
-- [ ] eseguire `migrate-admin` in anteprima e applicare la migrazione con backup;
-- [ ] verificare che `AUTOMAZIONE_ATTIVA=false` e `INVII_REALI_ABILITATI=false`;
-- [ ] completare il preflight reale;
+- [ ] eseguire `setup-admin` in anteprima e applicare lo schema v3 con backup;
+- [ ] verificare che `INVIO_AUTOMATICO_ATTIVO=false` dopo l'aggiornamento;
+- [ ] eseguire `check` sul foglio reale;
 - [ ] collaudare la scrittura sintetica del registro;
-- [ ] eseguire un dry-run controllato su `Operativo`;
 - [ ] verificare concorrenza, lock e revoca dei permessi.
 
 ## 3. SMTP e contenuti
 
 - [ ] approvare mittente, Reply-To, oggetto, corpo, firma e logo;
 - [ ] configurare i Secrets MDaemon nell'Environment corretto;
-- [ ] eseguire il test SMTP esclusivamente sul destinatario override;
+- [ ] eseguire il test SMTP sul `DESTINATARIO_OVERRIDE` usando un candidato reale;
+- [ ] verificare se MDaemon consente di eliminare in futuro il supporto SMTP `PLAIN`;
 - [ ] collaudare errori ritentabili, permanenti ed esiti incerti;
 - [ ] verificare il comportamento del registro dopo ogni classe di esito.
 
@@ -35,15 +35,16 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 - [ ] eseguire un piccolo lotto controllato;
 - [ ] verificare dashboard, anomalie e deduplicazione;
 - [ ] autorizzare formalmente il go-live;
-- [ ] attivare il workflow di produzione partendo dal modello revisionato;
-- [ ] impostare `PRODUCTION_ENABLED=true` soltanto al termine dei collaudi;
-- [ ] verificare la schedule giornaliera rispetto a UTC e ora legale;
+- [ ] aggiungere una sola schedule giornaliera al modello revisionato;
+- [ ] spostare il workflow produttivo in `.github/workflows`;
+- [ ] impostare `INVIO_AUTOMATICO_ATTIVO=true` soltanto al termine dei collaudi;
+- [ ] verificare la schedule rispetto a UTC e ora legale;
 - [ ] monitorare ravvicinatamente le prime esecuzioni.
 
 ## 5. Consegna operativa
 
 - [ ] completare inventario, proprietari e contatti di recupero;
 - [ ] provare le procedure di arresto ed emergenza;
-- [ ] far eseguire il runbook a un responsabile non tecnico;
+- [ ] far eseguire i due workflow manuali a un responsabile non tecnico;
 - [ ] completare il passaggio di consegne;
 - [ ] disabilitare l'automazione di sviluppo dopo la consegna definitiva.
