@@ -14,6 +14,8 @@ class Arbitro:
     email: str
     scadenza_certificato: date
     attivo: bool = True
+    qualifica: str = ""
+    abilitazione: str = ""
 
     @property
     def nome_per_saluto(self) -> str:
