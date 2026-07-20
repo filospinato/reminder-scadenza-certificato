@@ -15,7 +15,7 @@ Il controllo e la prova funzionano anche quando l'invio automatico è spento. So
 ## Principi operativi
 
 - `Operativo` resta in sola lettura e vengono lette soltanto le otto colonne necessarie;
-- nome scheda, riga delle intestazioni e intervallo di colonne restano configurabili;
+- il contratto della sorgente è fisso nel codice: tab `Operativo`, intestazioni alla riga 2 e intervallo `A:AS`; l'operatore configura soltanto l'ID dello Spreadsheet;
 - `NOTIFICHE` e `ANOMALIE` restano visibili nel foglio amministrativo;
 - il test SMTP mantiene il comportamento corrente: usa un candidato reale, sostituisce l'indirizzo con l'override, registra una notifica `TEST_` e invia al massimo un messaggio;
 - il limite produttivo resta fissato internamente a 10 messaggi per esecuzione;
