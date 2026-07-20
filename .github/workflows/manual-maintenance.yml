@@ -1,0 +1,75 @@
+name: Reminder certificati — manutenzione
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operazione di manutenzione
+        required: true
+        type: choice
+        default: setup-preview
+        options:
+          - setup-preview
+          - setup-apply
+          - registry-check
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: reminder-certificati-runtime
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: preproduction
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Autenticazione Google temporanea
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[google]"
+
+      - name: Controlla preparazione o aggiornamenti
+        if: inputs.operation == 'setup-preview'
+        run: reminder-certificati setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
+
+      - name: Prepara o aggiorna con backup
+        if: inputs.operation == 'setup-apply'
+        run: reminder-certificati setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID" --apply --backup-path admin-migration-backup.json
+
+      - name: Carica il backup dell'aggiornamento
+        if: inputs.operation == 'setup-apply'
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-migration-backup
+          path: admin-migration-backup.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Collauda il registro con dati sintetici
+        if: inputs.operation == 'registry-check'
+        run: reminder-certificati registry-check
