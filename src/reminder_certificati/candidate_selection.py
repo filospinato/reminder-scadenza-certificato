@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
 from .models import Arbitro, CandidatoNotifica
-from .rules import trova_candidati
+from .rules import richiede_certificato_medico, trova_candidati
 from .validation import (
     AnomaliaDati,
     CodiceAnomalia,
@@ -21,7 +22,7 @@ class EsitoSelezioneCandidati:
 
 
 def seleziona_candidati(
-    arbitri: tuple[Arbitro, ...] | list[Arbitro],
+    arbitri: Sequence[Arbitro],
     *,
     oggi: date,
     giorni_preavviso: int,
@@ -29,9 +30,9 @@ def seleziona_candidati(
 ) -> EsitoSelezioneCandidati:
     """Valida i dati obbligatori soltanto per le scadenze nella finestra.
 
-    Le righe fuori finestra non producono anomalie per nome, cognome, email o ID.
-    Le righe senza scadenza non arrivano a questa fase perché vengono ignorate
-    durante la lettura di Operativo.
+    Le righe fuori finestra, inattive o appartenenti a categorie escluse non
+    producono anomalie per nome, cognome, email o ID. Le righe senza scadenza
+    non arrivano a questa fase perché vengono ignorate durante la lettura.
     """
 
     if giorni_preavviso < 0:
@@ -42,7 +43,11 @@ def seleziona_candidati(
 
     for arbitro in arbitri:
         giorni_residui = (arbitro.scadenza_certificato - oggi).days
-        if not arbitro.attivo or not 0 <= giorni_residui <= giorni_preavviso:
+        if (
+            not arbitro.attivo
+            or not richiede_certificato_medico(arbitro)
+            or not 0 <= giorni_residui <= giorni_preavviso
+        ):
             continue
 
         errori: list[AnomaliaDati] = []
