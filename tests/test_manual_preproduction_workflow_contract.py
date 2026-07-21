@@ -79,6 +79,8 @@ def test_workflow_manutenzione_separa_setup_e_registro() -> None:
     assert "reminder-certificati setup-admin" in testo
     assert "--apply --backup-path admin-migration-backup.json" in testo
     assert "actions/upload-artifact@v4" in testo
+    assert "if: always() && inputs.operation == 'setup-apply'" in testo
+    assert "retention-days: 7" in testo
     assert "reminder-certificati registry-check" in testo
     assert "--confirm-migration" not in testo
     assert "--confirm-synthetic-write" not in testo

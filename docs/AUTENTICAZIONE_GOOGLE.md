@@ -28,7 +28,7 @@ Il file amministrativo deve essere creato vuoto dall'amministratore umano. I ser
 2. viene collocato fuori da cartelle con condivisione ereditata ampia;
 3. viene condiviso direttamente con il service account come editor;
 4. l'ID viene salvato in `ADMIN_SPREADSHEET_ID`;
-5. `init-admin --spreadsheet-id ID` trasforma la singola tab vuota nelle quattro tab canoniche.
+5. `reminder-certificati setup-admin --spreadsheet-id ID --apply` trasforma la singola tab vuota nelle quattro tab canoniche.
 
 Non sono richiesti accesso interattivo, Domain-Wide Delegation o chiavi permanenti.
 
@@ -41,8 +41,6 @@ GCP_PROJECT_ID=<project-id>
 GCP_WORKLOAD_IDENTITY_PROVIDER=projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-cia/providers/github-actions
 GCP_SERVICE_ACCOUNT=reminder-certificati@PROJECT_ID.iam.gserviceaccount.com
 OPERATIVO_SPREADSHEET_ID=15_TOwRL3Rk-Df7t-29D0OHa2BNtBx3tBxkZSMbeXA2E
-OPERATIVO_SHEET_NAME=Operativo
-OPERATIVO_HEADER_ROW=2
 ADMIN_SPREADSHEET_ID=<id del file vuoto creato dall'amministratore>
 ```
 
@@ -97,7 +95,7 @@ principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workl
 11. Condividere direttamente lo Spreadsheet operativo con l'email del service account come lettore.
 12. Condividere direttamente lo Spreadsheet amministrativo con l'email del service account come editor.
 13. Non assegnare al service account ruoli generali su Drive: i permessi sui due file derivano dalla loro condivisione diretta.
-14. Eseguire la prima prova mediante il workflow manuale su `main`, iniziando da `check-headers` e `init-admin`.
+14. Eseguire la prima prova mediante i workflow manuali su `main`: prima `setup-preview` e `setup-apply`, poi `check`.
 15. Prima della produzione aggiungere una seconda identità umana CIA per recupero e documentare trasferimento e revoca degli accessi.
 
 ## Esempio di autenticazione
@@ -121,9 +119,9 @@ steps:
 
 Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tramite `.gitignore` e viene eliminato con il workspace del job. Non è una chiave privata permanente del service account e supera la verifica runtime perché usa il formato federato `external_account`.
 
-## Gate dell'Environment
+## Environment GitHub
 
-Le variabili definite a livello di Environment sono disponibili dopo che il runner ha dichiarato quell'Environment. Per questo il workflow non usa `PREPRODUCTION_ENABLED` come `job.if`: un primo step legge la variabile e tutti gli step successivi sono condizionati al suo output. Se il gate non vale `true`, non vengono eseguiti checkout, autenticazione o accessi esterni.
+Il job dichiara esplicitamente l'Environment `preproduction`; variabili e segreti SMTP vengono letti dal relativo scope. Non esiste un gate applicativo duplicato: eventuali approvazioni e restrizioni devono essere configurate nelle regole dell'Environment e nella trust policy WIF.
 
 ## Verifiche di sicurezza
 

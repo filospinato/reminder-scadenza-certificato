@@ -8,6 +8,7 @@ Variables usate dai workflow manuali ordinario e di manutenzione:
 
 <!-- BEGIN PREPRODUCTION VARIABLES -->
 ```text
+ALLOW_PLAIN_SMTP
 ADMIN_SPREADSHEET_ID
 GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
@@ -27,6 +28,7 @@ Variables usate dal modello non attivo:
 
 <!-- BEGIN PRODUCTION VARIABLES -->
 ```text
+ALLOW_PLAIN_SMTP
 ADMIN_SPREADSHEET_ID
 GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
@@ -53,7 +55,7 @@ SMTP_USERNAME
 ```
 <!-- END SMTP SECRETS -->
 
-`SMTP_REPLY_TO` non è una credenziale e resta una Variable. Il nome del mittente, il timeout e il CID del logo usano default applicativi stabili. Username e password non devono essere trasformati in Variables di job né riportati nei log.
+`SMTP_REPLY_TO` non è una credenziale e resta una Variable. Anche `ALLOW_PLAIN_SMTP` è una Variable: deve valere `true` soltanto se MDaemon richiede esplicitamente il trasporto senza TLS e il canale di rete è stato approvato. Il nome del mittente, il timeout e il CID del logo usano default applicativi stabili. Username e password non devono essere trasformati in Variables di job né riportati nei log.
 
 ## Regola di modifica
 

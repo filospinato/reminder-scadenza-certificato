@@ -11,8 +11,13 @@ permissions:
 
 jobs:
   test:
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,11 +25,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install
         run: pip install -e ".[dev,google]"
+
+      - name: Controlli statici
+        run: |
+          ruff check .
+          python -m compileall -q src
+          python -m pip check
 
       - name: Test
         id: test
@@ -41,7 +52,7 @@ jobs:
         if: steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-failure-log
+          name: pytest-failure-log-python-${{ matrix.python-version }}
           path: pytest.log
           retention-days: 3
 

@@ -11,8 +11,9 @@ from reminder_certificati.registry_probe import esegui_collaudo_registro_sinteti
 
 def test_collaudo_sintetico_usa_una_sola_riga_e_conclude_sent() -> None:
     matrice: list[list[str]] = [list(COLONNE_NOTIFICHE)]
+    trasporto = TrasportoNotificheMemoria(matrice)
     archivio = ArchivioNotificheGoogleSheets(
-        trasporto=TrasportoNotificheMemoria(matrice),
+        trasporto=trasporto,
         spreadsheet_id="spreadsheet-sintetico",
     )
 
@@ -29,10 +30,13 @@ def test_collaudo_sintetico_usa_una_sola_riga_e_conclude_sent() -> None:
     assert esito.una_sola_chiave_verificata is True
     assert esito.stato_finale is StatoNotifica.SENT
     assert len(matrice) == 2
-    assert matrice[1][0] == "SYNTHETIC-REGISTRY-ABC123|2099-12-31|SYNTHETIC_REGISTRY_CHECK"
+    assert (
+        matrice[1][0] == "SYNTHETIC-REGISTRY-ABC123|2099-12-31|SYNTHETIC_REGISTRY_CHECK"
+    )
     assert matrice[1][1] == "SYNTHETIC-REGISTRY-ABC123"
     assert matrice[1][4] == "SENT"
     assert "synthetic@example.invalid" not in matrice[1]
+    assert trasporto.letture == 3
 
 
 def test_collaudo_rifiuta_identificativo_non_sintetico_valido() -> None:

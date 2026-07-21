@@ -6,10 +6,12 @@ import argparse
 import json
 import os
 from collections import Counter
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from zoneinfo import ZoneInfo
 
 from .admin_initializer import (
     InizializzatoreFoglioAmministrativo,
@@ -47,6 +49,9 @@ class ErroreCliRuntime(RuntimeError):
     """Configurazione o comando operativo non valido."""
 
 
+FUSO_ORARIO_OPERATIVO = ZoneInfo("Europe/Rome")
+
+
 def _data(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -54,13 +59,30 @@ def _data(value: str) -> date:
         raise argparse.ArgumentTypeError("usa il formato YYYY-MM-DD") from exc
 
 
+def _limite_invii(value: str) -> int:
+    try:
+        limite = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("usa un intero tra 1 e 10") from exc
+    if not 1 <= limite <= 10:
+        raise argparse.ArgumentTypeError("usa un intero tra 1 e 10")
+    return limite
+
+
 def _aggiungi_data_tecnica(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--today",
         type=_data,
-        default=date.today(),
+        default=_oggi_operativo(),
         help=argparse.SUPPRESS,
     )
+
+
+def _oggi_operativo(ora: datetime | None = None) -> date:
+    istante = ora or datetime.now(timezone.utc)
+    if istante.tzinfo is None or istante.utcoffset() is None:
+        raise ValueError("ora deve includere il fuso orario")
+    return istante.astimezone(FUSO_ORARIO_OPERATIVO).date()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -108,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="esegue gli invii reali se INVIO_AUTOMATICO_ATTIVO è true",
     )
     _aggiungi_data_tecnica(produzione)
+    produzione.add_argument(
+        "--max-sends",
+        type=_limite_invii,
+        default=None,
+        help="limita questa esecuzione a 1-10 invii reali (default interno: 10)",
+    )
     return parser
 
 
@@ -132,6 +160,7 @@ def main() -> int:
             modalita=modalita,
             oggi=args.today,
             ambiente=os.environ,
+            limite_invii=getattr(args, "max_sends", None),
         )
     except Exception as exc:
         dettaglio = sanitizza_messaggio(str(exc))
@@ -277,6 +306,11 @@ def _review_registry(
         if riga.stato is StatoNotifica.SENDING and riga.aggiornato_il <= soglia
     )
     retry_esauriti = sum(1 for riga in righe if registro.tentativi_esauriti(riga))
+    errori_permanenti = conteggi.get(StatoNotifica.FAILED_PERMANENT.value, 0)
+    esiti_incerti = conteggi.get(
+        StatoNotifica.UNKNOWN_REVIEW_REQUIRED.value,
+        0,
+    )
     _stampa(
         {
             "operation": "registry-review",
@@ -287,18 +321,16 @@ def _review_registry(
             },
             "stale_sending_count": sending_vecchi,
             "retry_exhausted_count": retry_esauriti,
-            "permanent_failure_count": conteggi.get(
-                StatoNotifica.FAILED_PERMANENT.value, 0
-            ),
-            "uncertain_outcome_count": conteggi.get(
-                StatoNotifica.UNKNOWN_REVIEW_REQUIRED.value, 0
-            ),
+            "permanent_failure_count": errori_permanenti,
+            "uncertain_outcome_count": esiti_incerti,
             "pii_in_output": False,
         }
     )
-    return 2 if sending_vecchi or retry_esauriti or conteggi.get(
-        StatoNotifica.UNKNOWN_REVIEW_REQUIRED.value, 0
-    ) else 0
+    return (
+        2
+        if (sending_vecchi or retry_esauriti or errori_permanenti or esiti_incerti)
+        else 0
+    )
 
 
 def _run(
@@ -306,6 +338,7 @@ def _run(
     modalita: ModalitaEsecuzione,
     oggi: date,
     ambiente: Mapping[str, str],
+    limite_invii: int | None = None,
 ) -> int:
     risorse = ConfigurazioneRisorseGoogle.da_ambiente(ambiente)
     servizio = costruisci_servizio_sheets()
@@ -321,20 +354,27 @@ def _run(
             spreadsheet_id=risorse.admin_spreadsheet_id,
         )
     )
+    if limite_invii is not None:
+        if modalita is not ModalitaEsecuzione.PRODUZIONE:
+            raise ErroreCliRuntime(
+                "il limite esplicito è consentito soltanto in produzione"
+            )
+        if not 1 <= limite_invii <= configurazione.limite_invii_per_esecuzione:
+            raise ErroreCliRuntime(
+                "il limite esplicito deve essere compreso tra 1 e il limite interno"
+            )
+        configurazione = replace(
+            configurazione,
+            limite_invii_per_esecuzione=limite_invii,
+        )
 
     consenso = modalita is not ModalitaEsecuzione.DRY_RUN
     trasporto = None
-    smtp_necessario = (
-        modalita is ModalitaEsecuzione.TEST_SMTP
-        or (
-            modalita is ModalitaEsecuzione.PRODUZIONE
-            and configurazione.automazione_attiva
-        )
+    smtp_necessario = modalita is ModalitaEsecuzione.TEST_SMTP or (
+        modalita is ModalitaEsecuzione.PRODUZIONE and configurazione.automazione_attiva
     )
     if smtp_necessario:
-        trasporto = TrasportoSmtpMdaemon(
-            ConfigurazioneSmtp.da_ambiente(ambiente)
-        )
+        trasporto = TrasportoSmtpMdaemon(ConfigurazioneSmtp.da_ambiente(ambiente))
 
     registro = RegistroPersistente(
         componenti.archivio_notifiche,
@@ -424,11 +464,7 @@ def _prima_riga_normalizzata(
 
 
 def _matrice_vuota(matrice: Sequence[Sequence[Any]]) -> bool:
-    return not any(
-        str(cella).strip()
-        for riga in matrice
-        for cella in riga
-    )
+    return not any(str(cella).strip() for riga in matrice for cella in riga)
 
 
 def _etichetta_stato_sistema(stato: str) -> str:

@@ -1,3 +1,4 @@
+import smtplib
 from pathlib import Path
 
 import pytest
@@ -6,7 +7,9 @@ from reminder_certificati.email_templates import MessaggioEmail
 from reminder_certificati.smtp_transport import (
     ConfigurazioneSmtp,
     ErroreSmtpPermanente,
+    ErroreSmtpRetryable,
     TrasportoEmailMemoria,
+    TrasportoSmtpMdaemon,
     costruisci_mime,
 )
 
@@ -58,9 +61,7 @@ def test_nome_mittente_e_cid_rifiutano_header_injection() -> None:
             {**base, "SMTP_FROM_NAME": "CIA Lazio\nBcc: altro@example.invalid"}
         )
     with pytest.raises(ErroreSmtpPermanente, match="SMTP_LOGO_CID"):
-        ConfigurazioneSmtp.da_ambiente(
-            {**base, "SMTP_LOGO_CID": "logo>\r\nBcc"}
-        )
+        ConfigurazioneSmtp.da_ambiente({**base, "SMTP_LOGO_CID": "logo>\r\nBcc"})
 
 
 def test_mime_contiene_testo_html_message_id_e_non_crea_copia_sent() -> None:
@@ -123,3 +124,67 @@ def test_logo_cid_allegato_e_referenziato_nel_corpo_html(tmp_path: Path) -> None
     assert 'src="cid:logo-cia-lazio"' in html_parts[0].get_content()
     assert len(immagini) == 1
     assert immagini[0]["Content-ID"] == "<logo-cia-lazio>"
+
+
+class _SmtpConErrore:
+    errore: Exception
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def ehlo(self) -> None:
+        pass
+
+    def send_message(self, *args, **kwargs):
+        raise self.errore
+
+    def quit(self) -> None:
+        pass
+
+
+def _trasporto_con_errore(errore: Exception) -> TrasportoSmtpMdaemon:
+    class SmtpSpecifico(_SmtpConErrore):
+        pass
+
+    SmtpSpecifico.errore = errore
+    return TrasportoSmtpMdaemon(
+        ConfigurazioneSmtp(
+            host="smtp.example.invalid",
+            porta=25,
+            mittente="cia@example.invalid",
+            sicurezza="PLAIN",
+        ),
+        smtp_factory=SmtpSpecifico,
+    )
+
+
+@pytest.mark.parametrize(
+    "errore",
+    [
+        smtplib.SMTPAuthenticationError(454, b"temporary auth failure"),
+        smtplib.SMTPSenderRefused(450, b"mailbox busy", "cia@example.invalid"),
+        smtplib.SMTPRecipientsRefused(
+            {"destinatario@example.invalid": (450, b"mailbox busy")}
+        ),
+        smtplib.SMTPDataError(451, b"local processing error"),
+    ],
+)
+def test_risposte_smtp_4xx_sono_ritentabili(errore: Exception) -> None:
+    with pytest.raises(ErroreSmtpRetryable):
+        _trasporto_con_errore(errore).invia(_messaggio())
+
+
+@pytest.mark.parametrize(
+    "errore",
+    [
+        smtplib.SMTPAuthenticationError(535, b"invalid credentials"),
+        smtplib.SMTPSenderRefused(550, b"sender rejected", "cia@example.invalid"),
+        smtplib.SMTPRecipientsRefused(
+            {"destinatario@example.invalid": (550, b"recipient rejected")}
+        ),
+        smtplib.SMTPDataError(554, b"message rejected"),
+    ],
+)
+def test_risposte_smtp_5xx_sono_permanenti(errore: Exception) -> None:
+    with pytest.raises(ErroreSmtpPermanente):
+        _trasporto_con_errore(errore).invia(_messaggio())

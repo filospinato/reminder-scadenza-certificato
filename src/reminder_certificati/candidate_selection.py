@@ -39,7 +39,7 @@ def seleziona_candidati(
         raise ValueError("giorni_preavviso deve essere maggiore o uguale a zero")
 
     anomalie: list[AnomaliaDati] = []
-    rilevanti_validi: list[Arbitro] = []
+    rilevanti: list[Arbitro] = []
 
     for arbitro in arbitri:
         giorni_residui = (arbitro.scadenza_certificato - oggi).days
@@ -49,10 +49,21 @@ def seleziona_candidati(
             or not 0 <= giorni_residui <= giorni_preavviso
         ):
             continue
+        rilevanti.append(arbitro)
 
+    conteggi = Counter(
+        arbitro.id_arbitro.strip()
+        for arbitro in rilevanti
+        if arbitro.id_arbitro.strip()
+    )
+    duplicati = {id_arbitro for id_arbitro, numero in conteggi.items() if numero > 1}
+    univoci_validi: list[Arbitro] = []
+
+    for arbitro in rilevanti:
         errori: list[AnomaliaDati] = []
         numero_riga = arbitro.numero_riga_sorgente
-        if not arbitro.id_arbitro.strip():
+        id_arbitro = arbitro.id_arbitro.strip()
+        if not id_arbitro:
             errori.append(
                 AnomaliaDati(
                     numero_riga,
@@ -91,33 +102,24 @@ def seleziona_candidati(
                     arbitro.id_arbitro.strip() or None,
                 )
             )
+        if id_arbitro in duplicati:
+            errori.append(
+                AnomaliaDati(
+                    numero_riga,
+                    CodiceAnomalia.ID_DUPLICATO,
+                    mappatura.id_arbitro,
+                    "identificativo presente in più righe rilevanti; tutte le occorrenze sono escluse",
+                    id_arbitro,
+                )
+            )
 
         if errori:
             anomalie.extend(errori)
             continue
-        rilevanti_validi.append(arbitro)
-
-    conteggi = Counter(arbitro.id_arbitro for arbitro in rilevanti_validi)
-    duplicati = {
-        id_arbitro for id_arbitro, numero in conteggi.items() if numero > 1
-    }
-    univoci: list[Arbitro] = []
-    for arbitro in rilevanti_validi:
-        if arbitro.id_arbitro in duplicati:
-            anomalie.append(
-                AnomaliaDati(
-                    arbitro.numero_riga_sorgente,
-                    CodiceAnomalia.ID_DUPLICATO,
-                    mappatura.id_arbitro,
-                    "identificativo presente in più righe rilevanti; tutte le occorrenze sono escluse",
-                    arbitro.id_arbitro,
-                )
-            )
-        else:
-            univoci.append(arbitro)
+        univoci_validi.append(arbitro)
 
     candidati = trova_candidati(
-        univoci,
+        univoci_validi,
         oggi=oggi,
         giorni_preavviso=giorni_preavviso,
     )

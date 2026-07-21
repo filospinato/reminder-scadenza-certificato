@@ -21,9 +21,12 @@ Il controllo e la prova funzionano anche quando l'invio automatico è spento. So
 - ID, nome, cognome ed email sono obbligatori soltanto per le persone attive con certificato compreso nella finestra di preavviso; i dati incompleti fuori finestra non generano anomalie;
 - `NOTIFICHE` e `ANOMALIE` restano visibili nel foglio amministrativo;
 - il test SMTP mantiene il comportamento corrente: usa un candidato reale, sostituisce l'indirizzo con l'override, registra una notifica `TEST_` e invia al massimo un messaggio;
-- il limite produttivo resta fissato internamente a 10 messaggi per esecuzione;
-- Environment GitHub, WIF/OIDC, registro anti-duplicazione e classificazione degli errori SMTP restano invariati;
+- il limite produttivo resta fissato internamente a 10 messaggi per esecuzione e può essere soltanto ridotto per un rollout controllato;
+- la data operativa è calcolata nel fuso `Europe/Rome`;
+- Environment GitHub, WIF/OIDC e registro anti-duplicazione restano invariati;
 - SMTP `PLAIN` resta temporaneamente supportato e protetto da `ALLOW_PLAIN_SMTP=true`.
+
+Se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` deve essere impostata come Variable dello specifico Environment GitHub; con `STARTTLS` o `SSL` non serve.
 
 ## Installazione
 
@@ -51,11 +54,12 @@ reminder-certificati check
 reminder-certificati registry-check
 reminder-certificati test-smtp
 reminder-certificati produzione
+reminder-certificati produzione --max-sends 1
 ```
 
 `setup-admin` riconosce automaticamente un foglio vuoto, uno schema precedente o un foglio già aggiornato. Senza `--apply` mostra l'anteprima; con `--apply` inizializza oppure aggiorna e, quando modifica un foglio esistente, crea prima un backup JSON.
 
-`check` unisce preflight, controllo completo senza invio e revisione aggregata del registro. Non usa SMTP e non richiede che l'invio automatico sia acceso.
+`check` unisce preflight, controllo completo senza invio e revisione aggregata del registro. Non usa SMTP e non richiede che l'invio automatico sia acceso. Restituisce un exit code non-zero quando trova anomalie o stati del registro che richiedono intervento.
 
 ## CONFIG
 
@@ -83,7 +87,7 @@ I placeholder anagrafici `{{nome}}`, `{{cognome}}` e `{{nome_completo}}` vengono
 
 Il valore predefinito inizia con `Ciao {{nome}},`, ma può essere sostituito con qualsiasi formulazione valida direttamente dal foglio.
 
-Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite di invio non è più una decisione dell'operatore.
+Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite ordinario resta interno; `--max-sends` può soltanto ridurlo temporaneamente da 10 fino a 1 per il rollout.
 
 ## Registro
 
@@ -97,7 +101,7 @@ Il registro non conserva nome, cognome o email. Gli stati tecnici restano distin
 
 ## Produzione
 
-Il modello resta non attivo in `docs/workflows/production.yml.example` e non contiene ancora una schedule. Al go-live verrà aggiunta una sola esecuzione giornaliera dopo i collaudi finali.
+Il modello resta non attivo in `docs/workflows/production.yml.example` e non contiene ancora una schedule. Il dispatch manuale parte da un massimo di un invio; al go-live verrà aggiunta una sola esecuzione giornaliera dopo i collaudi finali.
 
 Gli invii reali richiedono:
 

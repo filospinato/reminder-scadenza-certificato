@@ -108,3 +108,24 @@ def componi_email(
         testo=testo,
         html=html_completo,
     )
+
+
+def valida_configurazione_email(configurazione: ConfigurazioneEmail) -> None:
+    """Valida sintassi e placeholder senza richiedere candidati reali."""
+
+    valori_sintetici = {
+        "nome": "Nome",
+        "cognome": "Cognome",
+        "nome_completo": "Nome Cognome",
+        "data_scadenza": "31/12/2099",
+        "giorni_residui": "30",
+    }
+    oggetto = _render(
+        configurazione.oggetto,
+        valori_sintetici,
+        campo="oggetto",
+    )
+    _render(configurazione.corpo, valori_sintetici, campo="corpo")
+    _render(configurazione.firma, valori_sintetici, campo="firma")
+    if "\n" in oggetto or "\r" in oggetto:
+        raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")

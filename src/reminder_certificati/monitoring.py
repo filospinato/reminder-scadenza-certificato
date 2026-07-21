@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any, Protocol
 
-from .admin_schema import COLONNE_ANOMALIE, COLONNE_DASHBOARD
+from .admin_schema import COLONNE_DASHBOARD
 
 
 class ErroreMonitoraggio(RuntimeError):
@@ -45,16 +45,40 @@ class MetricheEsecuzione:
     def come_righe(self) -> tuple[tuple[str, str, str], ...]:
         return (
             ("stato_sistema", self.stato_sistema, "Stato operativo complessivo."),
-            ("ultima_esecuzione", _istante_opzionale(self.ultima_esecuzione), "Ultima esecuzione conclusa in UTC."),
-            ("heartbeat", _istante_opzionale(self.heartbeat), "Ultimo segnale di vita in UTC."),
+            (
+                "ultima_esecuzione",
+                _istante_opzionale(self.ultima_esecuzione),
+                "Ultima esecuzione conclusa in UTC.",
+            ),
+            (
+                "heartbeat",
+                _istante_opzionale(self.heartbeat),
+                "Ultimo segnale di vita in UTC.",
+            ),
             ("righe_lette", str(self.righe_lette), "Righe lette dalla sorgente."),
             ("righe_valide", str(self.righe_valide), "Righe valide dopo i controlli."),
             ("candidati", str(self.candidati), "Promemoria candidati nella finestra."),
-            ("notifiche_gia_presenti", str(self.notifiche_gia_presenti), "Notifiche saltate perché già registrate."),
-            ("invii_tentati", str(self.invii_tentati), "Invii passati al trasporto SMTP."),
+            (
+                "notifiche_gia_presenti",
+                str(self.notifiche_gia_presenti),
+                "Notifiche saltate perché già registrate.",
+            ),
+            (
+                "invii_tentati",
+                str(self.invii_tentati),
+                "Invii passati al trasporto SMTP.",
+            ),
             ("invii_riusciti", str(self.invii_riusciti), "Invii confermati."),
-            ("invii_falliti", str(self.invii_falliti), "Invii falliti in modo classificato."),
-            ("esiti_incerti", str(self.esiti_incerti), "Esiti che richiedono revisione umana."),
+            (
+                "invii_falliti",
+                str(self.invii_falliti),
+                "Invii falliti in modo classificato.",
+            ),
+            (
+                "esiti_incerti",
+                str(self.esiti_incerti),
+                "Esiti che richiedono revisione umana.",
+            ),
             ("anomalie", str(self.anomalie), "Anomalie rilevate."),
             (
                 "automazione_attiva",
@@ -62,7 +86,11 @@ class MetricheEsecuzione:
                 "Stato dell'unico interruttore operativo.",
             ),
             ("versione_app", self.versione_app, "Versione del programma."),
-            ("codice_errore", self.codice_errore, "Codice sintetico dell'eventuale errore fatale."),
+            (
+                "codice_errore",
+                self.codice_errore,
+                "Codice sintetico dell'eventuale errore fatale.",
+            ),
         )
 
 
@@ -199,7 +227,10 @@ class DashboardGoogleSheets:
         identificativo = self.spreadsheet_id.strip()
         if not identificativo:
             raise ErroreMonitoraggio("DASHBOARD: spreadsheet_id mancante")
-        valori = [list(COLONNE_DASHBOARD), *[list(riga) for riga in metriche.come_righe()]]
+        valori = [
+            list(COLONNE_DASHBOARD),
+            *[list(riga) for riga in metriche.come_righe()],
+        ]
         try:
             self.trasporto.sostituisci_valori(
                 spreadsheet_id=identificativo,
@@ -278,11 +309,16 @@ class TrasportoMonitoraggioGoogleApi:
         spreadsheet_id: str,
         intervallo_a1: str,
     ) -> Sequence[Sequence[Any]]:
-        risposta = self.servizio.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=intervallo_a1,
-            majorDimension="ROWS",
-        ).execute()
+        risposta = (
+            self.servizio.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=spreadsheet_id,
+                range=intervallo_a1,
+                majorDimension="ROWS",
+            )
+            .execute()
+        )
         if not isinstance(risposta, Mapping):
             raise ErroreMonitoraggio("Google Sheets: risposta di lettura non valida")
         valori = risposta.get("values", [])
@@ -322,9 +358,7 @@ class TrasportoMonitoraggioGoogleApi:
 
 _EMAIL_RE = re.compile(r"(?i)\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 _TOKEN_RE = re.compile(r"(?i)\b(?:ya29\.|gh[ps]_|sk-|eyJ)[A-Za-z0-9._-]+")
-_NOTIFICATION_ID_RE = re.compile(
-    r"(?i)(?<!\S)[^|\s]+\|\d{4}-\d{2}-\d{2}\|[^|\s]+"
-)
+_NOTIFICATION_ID_RE = re.compile(r"(?i)(?<!\S)[^|\s]+\|\d{4}-\d{2}-\d{2}\|[^|\s]+")
 
 
 def sanitizza_messaggio(value: str) -> str:

@@ -4,13 +4,7 @@ Il programma genera sempre una versione testuale e una HTML dello stesso messagg
 
 ## Apertura
 
-Il programma aggiunge automaticamente:
-
-```text
-Ciao {{nome}},
-```
-
-Il corpo successivo è liberamente modificabile in `CONFIG`: non deve iniziare con una frase obbligatoria. Deve però essere non vuoto e può usare soltanto i placeholder autorizzati.
+Il programma non aggiunge automaticamente un saluto. `CORPO_EMAIL` contiene il messaggio completo; il valore iniziale include `Ciao {{nome}},` ma l'operatore può modificarlo o rimuoverlo. Il corpo deve essere non vuoto e può usare soltanto i placeholder autorizzati.
 
 ## Provenienza del nome
 
@@ -49,7 +43,7 @@ Placeholder sconosciuti, incompleti o privi di valore impediscono la preparazion
 Oggetto: Certificato medico in scadenza
 
 Corpo:
-ricevi questa mail perché il certificato medico presente nei nostri archivi risulta in scadenza il {{data_scadenza}}.
+Ciao {{nome}}, ricevi questa mail perché il certificato medico presente nei nostri archivi risulta in scadenza il {{data_scadenza}}.
 
 Ti invitiamo a provvedere al rinnovo e alla trasmissione della nuova documentazione secondo le modalità previste.
 
@@ -76,7 +70,8 @@ Il trasporto supporta STARTTLS e SSL. La consegna avviene direttamente al server
 ## Classificazione degli esiti
 
 - connessione non disponibile prima della consegna: `FAILED_RETRYABLE`;
-- autenticazione, mittente o destinatario rifiutati: errore permanente e revisione umana;
+- risposta SMTP temporanea `4xx`: `FAILED_RETRYABLE`;
+- risposta SMTP permanente `5xx`: `FAILED_PERMANENT` e revisione umana;
 - disconnessione o risposta dubbia durante la consegna: `UNKNOWN_REVIEW_REQUIRED`;
 - consegna confermata: `SENT` con Message-ID.
 
@@ -86,11 +81,10 @@ Un esito incerto non viene ritentato automaticamente.
 
 Il sottocomando `reminder-certificati test-smtp` richiede:
 
-- `AUTOMAZIONE_ATTIVA=true`;
 - destinatario override valido;
-- consenso esplicito del comando e dell'environment.
+- configurazione SMTP valida nello specifico Environment.
 
-Non esiste una seconda modalità test nella CONFIG. Il destinatario originale viene sostituito prima della chiamata SMTP. Il registro usa tipi `TEST_REMINDER_*`, separati dalle notifiche reali.
+Il test resta disponibile con `INVIO_AUTOMATICO_ATTIVO=false`. Non esiste una seconda modalità test nella CONFIG. Il destinatario originale viene sostituito prima della chiamata SMTP. Il registro usa un tipo `TEST_`, separato dalle notifiche reali, e un'esecuzione che non tenta alcun invio termina con attenzione.
 
 ## Sicurezza
 

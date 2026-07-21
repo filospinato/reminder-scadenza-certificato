@@ -15,6 +15,7 @@ Il contenuto del messaggio non entra nella chiave: una modifica al template non 
 | `SENDING` | prenotazione scritta prima di contattare SMTP | vietato |
 | `SENT` | MDaemon ha confermato l'accettazione e il `Message-ID` è stato registrato | vietato |
 | `FAILED_RETRYABLE` | errore certamente precedente all'accettazione SMTP | consentito, incrementando i tentativi |
+| `FAILED_PERMANENT` | rifiuto definitivo SMTP o configurazione non recuperabile automaticamente | vietato; serve intervento umano |
 | `UNKNOWN_REVIEW_REQUIRED` | non è possibile sapere con certezza se SMTP abbia accettato il messaggio | vietato; serve controllo umano |
 
 ## Transizioni ammesse
@@ -23,11 +24,12 @@ Il contenuto del messaggio non entra nella chiave: una modifica al template non 
 assenza → SENDING
 SENDING → SENT
 SENDING → FAILED_RETRYABLE
+SENDING → FAILED_PERMANENT
 SENDING → UNKNOWN_REVIEW_REQUIRED
 FAILED_RETRYABLE → SENDING
 ```
 
-`SENT` e `UNKNOWN_REVIEW_REQUIRED` sono terminali per l'automazione.
+`SENT`, `FAILED_PERMANENT` e `UNKNOWN_REVIEW_REQUIRED` sono terminali per l'automazione.
 
 ## Persistenza e concorrenza
 
@@ -41,6 +43,8 @@ L'adapter Google:
 4. aggiorna l'indice dopo ogni append o update;
 5. evita di rileggere l'intero foglio a ogni transizione.
 
+Il comando di collaudo costituisce un'eccezione intenzionale: invalida la cache e rilegge il foglio dopo append e update per verificare la persistenza remota effettiva e l'unicità della chiave sintetica.
+
 Google Sheets non offre una transazione tra ricerca e scrittura. I workflow che accedono al registro condividono quindi lo stesso gruppo `concurrency` e non vengono eseguiti in parallelo.
 
 ## Perché si registra `SENDING` prima dell'invio
@@ -50,6 +54,7 @@ La prenotazione precedente a SMTP impedisce che una ripartenza o una seconda ese
 ## Gestione degli esiti SMTP
 
 - errore certamente precedente alla consegna: `FAILED_RETRYABLE`;
+- rifiuto SMTP permanente `5xx`: `FAILED_PERMANENT`;
 - accettazione confermata: `SENT` con `Message-ID`;
 - esito ambiguo dopo un possibile invio: `UNKNOWN_REVIEW_REQUIRED`.
 

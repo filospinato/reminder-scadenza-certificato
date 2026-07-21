@@ -85,6 +85,7 @@ def test_dry_run_segnala_nome_cognome_ed_email_solo_se_imminenti() -> None:
 
     assert esito.candidati == 0
     assert esito.anomalie == 3
+    assert esito.stato == "ATTENZIONE"
     assert {item.codice for item in anomalie.snapshot()} == {
         "NOME_MANCANTE",
         "COGNOME_MANCANTE",

@@ -36,9 +36,11 @@ La tab contiene soltanto `chiave`, `valore` e `descrizione`. Le impostazioni mod
 
 `SCHEMA_VERSION` è gestita dal programma. Il limite di 10 messaggi per esecuzione è interno e non richiede decisioni dell'operatore.
 
+Per il rollout produttivo il comando accetta `--max-sends 1..10`: il valore può soltanto ridurre il limite interno. Usare prima 1, poi 5 e infine 10 dopo aver verificato gli esiti del lotto precedente.
+
 ## Stati leggibili
 
-I riepiloghi traducono gli stati tecnici in etichette come “Controllo completato”, “Attenzione richiesta”, “Errore definitivo” e “Verifica manuale necessaria”. Gli stati originali restano conservati internamente per non alterare la macchina a stati.
+I riepiloghi traducono gli stati tecnici in etichette come “Controllo completato”, “Attenzione richiesta”, “Errore definitivo” e “Verifica manuale necessaria”. Un controllo con anomalie o una prova SMTP senza alcun tentativo restituiscono un exit code non-zero. Gli stati originali restano conservati internamente per non alterare la macchina a stati.
 
 ## File collegati
 

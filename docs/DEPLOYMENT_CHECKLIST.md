@@ -29,6 +29,7 @@
 - [ ] file condiviso direttamente con il service account come editor;
 - [ ] `reminder-certificati setup-admin --spreadsheet-id ID` eseguito in anteprima;
 - [ ] `setup-admin --apply` completato con backup quando necessario;
+- [ ] artifact del backup scaricato, custodito con accesso limitato e poi eliminato allo scadere della necessità;
 - [ ] quattro tab presenti e visibili;
 - [ ] service account lettore di `Operativo`;
 - [ ] `INVIO_AUTOMATICO_ATTIVO=false` verificato dopo il setup;
@@ -47,6 +48,7 @@
 ## E. SMTP e contenuti
 
 - [ ] host, porta e sicurezza MDaemon verificati;
+- [ ] se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` configurato come Environment Variable dopo aver verificato il canale di rete;
 - [ ] mittente e Reply-To approvati;
 - [ ] credenziali inserite solo nei Secrets dello specifico Environment;
 - [ ] corpo e firma ufficiali approvati;
@@ -64,8 +66,8 @@
 - [ ] setup e controllo completi;
 - [ ] scrittura sintetica sul foglio amministrativo;
 - [ ] test SMTP con override;
-- [ ] singolo invio reale autorizzato;
-- [ ] piccolo lotto controllato;
+- [ ] singolo invio reale autorizzato con `--max-sends 1`;
+- [ ] piccolo lotto controllato con `--max-sends 5`;
 - [ ] autorizzazione esplicita finale;
 - [ ] Environment `production` protetto;
 - [ ] una sola schedule giornaliera aggiunta e verificata rispetto a UTC e ora legale;

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from enum import StrEnum
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .candidate_selection import seleziona_candidati
 from .data_sources import SorgenteDati, leggi_e_valida
@@ -58,10 +58,22 @@ class EsitoEsecuzione:
 class RegistroNotifichePersistente(Protocol):
     def puo_prenotare(self, notification_id: str) -> bool: ...
     def prenota(self, candidato: CandidatoNotifica, *, ora: datetime | None = None): ...
-    def segna_inviata(self, candidato: CandidatoNotifica, *, message_id: str, ora: datetime | None = None): ...
-    def segna_errore_retryable(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
-    def segna_errore_permanente(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
-    def segna_esito_incerto(self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None): ...
+    def segna_inviata(
+        self,
+        candidato: CandidatoNotifica,
+        *,
+        message_id: str,
+        ora: datetime | None = None,
+    ): ...
+    def segna_errore_retryable(
+        self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None
+    ): ...
+    def segna_errore_permanente(
+        self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None
+    ): ...
+    def segna_esito_incerto(
+        self, candidato: CandidatoNotifica, *, errore: str, ora: datetime | None = None
+    ): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,9 +179,7 @@ class OrchestratoreReminder:
 
             if self.registro is not None:
                 try:
-                    prenotabile = self.registro.puo_prenotare(
-                        candidato.notification_id
-                    )
+                    prenotabile = self.registro.puo_prenotare(candidato.notification_id)
                 except Exception as exc:
                     self._registra_anomalia(
                         severita=SeveritaAnomalia.CRITICAL,
@@ -219,47 +229,66 @@ class OrchestratoreReminder:
                 )
                 riusciti += 1
             except ErroreSmtpRetryable as exc:
-                falliti += 1
-                self.registro.segna_errore_retryable(
-                    candidato,
-                    errore=type(exc).__name__,
-                    ora=istante,
-                )
-                self._registra_anomalia(
-                    severita=SeveritaAnomalia.ERROR,
-                    origine="SMTP",
-                    codice="SMTP_RETRYABLE",
-                    messaggio=type(exc).__name__,
+                nome_errore = type(exc).__name__
+                if self._aggiorna_registro_dopo_smtp(
+                    lambda: self.registro.segna_errore_retryable(
+                        candidato,
+                        errore=nome_errore,
+                        ora=istante,
+                    ),
+                    errore_smtp=exc,
                     istante=istante,
-                )
+                ):
+                    falliti += 1
+                    self._registra_anomalia(
+                        severita=SeveritaAnomalia.ERROR,
+                        origine="SMTP",
+                        codice="SMTP_RETRYABLE",
+                        messaggio=nome_errore,
+                        istante=istante,
+                    )
+                else:
+                    incerti += 1
             except ErroreSmtpPermanente as exc:
-                falliti += 1
-                self.registro.segna_errore_permanente(
-                    candidato,
-                    errore=type(exc).__name__,
-                    ora=istante,
-                )
-                self._registra_anomalia(
-                    severita=SeveritaAnomalia.ERROR,
-                    origine="SMTP",
-                    codice="SMTP_PERMANENTE",
-                    messaggio=type(exc).__name__,
+                nome_errore = type(exc).__name__
+                if self._aggiorna_registro_dopo_smtp(
+                    lambda: self.registro.segna_errore_permanente(
+                        candidato,
+                        errore=nome_errore,
+                        ora=istante,
+                    ),
+                    errore_smtp=exc,
                     istante=istante,
-                )
+                ):
+                    falliti += 1
+                    self._registra_anomalia(
+                        severita=SeveritaAnomalia.ERROR,
+                        origine="SMTP",
+                        codice="SMTP_PERMANENTE",
+                        messaggio=nome_errore,
+                        istante=istante,
+                    )
+                else:
+                    incerti += 1
             except EsitoSmtpIncerto as exc:
                 incerti += 1
-                self.registro.segna_esito_incerto(
-                    candidato,
-                    errore=type(exc).__name__,
-                    ora=istante,
-                )
-                self._registra_anomalia(
-                    severita=SeveritaAnomalia.CRITICAL,
-                    origine="SMTP",
-                    codice="SMTP_ESITO_INCERTO",
-                    messaggio="la consegna richiede revisione umana",
+                nome_errore = type(exc).__name__
+                if self._aggiorna_registro_dopo_smtp(
+                    lambda: self.registro.segna_esito_incerto(
+                        candidato,
+                        errore=nome_errore,
+                        ora=istante,
+                    ),
+                    errore_smtp=exc,
                     istante=istante,
-                )
+                ):
+                    self._registra_anomalia(
+                        severita=SeveritaAnomalia.CRITICAL,
+                        origine="SMTP",
+                        codice="SMTP_ESITO_INCERTO",
+                        messaggio="la consegna richiede revisione umana",
+                        istante=istante,
+                    )
             except ErroreRegistroPersistente as exc:
                 incerti += 1
                 self._registra_anomalia(
@@ -287,10 +316,25 @@ class OrchestratoreReminder:
                     istante=istante,
                 )
 
+        test_non_eseguito = (
+            modalita is ModalitaEsecuzione.TEST_SMTP
+            and tentati == 0
+            and not falliti
+            and not incerti
+        )
+        if test_non_eseguito:
+            self._registra_anomalia(
+                severita=SeveritaAnomalia.WARNING,
+                origine="SMTP",
+                codice="TEST_SMTP_NON_ESEGUITO",
+                messaggio="nessun candidato prenotabile per il test SMTP",
+                istante=istante,
+            )
+
         stato = "DRY_RUN_OK" if modalita is ModalitaEsecuzione.DRY_RUN else "OK"
         if incerti:
             stato = "REVISIONE_RICHIESTA"
-        elif falliti:
+        elif falliti or anomalie_dati or test_non_eseguito:
             stato = "ATTENZIONE"
 
         esito = EsitoEsecuzione(
@@ -298,7 +342,7 @@ class OrchestratoreReminder:
             stato=stato,
             righe_lette=validazione.righe_totali,
             righe_valide=len(validazione.arbitri),
-            anomalie=len(anomalie_dati) + falliti + incerti,
+            anomalie=(len(anomalie_dati) + falliti + incerti + int(test_non_eseguito)),
             candidati=len(candidati),
             notifiche_gia_presenti=gia_presenti,
             messaggi_composti=composti,
@@ -309,6 +353,29 @@ class OrchestratoreReminder:
         )
         self._aggiorna_dashboard(esito, istante, codice_errore="")
         return esito
+
+    def _aggiorna_registro_dopo_smtp(
+        self,
+        azione: Callable[[], object],
+        *,
+        errore_smtp: Exception,
+        istante: datetime,
+    ) -> bool:
+        try:
+            azione()
+            return True
+        except Exception as exc:
+            self._registra_anomalia(
+                severita=SeveritaAnomalia.CRITICAL,
+                origine="REGISTRO",
+                codice="REGISTRO_INCOERENTE",
+                messaggio=(
+                    "aggiornamento dopo "
+                    f"{type(errore_smtp).__name__} non riuscito: {type(exc).__name__}"
+                ),
+                istante=istante,
+            )
+            return False
 
     def _valida_modalita(
         self,

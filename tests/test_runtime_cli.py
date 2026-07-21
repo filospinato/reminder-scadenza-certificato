@@ -1,19 +1,21 @@
 import sys
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from reminder_certificati import runtime_cli
+from reminder_certificati.email_templates import ConfigurazioneEmail
 from reminder_certificati.orchestrator import ModalitaEsecuzione
+from reminder_certificati.registry import StatoNotifica
+from reminder_certificati.runtime_config import ConfigurazioneRuntime
 
 
 def test_setup_admin_richiede_spreadsheet_id() -> None:
     parser = runtime_cli.build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["setup-admin"])
-    args = parser.parse_args(
-        ["setup-admin", "--spreadsheet-id", "synthetic-sheet"]
-    )
+    args = parser.parse_args(["setup-admin", "--spreadsheet-id", "synthetic-sheet"])
     assert args.spreadsheet_id == "synthetic-sheet"
     assert args.apply is False
 
@@ -52,6 +54,25 @@ def test_cli_non_accetta_vecchie_conferme() -> None:
     ):
         with pytest.raises(SystemExit):
             parser.parse_args(args)
+
+
+def test_produzione_accetta_un_limite_di_rollout_solo_tra_uno_e_dieci() -> None:
+    parser = runtime_cli.build_parser()
+
+    assert parser.parse_args(["produzione"]).max_sends is None
+    assert parser.parse_args(["produzione", "--max-sends", "1"]).max_sends == 1
+    for valore in ("0", "11", "non-intero"):
+        with pytest.raises(SystemExit):
+            parser.parse_args(["produzione", "--max-sends", valore])
+
+
+def test_data_operativa_usa_il_fuso_europe_rome() -> None:
+    assert (
+        runtime_cli._oggi_operativo(
+            datetime(2026, 7, 21, 22, 30, tzinfo=timezone.utc)
+        ).isoformat()
+        == "2026-07-22"
+    )
 
 
 def _predisponi_run_fake(
@@ -103,7 +124,9 @@ def _predisponi_run_fake(
     )
     monkeypatch.setattr(runtime_cli, "leggi_matrice_config", lambda **kwargs: [[]])
     monkeypatch.setattr(runtime_cli, "carica_configurazione", lambda matrice: config)
-    monkeypatch.setattr(runtime_cli, "RegistroPersistente", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        runtime_cli, "RegistroPersistente", lambda *args, **kwargs: object()
+    )
 
     class OrchestratoreFake:
         def __init__(self, **kwargs):
@@ -164,11 +187,14 @@ def test_test_smtp_inizializza_smtp_anche_con_automazione_spenta(
         lambda config: trasporto,
     )
 
-    assert runtime_cli._run(
-        modalita=ModalitaEsecuzione.TEST_SMTP,
-        oggi=runtime_cli.date(2026, 7, 20),
-        ambiente={},
-    ) == 0
+    assert (
+        runtime_cli._run(
+            modalita=ModalitaEsecuzione.TEST_SMTP,
+            oggi=runtime_cli.date(2026, 7, 20),
+            ambiente={},
+        )
+        == 0
+    )
 
 
 def test_attenzione_restituisce_exit_code_non_zero(
@@ -186,6 +212,105 @@ def test_attenzione_restituisce_exit_code_non_zero(
         ambiente={},
     )
     assert risultato == 3
+
+
+def test_limite_di_rollout_riduce_il_limite_passato_all_orchestratore(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _predisponi_run_fake(
+        monkeypatch,
+        attiva=False,
+        stato="DISATTIVATO",
+        modalita=ModalitaEsecuzione.PRODUZIONE,
+    )
+    configurazione = ConfigurazioneRuntime(
+        automazione_attiva=False,
+        giorni_preavviso=30,
+        destinatario_override=None,
+        email=ConfigurazioneEmail(),
+    )
+    monkeypatch.setattr(
+        runtime_cli,
+        "carica_configurazione",
+        lambda matrice: configurazione,
+    )
+    limite_osservato: list[int] = []
+
+    class OrchestratoreFake:
+        def __init__(self, **kwargs) -> None:
+            limite_osservato.append(
+                kwargs["configurazione"].limite_invii_per_esecuzione
+            )
+
+        def esegui(self, **kwargs):
+            return SimpleNamespace(
+                modalita=ModalitaEsecuzione.PRODUZIONE,
+                stato="DISATTIVATO",
+                righe_lette=0,
+                righe_valide=0,
+                anomalie=0,
+                candidati=0,
+                notifiche_gia_presenti=0,
+                messaggi_composti=0,
+                invii_tentati=0,
+                invii_riusciti=0,
+                invii_falliti=0,
+                esiti_incerti=0,
+            )
+
+    monkeypatch.setattr(runtime_cli, "OrchestratoreReminder", OrchestratoreFake)
+
+    assert (
+        runtime_cli._run(
+            modalita=ModalitaEsecuzione.PRODUZIONE,
+            oggi=runtime_cli.date(2026, 7, 20),
+            ambiente={},
+            limite_invii=1,
+        )
+        == 0
+    )
+    assert limite_osservato == [1]
+
+
+def test_revisione_registro_segnala_anche_errori_permanenti(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    riga = SimpleNamespace(
+        stato=StatoNotifica.FAILED_PERMANENT,
+        aggiornato_il=datetime(2026, 7, 20, tzinfo=timezone.utc),
+    )
+
+    class RegistroFake:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def elenca(self):
+            return (riga,)
+
+        def tentativi_esauriti(self, elemento) -> bool:
+            return False
+
+    monkeypatch.setattr(
+        runtime_cli.ConfigurazioneRisorseGoogle,
+        "da_ambiente",
+        lambda ambiente, **kwargs: SimpleNamespace(admin_spreadsheet_id="admin"),
+    )
+    monkeypatch.setattr(runtime_cli, "costruisci_servizio_sheets", lambda: object())
+    monkeypatch.setattr(
+        runtime_cli,
+        "TrasportoNotificheGoogleApi",
+        lambda servizio: object(),
+    )
+    monkeypatch.setattr(
+        runtime_cli,
+        "ArchivioNotificheGoogleSheets",
+        lambda **kwargs: object(),
+    )
+    monkeypatch.setattr(runtime_cli, "RegistroPersistente", RegistroFake)
+
+    assert runtime_cli._review_registry(ambiente={}, stale_hours=24) == 2
+    assert '"permanent_failure_count": 1' in capsys.readouterr().out
 
 
 def test_errore_cli_non_stampa_notification_id(monkeypatch: pytest.MonkeyPatch) -> None:
