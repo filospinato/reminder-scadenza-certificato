@@ -126,6 +126,7 @@ class OrchestratoreReminder:
             validazione.arbitri,
             oggi=oggi,
             giorni_preavviso=self.configurazione.giorni_preavviso,
+            mappatura=self.mappatura,
         )
         anomalie_dati = (*validazione.anomalie, *selezione.anomalie)
         for anomalia in anomalie_dati:
