@@ -1,9 +1,8 @@
 import smtplib
-from pathlib import Path
 
 import pytest
 
-from reminder_certificati.email_templates import MessaggioEmail
+from reminder_certificati.email_templates import MessaggioEmail, RisorsaInline
 from reminder_certificati.smtp_transport import (
     ConfigurazioneSmtp,
     ErroreSmtpPermanente,
@@ -51,7 +50,7 @@ def test_username_e_password_devono_essere_entrambi_presenti() -> None:
         ConfigurazioneSmtp.da_ambiente(ambiente)
 
 
-def test_nome_mittente_e_cid_rifiutano_header_injection() -> None:
+def test_nome_mittente_rifiuta_header_injection() -> None:
     base = {
         "SMTP_HOST": "smtp.example.invalid",
         "SMTP_FROM": "cia@example.invalid",
@@ -60,8 +59,6 @@ def test_nome_mittente_e_cid_rifiutano_header_injection() -> None:
         ConfigurazioneSmtp.da_ambiente(
             {**base, "SMTP_FROM_NAME": "CIA Lazio\nBcc: altro@example.invalid"}
         )
-    with pytest.raises(ErroreSmtpPermanente, match="SMTP_LOGO_CID"):
-        ConfigurazioneSmtp.da_ambiente({**base, "SMTP_LOGO_CID": "logo>\r\nBcc"})
 
 
 def test_mime_contiene_testo_html_message_id_e_non_crea_copia_sent() -> None:
@@ -90,29 +87,48 @@ def test_fake_restituisce_message_id_sintetico() -> None:
     assert len(trasporto.inviati) == 1
 
 
-def test_logo_opzionale_deve_esistere(tmp_path: Path) -> None:
+def test_risorsa_inline_con_cid_non_valido_viene_rifiutata() -> None:
+    messaggio = MessaggioEmail(
+        destinatario="destinatario@example.invalid",
+        oggetto="Oggetto",
+        testo="Testo",
+        html='<img src="cid:logo>\r\nBcc">',
+        risorse_inline=(
+            RisorsaInline(b"logo", "image", "png", "logo>\r\nBcc", "logo.png"),
+        ),
+    )
     config = ConfigurazioneSmtp(
         host="smtp.example.invalid",
         porta=587,
         mittente="cia@example.invalid",
-        logo_path=tmp_path / "mancante.png",
     )
-    with pytest.raises(ErroreSmtpPermanente, match="non trovato"):
-        costruisci_mime(_messaggio(), config)
+    with pytest.raises(ErroreSmtpPermanente, match="CID"):
+        costruisci_mime(messaggio, config)
 
 
-def test_logo_cid_allegato_e_referenziato_nel_corpo_html(tmp_path: Path) -> None:
-    logo = tmp_path / "logo.png"
-    logo.write_bytes(b"\x89PNG\r\n\x1a\nsynthetic")
+def test_risorsa_inline_allegata_e_referenziata_nel_corpo_html() -> None:
+    messaggio = MessaggioEmail(
+        destinatario="destinatario@example.invalid",
+        oggetto="Oggetto",
+        testo="Testo",
+        html='<p>Testo</p><img src="cid:fip-lazio-logo">',
+        risorse_inline=(
+            RisorsaInline(
+                b"\x89PNG\r\n\x1a\nsynthetic",
+                "image",
+                "png",
+                "fip-lazio-logo",
+                "fip-lazio.png",
+            ),
+        ),
+    )
     config = ConfigurazioneSmtp(
         host="smtp.example.invalid",
         porta=587,
         mittente="cia@example.invalid",
-        logo_path=logo,
-        logo_cid="logo-cia-lazio",
     )
 
-    mime = costruisci_mime(_messaggio(), config)
+    mime = costruisci_mime(messaggio, config)
     html_parts = [
         parte for parte in mime.walk() if parte.get_content_type() == "text/html"
     ]
@@ -121,9 +137,31 @@ def test_logo_cid_allegato_e_referenziato_nel_corpo_html(tmp_path: Path) -> None
     ]
 
     assert len(html_parts) == 1
-    assert 'src="cid:logo-cia-lazio"' in html_parts[0].get_content()
+    assert 'src="cid:fip-lazio-logo"' in html_parts[0].get_content()
     assert len(immagini) == 1
-    assert immagini[0]["Content-ID"] == "<logo-cia-lazio>"
+    assert immagini[0]["Content-ID"] == "<fip-lazio-logo>"
+    assert immagini[0].get_content_disposition() == "inline"
+    assert immagini[0].get_filename() == "fip-lazio.png"
+
+
+def test_risorsa_inline_deve_essere_referenziata_nell_html() -> None:
+    messaggio = MessaggioEmail(
+        destinatario="destinatario@example.invalid",
+        oggetto="Oggetto",
+        testo="Testo",
+        html="<p>Testo</p>",
+        risorse_inline=(
+            RisorsaInline(b"logo", "image", "png", "logo", "logo.png"),
+        ),
+    )
+    config = ConfigurazioneSmtp(
+        host="smtp.example.invalid",
+        porta=587,
+        mittente="cia@example.invalid",
+    )
+
+    with pytest.raises(ErroreSmtpPermanente, match="non referenziata"):
+        costruisci_mime(messaggio, config)
 
 
 class _SmtpConErrore:

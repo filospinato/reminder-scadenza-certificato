@@ -69,7 +69,7 @@ jobs:
 
 # Prima dell'attivazione:
 # 1. vincolare WIF a questo workflow_ref o all'environment production;
-# 2. approvare mittente, Reply-To, contenuto ed eventuale logo;
+# 2. approvare mittente, Reply-To, contenuto e resa della firma HTML con logo inline;
 # 3. completare controllo e test SMTP con override;
 # 4. iniziare manualmente con max_sends=1, poi 5 e infine 10;
 # 5. aggiungere una sola schedule giornaliera e verificarne l'orario UTC;

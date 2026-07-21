@@ -7,7 +7,6 @@ solo dall'ambiente del processo e non sono mai incluse negli errori.
 
 from __future__ import annotations
 
-import mimetypes
 import re
 import smtplib
 import socket
@@ -16,8 +15,6 @@ from dataclasses import dataclass, field
 from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
-from html import escape
-from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 from .email_templates import MessaggioEmail
@@ -54,8 +51,6 @@ class ConfigurazioneSmtp:
     timeout_secondi: float = 20.0
     reply_to: str | None = None
     nome_mittente: str = "CIA Lazio"
-    logo_path: Path | None = None
-    logo_cid: str = "logo-cia-lazio"
 
     @classmethod
     def da_ambiente(cls, ambiente: Mapping[str, str]) -> "ConfigurazioneSmtp":
@@ -103,12 +98,6 @@ class ConfigurazioneSmtp:
         )
         if "\r" in nome_mittente or "\n" in nome_mittente:
             raise ErroreSmtpPermanente("SMTP_FROM_NAME contiene ritorni a capo")
-        logo = ambiente.get("SMTP_LOGO_PATH", "").strip()
-        logo_cid = (
-            ambiente.get("SMTP_LOGO_CID", "logo-cia-lazio").strip() or "logo-cia-lazio"
-        )
-        if not _CID_RE.fullmatch(logo_cid):
-            raise ErroreSmtpPermanente("SMTP_LOGO_CID non valido")
         return cls(
             host=host,
             porta=porta,
@@ -119,8 +108,6 @@ class ConfigurazioneSmtp:
             timeout_secondi=timeout,
             reply_to=reply_to,
             nome_mittente=nome_mittente,
-            logo_path=Path(logo) if logo else None,
-            logo_cid=logo_cid,
         )
 
 
@@ -286,9 +273,6 @@ def costruisci_mime(
 ) -> EmailMessage:
     if "\r" in configurazione.nome_mittente or "\n" in configurazione.nome_mittente:
         raise ErroreSmtpPermanente("nome mittente non valido")
-    if not _CID_RE.fullmatch(configurazione.logo_cid):
-        raise ErroreSmtpPermanente("logo CID non valido")
-
     username, dominio = configurazione.mittente.rsplit("@", 1)
     email = EmailMessage()
     email["Subject"] = messaggio.oggetto
@@ -305,33 +289,28 @@ def costruisci_mime(
         email["Reply-To"] = Address(username=reply_user, domain=reply_domain)
     email.set_content(messaggio.testo)
 
-    html_messaggio = messaggio.html
-    logo_path = configurazione.logo_path
-    if logo_path is not None:
-        if not logo_path.is_file():
-            raise ErroreSmtpPermanente("file logo SMTP non trovato")
-        tipo, _ = mimetypes.guess_type(logo_path.name)
-        if tipo is None or not tipo.startswith("image/"):
-            raise ErroreSmtpPermanente("formato logo SMTP non riconosciuto")
-        html_messaggio += (
-            '<p><img src="cid:'
-            + escape(configurazione.logo_cid, quote=True)
-            + '" alt="Logo CIA Lazio"></p>'
-        )
+    email.add_alternative(messaggio.html, subtype="html")
 
-    email.add_alternative(html_messaggio, subtype="html")
-
-    if logo_path is not None:
-        tipo, _ = mimetypes.guess_type(logo_path.name)
-        assert tipo is not None
-        maintype, subtype = tipo.split("/", 1)
-        html_part = email.get_payload()[-1]
+    html_part = email.get_payload()[-1]
+    cid_visti: set[str] = set()
+    for risorsa in messaggio.risorse_inline:
+        if not _CID_RE.fullmatch(risorsa.cid):
+            raise ErroreSmtpPermanente("CID della risorsa inline non valido")
+        if risorsa.cid in cid_visti:
+            raise ErroreSmtpPermanente("CID della risorsa inline duplicato")
+        if not risorsa.maintype or not risorsa.subtype:
+            raise ErroreSmtpPermanente("tipo della risorsa inline non valido")
+        if not risorsa.filename or "\r" in risorsa.filename or "\n" in risorsa.filename:
+            raise ErroreSmtpPermanente("nome della risorsa inline non valido")
+        if f"cid:{risorsa.cid}" not in messaggio.html:
+            raise ErroreSmtpPermanente("risorsa inline non referenziata nel corpo HTML")
+        cid_visti.add(risorsa.cid)
         html_part.add_related(
-            logo_path.read_bytes(),
-            maintype=maintype,
-            subtype=subtype,
-            cid=f"<{configurazione.logo_cid}>",
-            filename=logo_path.name,
+            risorsa.contenuto,
+            maintype=risorsa.maintype,
+            subtype=risorsa.subtype,
+            cid=f"<{risorsa.cid}>",
+            filename=risorsa.filename,
             disposition="inline",
         )
     return email

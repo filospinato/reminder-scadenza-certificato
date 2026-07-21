@@ -1,4 +1,5 @@
 from datetime import date
+from hashlib import sha256
 import html
 
 import pytest
@@ -30,7 +31,9 @@ def candidato(*, nome: str = "Mario", cognome: str = "Rossi") -> CandidatoNotifi
 def test_template_predefinito_usa_la_colonna_nome() -> None:
     messaggio = componi_email(candidato(nome="Mario", cognome="Rossi"))
     assert messaggio.testo.startswith("Ciao Mario, ricevi questa mail")
-    assert messaggio.html.startswith("<p>Ciao Mario, ricevi questa mail")
+    assert messaggio.html.startswith(
+        '<html><head><meta charset="utf-8"></head><body><div><p>Ciao Mario'
+    )
 
 
 @pytest.mark.parametrize(
@@ -51,7 +54,7 @@ def test_nome_maiuscolo_di_operativo_diventa_leggibile(
     messaggio = componi_email(candidato(nome=nome_operativo))
 
     assert messaggio.testo.startswith(f"Ciao {nome_atteso}, ricevi questa mail")
-    assert messaggio.html.startswith(f"<p>Ciao {nome_atteso}, ricevi questa mail")
+    assert f"<p>Ciao {nome_atteso}, ricevi questa mail" in messaggio.html
 
 
 @pytest.mark.parametrize(
@@ -72,9 +75,7 @@ def test_cognome_maiuscolo_di_operativo_diventa_leggibile(
     messaggio = componi_email(candidato(cognome=cognome_operativo), config)
 
     assert messaggio.testo.startswith(f"Cognome: {cognome_atteso}.")
-    assert messaggio.html.startswith(
-        f"<p>Cognome: {html.escape(cognome_atteso)}.</p>"
-    )
+    assert f"<p>Cognome: {html.escape(cognome_atteso)}.</p>" in messaggio.html
 
 
 def test_nome_completo_normalizza_nome_e_cognome() -> None:
@@ -85,7 +86,7 @@ def test_nome_completo_normalizza_nome_e_cognome() -> None:
     )
 
     assert messaggio.testo.startswith("Gentile Pier Silvio De Luca, promemoria.")
-    assert messaggio.html.startswith("<p>Gentile Pier Silvio De Luca, promemoria.</p>")
+    assert "<p>Gentile Pier Silvio De Luca, promemoria.</p>" in messaggio.html
 
 
 def test_nome_composto_non_viene_troncato() -> None:
@@ -122,16 +123,68 @@ def test_template_senza_nome_non_impone_un_saluto_nascosto() -> None:
 def test_data_e_firma_sono_presenti_in_testo_e_html() -> None:
     messaggio = componi_email(candidato())
     assert "01/08/2026" in messaggio.testo
-    assert "Cordiali saluti,\nCIA Lazio" in messaggio.testo
+    assert "CIA Lazio\nMail: cia@lazio.fip.it" in messaggio.testo
+    assert "Lungotevere Flaminio, 80\n00196 Roma RM" in messaggio.testo
     assert "01/08/2026" in messaggio.html
-    assert "Cordiali saluti,<br>CIA Lazio" in messaggio.html
+    assert '<div style="font-weight:700;">CIA Lazio</div>' in messaggio.html
+    assert "Mail: <a href=\"mailto:cia@lazio.fip.it\"" in messaggio.html
+    assert "Giorgio Silvestri" not in messaggio.html
+    assert "Presidente CIA Lazio" not in messaggio.html
 
 
 def test_paragrafi_html_restano_separati() -> None:
     messaggio = componi_email(candidato())
     assert "</p><p>Ti invitiamo" in messaggio.html
-    assert messaggio.html.count("<p>") == 3
-    assert messaggio.html.count("</p>") == 3
+    assert messaggio.html.count("<p>") == 2
+    assert messaggio.html.count("</p>") == 2
+
+
+def test_firma_html_rispetta_stile_e_link_richiesti() -> None:
+    messaggio = componi_email(candidato())
+
+    assert "font-family:Tahoma,Arial,sans-serif" in messaggio.html
+    assert "font-size:10pt" in messaggio.html
+    assert "color:#0000CC" in messaggio.html
+    assert '<img src="cid:fip-lazio-logo"' in messaggio.html
+    assert 'width="98" height="56"' in messaggio.html
+    assert "Lungotevere Flaminio, 80<br>00196 Roma RM" in messaggio.html
+    assert 'href="tel:+390636005548"' in messaggio.html
+    assert '>06 36005548</a>' in messaggio.html
+    assert 'href="https://cia.fip.it/"' in messaggio.html
+
+
+def test_mail_della_firma_non_e_in_grassetto_ne_evidenziata() -> None:
+    messaggio = componi_email(candidato())
+
+    riga_mail = next(
+        riga for riga in messaggio.html.splitlines() if "Mail:" in riga
+    )
+    assert "font-weight:400" in riga_mail
+    assert "background" not in riga_mail
+    assert "<mark" not in riga_mail
+
+
+def test_logo_incorporato_e_identico_a_quello_del_generatore_mdaemon() -> None:
+    messaggio = componi_email(candidato())
+
+    assert len(messaggio.risorse_inline) == 1
+    logo = messaggio.risorse_inline[0]
+    assert logo.cid == "fip-lazio-logo"
+    assert logo.filename == "fip-lazio.png"
+    assert logo.maintype == "image"
+    assert logo.subtype == "png"
+    assert sha256(logo.contenuto).hexdigest() == (
+        "2d0fe6fa423faed3d53eeeca4a086972e15ee1a76ae700337dc2b66dd6a0752b"
+    )
+
+
+def test_firma_configurabile_resta_nella_parte_testuale_senza_iniettare_html() -> None:
+    config = ConfigurazioneEmail(firma="Nota <operativa>")
+    messaggio = componi_email(candidato(), config)
+
+    assert messaggio.testo.endswith("Nota <operativa>")
+    assert "Nota <operativa>" not in messaggio.html
+    assert "Nota &lt;operativa&gt;" not in messaggio.html
 
 
 def test_html_esegue_escape_dei_dati_personalizzati() -> None:

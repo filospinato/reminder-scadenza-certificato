@@ -28,7 +28,7 @@ chiave | valore | descrizione
 | `DESTINATARIO_OVERRIDE` | vuoto | destinatario del test SMTP |
 | `OGGETTO_EMAIL` | predefinito | oggetto del promemoria |
 | `CORPO_EMAIL` | predefinito | messaggio completo, compreso l'eventuale saluto |
-| `FIRMA_TESTO` | predefinita | firma testuale |
+| `FIRMA_TESTO` | predefinita | firma della parte testuale di fallback; l'HTML istituzionale è nel codice |
 
 Il codice non aggiunge saluti o altre frasi implicite. `CORPO_EMAIL` può usare `{{nome}}`, `{{cognome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`. Il valore iniziale comincia con `Ciao {{nome}},`, ma l'operatore può modificare liberamente la formulazione dal foglio.
 

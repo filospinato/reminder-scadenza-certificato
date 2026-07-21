@@ -2,6 +2,27 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.11] - 2026-07-22
+
+### Firma email
+
+- aggiunta la firma HTML istituzionale CIA Lazio in Tahoma 10 pt, con il solo
+  nome `CIA Lazio` in grassetto e la riga email in peso normale;
+- incorporato tramite CID lo stesso PNG FIP Lazio usato dal generatore di bozze
+  MDaemon, senza dipendenze da file del server o immagini remote;
+- mantenuta `FIRMA_TESTO` come fallback configurabile per i client che non
+  visualizzano HTML, con contatti completi come valore predefinito;
+- indirizzo, telefono, email e sito sono collegamenti utilizzabili conservando
+  la resa visiva richiesta.
+
+### Sicurezza e verifica
+
+- le risorse inline sono validate per CID, tipo, nome e riferimento nel corpo;
+- rimossa la configurazione esterna facoltativa del logo, che poteva produrre
+  firme diverse tra ambienti;
+- aggiunte regressioni per struttura, stile, assenza di evidenziazione, hash del
+  logo e composizione MIME.
+
 ## [0.14.10] - 2026-07-21
 
 ### Corretto
