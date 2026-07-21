@@ -27,24 +27,16 @@ Le intestazioni sono in riga 2 e i dati iniziano dalla riga 3. L'adapter conserv
 
 L'adapter rifiuta matrici vuote, intestazioni vuote o duplicate, righe non tabellari e celle non vuote oltre le intestazioni. Le righe corte vengono completate con celle vuote.
 
-## Verifica preliminare delle intestazioni
+## Verifica delle intestazioni
 
-Il comando:
-
-```bash
-reminder-certificati-runtime check-headers
-```
-
-legge esclusivamente la riga delle intestazioni e verifica la presenza delle colonne già identificate. L'output contiene conteggi e `data_rows_read=0`; non espone valori di arbitri.
-
-Questo controllo deve precedere ogni lettura reale delle righe.
+`reminder-certificati check` esegue il preflight della struttura amministrativa e poi valida le intestazioni canoniche di `Operativo` durante la lettura. L'output resta aggregato e non espone valori personali.
 
 ## Foglio amministrativo
 
 Il file viene creato vuoto dall'amministratore umano, che ne conserva proprietà e recupero. Dopo la condivisione diretta con il service account come editor, il comando:
 
 ```bash
-reminder-certificati-runtime init-admin --spreadsheet-id ID
+reminder-certificati setup-admin --spreadsheet-id ID --apply
 ```
 
 usa `TrasportoStrutturaSheets` per:
@@ -103,9 +95,6 @@ GCP_PROJECT_ID
 GCP_WORKLOAD_IDENTITY_PROVIDER
 GCP_SERVICE_ACCOUNT
 OPERATIVO_SPREADSHEET_ID
-OPERATIVO_SHEET_NAME
-OPERATIVO_HEADER_ROW
-OPERATIVO_COLUMNS_A1
 ADMIN_SPREADSHEET_ID
 ```
 
@@ -135,12 +124,12 @@ I permessi sui file derivano dalla condivisione diretta.
 
 ## Workflow manuale
 
-`.github/workflows/manual-preproduction.yml` è eseguibile solo manualmente. Il job dichiara l'Environment e poi verifica `PREPRODUCTION_ENABLED` prima di checkout e autenticazione. Supporta:
+`.github/workflows/manual-preproduction.yml` è eseguibile solo manualmente, dichiara l'Environment `preproduction` e supporta:
 
-- controllo delle sole intestazioni;
-- inizializzazione o verifica del foglio amministrativo esistente;
-- dry-run aggregato con data corrente o opzionale;
-- un singolo test SMTP con conferma e override.
+- `check`, controllo aggregato di configurazione, dati, candidati e registro senza invii;
+- `test-smtp`, un singolo invio al destinatario override.
+
+Preparazione del foglio e collaudo sintetico del registro sono separati nel workflow di manutenzione.
 
 Il workflow usa WIF, permessi minimi, timeout e un gruppo `concurrency` condiviso con il futuro workflow di produzione. I segreti SMTP sono disponibili soltanto allo step di test.
 
@@ -152,12 +141,4 @@ Gli errori Google vengono convertiti in errori applicativi che riportano il tipo
 
 ## Stato operativo
 
-Codice, fake, adapter, CLI e workflow manuale sono presenti. Restano da completare esternamente:
-
-- creazione umana del file amministrativo vuoto;
-- progetto Google Cloud e WIF;
-- environment e variabili GitHub;
-- condivisione dei due file;
-- prova sintetica di scritture;
-- controllo reale delle intestazioni;
-- dry-run reale con output aggregato.
+Codice, fake, adapter, CLI, workflow manuali e preproduzione Google sono presenti. Restano esterni al repository la verifica dei permessi effettivi, la configurazione SMTP, l'Environment `production` protetto e l'attivazione autorizzata del workflow produttivo.

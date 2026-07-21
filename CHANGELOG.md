@@ -2,6 +2,31 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.8] - 2026-07-21
+
+### Corretto
+
+- gli ID duplicati bloccano tutte le righe rilevanti anche quando una delle occorrenze ha email o dati obbligatori non validi;
+- le risposte SMTP temporanee `4xx` di autenticazione, mittente, destinatario e contenuto vengono classificate come ritentabili, mentre le `5xx` restano permanenti;
+- un errore del registro durante la classificazione SMTP produce `REVISIONE_RICHIESTA` senza interrompere il riepilogo e senza lasciare un falso esito certo;
+- `check` restituisce attenzione in presenza di anomalie dati, `test-smtp` non restituisce più `OK` quando non tenta alcun invio e la revisione del registro segnala anche `FAILED_PERMANENT`;
+- la configurazione rifiuta template malformati o placeholder sconosciuti prima di leggere i candidati;
+- il collaudo sintetico invalida la cache e rilegge realmente Google Sheets dopo append e update.
+
+### Operatività e manutenzione
+
+- `produzione --max-sends 1..10` consente il rollout controllato da uno, cinque e dieci invii senza modificare lo schema del foglio;
+- la data operativa usa esplicitamente `Europe/Rome`, compresi i cambi di ora legale;
+- i backup di migrazione locali sono ignorati da Git, creati con permessi `0600` e caricati dal workflow anche se l'applicazione fallisce dopo la loro creazione;
+- la CI copre Python 3.11, 3.12 e 3.13 ed esegue Ruff, compilazione e controllo delle dipendenze installate.
+- pytest è aggiornato alla serie 9 corretta, eliminando l'advisory noto presente nella precedente serie di sviluppo.
+
+### Sicurezza
+
+- nessuna attivazione della produzione, nessuna schedule e nessun invio reale;
+- il limite interno resta 10 e il nuovo argomento può soltanto ridurlo;
+- nessuna modifica allo schema amministrativo o ai permessi Google.
+
 ## [0.14.7] - 2026-07-21
 
 ### Modificato

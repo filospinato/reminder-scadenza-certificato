@@ -1,4 +1,5 @@
 import json
+import stat
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,13 @@ def _config_v2() -> list[list[str]]:
         ["INVII_REALI_ABILITATI", "true", "BOOLEANO", "vecchio", "true"],
         ["GIORNI_PREAVVISO", "45", "INTERO", "vecchio", "true"],
         ["LIMITE_INVII_PER_ESECUZIONE", "8", "INTERO", "vecchio", "true"],
-        ["DESTINATARIO_OVERRIDE", "test@example.invalid", "EMAIL_OPZIONALE", "vecchio", "true"],
+        [
+            "DESTINATARIO_OVERRIDE",
+            "test@example.invalid",
+            "EMAIL_OPZIONALE",
+            "vecchio",
+            "true",
+        ],
         ["OGGETTO_EMAIL", "Oggetto", "TEMPLATE", "vecchio", "true"],
         ["CORPO_EMAIL", "Corpo {{data_scadenza}}", "TEMPLATE", "vecchio", "true"],
         ["FIRMA_TESTO", "Firma", "TEMPLATE", "vecchio", "true"],
@@ -182,6 +189,7 @@ def test_backup_conserva_esattamente_lo_stato_precedente(tmp_path: Path) -> None
     assert payload["config"] == config
     assert payload["notifiche"] == notifiche
     assert payload["dashboard"] == dashboard
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 def test_rifiuta_intestazioni_config_sconosciute() -> None:

@@ -76,10 +76,11 @@ class ConfigurazioneSmtp:
             raise ErroreSmtpPermanente(
                 "SMTP_SECURITY deve essere STARTTLS, SSL o PLAIN"
             )
-        if sicurezza == "PLAIN" and ambiente.get("ALLOW_PLAIN_SMTP", "").casefold() != "true":
-            raise ErroreSmtpPermanente(
-                "SMTP PLAIN richiede ALLOW_PLAIN_SMTP=true"
-            )
+        if (
+            sicurezza == "PLAIN"
+            and ambiente.get("ALLOW_PLAIN_SMTP", "").casefold() != "true"
+        ):
+            raise ErroreSmtpPermanente("SMTP PLAIN richiede ALLOW_PLAIN_SMTP=true")
         try:
             timeout = float(ambiente.get("SMTP_TIMEOUT_SECONDS", "20"))
         except ValueError as exc:
@@ -97,11 +98,15 @@ class ConfigurazioneSmtp:
         reply_to = ambiente.get("SMTP_REPLY_TO", "").strip() or None
         if reply_to is not None and not email_valida(reply_to):
             raise ErroreSmtpPermanente("SMTP_REPLY_TO non valido")
-        nome_mittente = ambiente.get("SMTP_FROM_NAME", "CIA Lazio").strip() or "CIA Lazio"
+        nome_mittente = (
+            ambiente.get("SMTP_FROM_NAME", "CIA Lazio").strip() or "CIA Lazio"
+        )
         if "\r" in nome_mittente or "\n" in nome_mittente:
             raise ErroreSmtpPermanente("SMTP_FROM_NAME contiene ritorni a capo")
         logo = ambiente.get("SMTP_LOGO_PATH", "").strip()
-        logo_cid = ambiente.get("SMTP_LOGO_CID", "logo-cia-lazio").strip() or "logo-cia-lazio"
+        logo_cid = (
+            ambiente.get("SMTP_LOGO_CID", "logo-cia-lazio").strip() or "logo-cia-lazio"
+        )
         if not _CID_RE.fullmatch(logo_cid):
             raise ErroreSmtpPermanente("SMTP_LOGO_CID non valido")
         return cls(
@@ -197,32 +202,53 @@ class TrasportoSmtpMdaemon:
                 to_addrs=[messaggio.destinatario],
             )
             if rifiutati:
+                if _rifiuti_solo_temporanei(rifiutati):
+                    raise ErroreSmtpRetryable(
+                        "destinatario temporaneamente rifiutato dal server SMTP"
+                    )
                 raise ErroreSmtpPermanente("destinatario rifiutato dal server SMTP")
         except ErroreSmtp:
             raise
         except smtplib.SMTPAuthenticationError as exc:
+            if _codice_smtp_temporaneo(exc.smtp_code):
+                raise ErroreSmtpRetryable(
+                    "autenticazione SMTP temporaneamente non disponibile"
+                ) from exc
             raise ErroreSmtpPermanente("autenticazione SMTP rifiutata") from exc
         except smtplib.SMTPRecipientsRefused as exc:
-            raise ErroreSmtpPermanente("destinatario rifiutato dal server SMTP") from exc
+            if _rifiuti_solo_temporanei(exc.recipients):
+                raise ErroreSmtpRetryable(
+                    "destinatario temporaneamente rifiutato dal server SMTP"
+                ) from exc
+            raise ErroreSmtpPermanente(
+                "destinatario rifiutato dal server SMTP"
+            ) from exc
         except smtplib.SMTPSenderRefused as exc:
+            if _codice_smtp_temporaneo(exc.smtp_code):
+                raise ErroreSmtpRetryable(
+                    "mittente temporaneamente rifiutato dal server SMTP"
+                ) from exc
             raise ErroreSmtpPermanente("mittente rifiutato dal server SMTP") from exc
         except smtplib.SMTPDataError as exc:
-            if 400 <= exc.smtp_code < 500:
-                raise EsitoSmtpIncerto("risposta temporanea dopo avvio consegna") from exc
+            if _codice_smtp_temporaneo(exc.smtp_code):
+                raise ErroreSmtpRetryable(
+                    "contenuto temporaneamente rifiutato dal server SMTP"
+                ) from exc
             raise ErroreSmtpPermanente("contenuto SMTP rifiutato") from exc
         except smtplib.SMTPResponseException as exc:
-            if consegna_iniziata:
-                raise EsitoSmtpIncerto(
-                    f"risposta SMTP {exc.smtp_code} durante la consegna"
-                ) from exc
-            if 400 <= exc.smtp_code < 500:
+            if _codice_smtp_temporaneo(exc.smtp_code):
                 raise ErroreSmtpRetryable(
                     f"risposta SMTP temporanea {exc.smtp_code}"
                 ) from exc
             raise ErroreSmtpPermanente(
                 f"risposta SMTP permanente {exc.smtp_code}"
             ) from exc
-        except (smtplib.SMTPServerDisconnected, TimeoutError, socket.timeout, OSError) as exc:
+        except (
+            smtplib.SMTPServerDisconnected,
+            TimeoutError,
+            socket.timeout,
+            OSError,
+        ) as exc:
             if consegna_iniziata:
                 raise EsitoSmtpIncerto(
                     "connessione interrotta durante la consegna"
@@ -240,6 +266,18 @@ class TrasportoSmtpMdaemon:
             message_id=str(email["Message-ID"]),
             destinatario=messaggio.destinatario,
         )
+
+
+def _codice_smtp_temporaneo(codice: int) -> bool:
+    return 400 <= codice < 500
+
+
+def _rifiuti_solo_temporanei(
+    rifiuti: Mapping[str, tuple[int, bytes | str]],
+) -> bool:
+    return bool(rifiuti) and all(
+        _codice_smtp_temporaneo(codice) for codice, _messaggio in rifiuti.values()
+    )
 
 
 def costruisci_mime(

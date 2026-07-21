@@ -13,6 +13,10 @@ from .registry import RecordNotifica, StatoNotifica
 class ArchivioNotificheProbe(Protocol):
     def ottieni(self, notification_id: str) -> RigaNotifica | None: ...
 
+    def elenca(self) -> tuple[RigaNotifica, ...]: ...
+
+    def ricarica(self) -> tuple[RigaNotifica, ...]: ...
+
     def salva(self, riga: RigaNotifica) -> RigaNotifica: ...
 
 
@@ -71,9 +75,15 @@ def esegui_collaudo_registro_sintetico(
     )
     archivio.salva(prenotazione)
 
+    archivio.ricarica()
     riletta = archivio.ottieni(notification_id)
     if riletta is None or riletta.stato is not StatoNotifica.SENDING:
         raise RuntimeError("rilettura della prenotazione sintetica non riuscita")
+    if (
+        sum(1 for riga in archivio.elenca() if riga.notification_id == notification_id)
+        != 1
+    ):
+        raise RuntimeError("la chiave sintetica non è univoca dopo l'append")
 
     conclusa = RigaNotifica.da_record(
         candidato,
@@ -89,11 +99,17 @@ def esegui_collaudo_registro_sintetico(
     )
     archivio.salva(conclusa)
 
+    archivio.ricarica()
     finale = archivio.ottieni(notification_id)
     if finale is None or finale.stato is not StatoNotifica.SENT:
         raise RuntimeError("aggiornamento sintetico del registro non riuscito")
     if finale.message_id != "<synthetic-registry-check@example.invalid>":
         raise RuntimeError("Message-ID sintetico non conservato")
+    if (
+        sum(1 for riga in archivio.elenca() if riga.notification_id == notification_id)
+        != 1
+    ):
+        raise RuntimeError("la chiave sintetica non è univoca dopo l'update")
 
     return EsitoCollaudoRegistro(
         append_verificato=True,

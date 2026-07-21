@@ -29,7 +29,8 @@ def test_modello_usa_environment_wif_e_lock_condiviso() -> None:
 
 def test_produzione_usa_il_solo_interruttore_del_foglio() -> None:
     testo = _testo()
-    assert "run: reminder-certificati produzione" in testo
+    assert "run: reminder-certificati produzione --max-sends" in testo
+    assert 'default: "1"' in testo
     for valore in (
         "PRODUCTION_ENABLED",
         "ALLOW_EMAIL_DELIVERY",

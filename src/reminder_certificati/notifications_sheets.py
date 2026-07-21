@@ -122,6 +122,12 @@ class ArchivioNotificheGoogleSheets:
         indice = self._carica_indice()
         return tuple(indice[chiave][1] for chiave in sorted(indice))
 
+    def ricarica(self) -> tuple[RigaNotifica, ...]:
+        """Invalida la cache e rilegge il registro dalla sorgente remota."""
+
+        self._indice = None
+        return self.elenca()
+
     def salva(self, riga: RigaNotifica) -> RigaNotifica:
         spreadsheet_id, nome_scheda, _ = self._configurazione()
         indice = self._carica_indice()
@@ -238,7 +244,9 @@ class TrasportoNotificheGoogleApi:
             .execute()
         )
         if not isinstance(risposta, Mapping):
-            raise ErroreArchivioNotifiche("Google Sheets: risposta di lettura non valida")
+            raise ErroreArchivioNotifiche(
+                "Google Sheets: risposta di lettura non valida"
+            )
         valori = risposta.get("values", [])
         if not isinstance(valori, Sequence) or isinstance(valori, (str, bytes)):
             raise ErroreArchivioNotifiche("Google Sheets: campo values non valido")

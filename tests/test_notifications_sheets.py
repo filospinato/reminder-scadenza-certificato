@@ -111,6 +111,18 @@ def test_un_intero_ciclo_usa_una_sola_lettura_del_registro() -> None:
     assert trasporto.letture == 1
 
 
+def test_ricarica_invalida_la_cache_e_rilegge_il_trasporto() -> None:
+    matrice = matrice_con()
+    adapter, trasporto = archivio(matrice)
+
+    assert adapter.elenca() == ()
+    nuova = riga_notifica()
+    matrice.append([nuova.come_mappa()[colonna] for colonna in COLONNE_NOTIFICHE])
+    assert adapter.elenca() == ()
+    assert adapter.ricarica() == (nuova,)
+    assert trasporto.letture == 2
+
+
 def test_chiave_duplicata_blocca_senza_scrivere() -> None:
     riga = riga_notifica()
     matrice = matrice_con(riga, riga)

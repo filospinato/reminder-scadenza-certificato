@@ -97,3 +97,22 @@ def test_rifiuta_corpo_vuoto_e_giorni_fuori_intervallo() -> None:
     _imposta(matrice, "GIORNI_PREAVVISO", "10000")
     with pytest.raises(ErroreConfigurazioneRuntime, match="compreso"):
         carica_configurazione(matrice)
+
+
+@pytest.mark.parametrize(
+    ("chiave", "valore"),
+    [
+        ("OGGETTO_EMAIL", "Promemoria {{campo_sconosciuto}}"),
+        ("CORPO_EMAIL", "Certificato in scadenza {{data_scadenza"),
+        ("FIRMA_TESTO", "Firma }} non valida"),
+    ],
+)
+def test_rifiuta_template_non_validi_prima_di_leggere_i_candidati(
+    chiave: str,
+    valore: str,
+) -> None:
+    matrice = _matrice_config()
+    _imposta(matrice, chiave, valore)
+
+    with pytest.raises(ErroreConfigurazioneRuntime, match="template email non valido"):
+        carica_configurazione(matrice)

@@ -10,7 +10,11 @@ from .admin_schema import (
     VERSIONE_SCHEMA_AMMINISTRATIVO,
     configurazione_iniziale_sicura,
 )
-from .email_templates import ConfigurazioneEmail
+from .email_templates import (
+    ConfigurazioneEmail,
+    ErroreTemplate,
+    valida_configurazione_email,
+)
 from .validation import email_valida
 
 LIMITE_INVII_PER_ESECUZIONE = 10
@@ -125,11 +129,23 @@ def carica_configurazione(
     if not firma:
         raise ErroreConfigurazioneRuntime("CONFIG: FIRMA_TESTO non può essere vuota")
 
+    configurazione_email = ConfigurazioneEmail(
+        oggetto=oggetto,
+        corpo=corpo,
+        firma=firma,
+    )
+    try:
+        valida_configurazione_email(configurazione_email)
+    except ErroreTemplate as exc:
+        raise ErroreConfigurazioneRuntime(
+            f"CONFIG: template email non valido: {exc}"
+        ) from exc
+
     return ConfigurazioneRuntime(
         automazione_attiva=automazione_attiva,
         giorni_preavviso=giorni,
         destinatario_override=override,
-        email=ConfigurazioneEmail(oggetto=oggetto, corpo=corpo, firma=firma),
+        email=configurazione_email,
         schema_version=schema_version,
     )
 
@@ -147,7 +163,9 @@ def _intero_limitato(value: str, *, campo: str, minimo: int, massimo: int) -> in
     try:
         risultato = int(value)
     except ValueError as exc:
-        raise ErroreConfigurazioneRuntime(f"CONFIG: {campo} deve essere intero") from exc
+        raise ErroreConfigurazioneRuntime(
+            f"CONFIG: {campo} deve essere intero"
+        ) from exc
     if not minimo <= risultato <= massimo:
         raise ErroreConfigurazioneRuntime(
             f"CONFIG: {campo} deve essere compreso tra {minimo} e {massimo}"

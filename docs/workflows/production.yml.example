@@ -3,6 +3,16 @@ name: Reminder certificati produzione
 
 on:
   workflow_dispatch:
+    inputs:
+      max_sends:
+        description: Numero massimo di invii reali in questa esecuzione
+        required: true
+        type: choice
+        default: "1"
+        options:
+          - "1"
+          - "5"
+          - "10"
 
 permissions:
   contents: read
@@ -50,15 +60,17 @@ jobs:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
+          ALLOW_PLAIN_SMTP: ${{ vars.ALLOW_PLAIN_SMTP }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: reminder-certificati produzione
+        run: reminder-certificati produzione --max-sends "${{ inputs.max_sends || '10' }}"
 
 # Prima dell'attivazione:
 # 1. vincolare WIF a questo workflow_ref o all'environment production;
 # 2. approvare mittente, Reply-To, contenuto ed eventuale logo;
 # 3. completare controllo e test SMTP con override;
-# 4. aggiungere una sola schedule giornaliera e verificarne l'orario UTC;
-# 5. impostare INVIO_AUTOMATICO_ATTIVO=true soltanto al go-live autorizzato.
+# 4. iniziare manualmente con max_sends=1, poi 5 e infine 10;
+# 5. aggiungere una sola schedule giornaliera e verificarne l'orario UTC;
+# 6. impostare INVIO_AUTOMATICO_ATTIVO=true soltanto al go-live autorizzato.

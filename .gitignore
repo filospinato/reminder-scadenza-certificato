@@ -12,3 +12,6 @@ htmlcov/
 
 # File temporanei generati da google-github-actions/auth.
 gha-creds-*.json
+
+# Backup locale della migrazione: può contenere dati personali legacy.
+admin-migration-backup*.json

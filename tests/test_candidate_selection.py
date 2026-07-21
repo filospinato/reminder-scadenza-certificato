@@ -135,6 +135,24 @@ def test_esclude_duplicati_solo_se_entrambi_rilevanti() -> None:
     assert [anomalia.numero_riga for anomalia in esito.anomalie] == [3, 4]
 
 
+def test_un_duplicato_invalido_blocca_anche_la_riga_valida() -> None:
+    esito = seleziona_candidati(
+        [
+            arbitro(offset=10, riga=3),
+            arbitro(offset=20, email="", riga=4),
+        ],
+        oggi=OGGI,
+        giorni_preavviso=30,
+    )
+
+    assert esito.candidati == ()
+    assert [(anomalia.numero_riga, anomalia.codice) for anomalia in esito.anomalie] == [
+        (3, CodiceAnomalia.ID_DUPLICATO),
+        (4, CodiceAnomalia.EMAIL_NON_VALIDA),
+        (4, CodiceAnomalia.ID_DUPLICATO),
+    ]
+
+
 def test_crea_un_candidato_completo_nella_finestra() -> None:
     esito = seleziona_candidati(
         [arbitro(offset=10)],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -83,10 +84,23 @@ class PianoMigrazione:
             "notifiche": [list(riga) for riga in self.notifiche_prima],
             "dashboard": [list(riga) for riga in self.dashboard_prima],
         }
-        path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+        path.parent.mkdir(parents=True, exist_ok=True)
+        contenuto = json.dumps(payload, ensure_ascii=False, indent=2)
+        descrittore = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
         )
+        try:
+            with os.fdopen(descrittore, "w", encoding="utf-8") as file:
+                file.write(contenuto)
+        except Exception:
+            try:
+                os.close(descrittore)
+            except OSError:
+                pass
+            raise
+        path.chmod(0o600)
 
 
 def prepara_piano(
@@ -104,9 +118,7 @@ def prepara_piano(
         dashboard_prima
     )
     migrazione_necessaria = (
-        config_legacy
-        or notifiche_dopo != notifiche_prima
-        or dashboard_legacy
+        config_legacy or notifiche_dopo != notifiche_prima or dashboard_legacy
     )
 
     config_dopo = _migra_config(
@@ -176,9 +188,8 @@ def _config_corrente(matrice: tuple[tuple[str, ...], ...]) -> bool:
         for riga in matrice[1:]
         if len(riga) == len(COLONNE_CONFIG) and riga[0]
     }
-    return (
-        set(valori) == canoniche
-        and valori.get("SCHEMA_VERSION") == str(VERSIONE_SCHEMA_AMMINISTRATIVO)
+    return set(valori) == canoniche and valori.get("SCHEMA_VERSION") == str(
+        VERSIONE_SCHEMA_AMMINISTRATIVO
     )
 
 
@@ -195,7 +206,9 @@ def _migra_config(
         if not any(cella.strip() for cella in riga):
             continue
         if len(riga) != larghezza:
-            raise ErroreMigrazioneAmministrativa("CONFIG: riga con larghezza non valida")
+            raise ErroreMigrazioneAmministrativa(
+                "CONFIG: riga con larghezza non valida"
+            )
         chiave = riga[0].strip()
         if not chiave or chiave in valori:
             raise ErroreMigrazioneAmministrativa("CONFIG: chiave vuota o duplicata")
@@ -245,9 +258,7 @@ def _migra_dashboard(
     if not matrice:
         return canonica
     if matrice[0] != COLONNE_DASHBOARD:
-        raise ErroreMigrazioneAmministrativa(
-            "DASHBOARD: intestazioni non riconosciute"
-        )
+        raise ErroreMigrazioneAmministrativa("DASHBOARD: intestazioni non riconosciute")
 
     chiavi_originali: set[str] = set()
     for riga in matrice[1:]:
@@ -259,9 +270,7 @@ def _migra_dashboard(
             )
         chiave = riga[0].strip()
         if not chiave or chiave in chiavi_originali:
-            raise ErroreMigrazioneAmministrativa(
-                "DASHBOARD: metrica vuota o duplicata"
-            )
+            raise ErroreMigrazioneAmministrativa("DASHBOARD: metrica vuota o duplicata")
         chiavi_originali.add(chiave)
 
     descrizione = "Indica se gli invii programmati sono abilitati."
@@ -362,11 +371,16 @@ class TrasportoMigrazioneGoogleApi:
     def leggi_valori(
         self, *, spreadsheet_id: str, intervallo_a1: str
     ) -> Sequence[Sequence[Any]]:
-        risposta = self.servizio.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=intervallo_a1,
-            majorDimension="ROWS",
-        ).execute()
+        risposta = (
+            self.servizio.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=spreadsheet_id,
+                range=intervallo_a1,
+                majorDimension="ROWS",
+            )
+            .execute()
+        )
         if not isinstance(risposta, Mapping):
             raise ErroreMigrazioneAmministrativa("risposta Google non valida")
         valori = risposta.get("values", [])
