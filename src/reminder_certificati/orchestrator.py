@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from enum import StrEnum
 from typing import Protocol
 
+from .candidate_selection import seleziona_candidati
 from .data_sources import SorgenteDati, leggi_e_valida
 from .email_templates import ErroreTemplate, componi_email
 from .models import CandidatoNotifica
@@ -18,7 +19,6 @@ from .monitoring import (
     SeveritaAnomalia,
 )
 from .persistent_registry import ErroreRegistroPersistente
-from .rules import trova_candidati
 from .runtime_config import ConfigurazioneRuntime
 from .smtp_transport import (
     ErroreSmtpPermanente,
@@ -122,7 +122,13 @@ class OrchestratoreReminder:
             self._aggiorna_dashboard(esito, istante, codice_errore="LETTURA_FATALE")
             raise ErroreOrchestrazione("lettura della sorgente non riuscita") from exc
 
-        for anomalia in validazione.anomalie:
+        selezione = seleziona_candidati(
+            validazione.arbitri,
+            oggi=oggi,
+            giorni_preavviso=self.configurazione.giorni_preavviso,
+        )
+        anomalie_dati = (*validazione.anomalie, *selezione.anomalie)
+        for anomalia in anomalie_dati:
             self._registra_anomalia(
                 severita=SeveritaAnomalia.WARNING,
                 origine="OPERATIVO",
@@ -133,11 +139,7 @@ class OrchestratoreReminder:
                 campo=anomalia.campo,
             )
 
-        candidati = trova_candidati(
-            validazione.arbitri,
-            oggi=oggi,
-            giorni_preavviso=self.configurazione.giorni_preavviso,
-        )
+        candidati = selezione.candidati
         limite = (
             1
             if modalita is ModalitaEsecuzione.TEST_SMTP
@@ -295,7 +297,7 @@ class OrchestratoreReminder:
             stato=stato,
             righe_lette=validazione.righe_totali,
             righe_valide=len(validazione.arbitri),
-            anomalie=len(validazione.anomalie) + falliti + incerti,
+            anomalie=len(anomalie_dati) + falliti + incerti,
             candidati=len(candidati),
             notifiche_gia_presenti=gia_presenti,
             messaggi_composti=composti,
