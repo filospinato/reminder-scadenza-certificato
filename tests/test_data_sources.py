@@ -200,7 +200,7 @@ def test_sorgente_memoria_si_collega_alla_validazione_esistente() -> None:
     assert esito.anomalie == ()
 
 
-def test_anomalia_usa_il_numero_di_riga_originale_del_foglio() -> None:
+def test_record_conserva_il_numero_di_riga_originale_del_foglio() -> None:
     adapter = AdapterGoogleSheets(
         lettore=LettoreFake(
             [
@@ -214,8 +214,8 @@ def test_anomalia_usa_il_numero_di_riga_originale_del_foglio() -> None:
         riga_intestazioni=2,
     )
     esito = leggi_e_valida(adapter)
-    assert len(esito.anomalie) == 1
-    assert esito.anomalie[0].numero_riga == 3
+    assert esito.anomalie == ()
+    assert esito.arbitri[0].numero_riga_sorgente == 3
 
 
 class RichiestaFake:
