@@ -6,7 +6,12 @@ from datetime import date
 
 from .models import Arbitro, CandidatoNotifica
 from .rules import trova_candidati
-from .validation import AnomaliaDati, CodiceAnomalia, email_valida
+from .validation import (
+    AnomaliaDati,
+    CodiceAnomalia,
+    MappaturaColonne,
+    email_valida,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,8 +25,9 @@ def seleziona_candidati(
     *,
     oggi: date,
     giorni_preavviso: int,
+    mappatura: MappaturaColonne = MappaturaColonne(),
 ) -> EsitoSelezioneCandidati:
-    """Valida i dati di contatto soltanto per le scadenze nella finestra.
+    """Valida i dati obbligatori soltanto per le scadenze nella finestra.
 
     Le righe fuori finestra non producono anomalie per nome, cognome, email o ID.
     Le righe senza scadenza non arrivano a questa fase perché vengono ignorate
@@ -46,7 +52,7 @@ def seleziona_candidati(
                 AnomaliaDati(
                     numero_riga,
                     CodiceAnomalia.ID_MANCANTE,
-                    "id_arbitro",
+                    mappatura.id_arbitro,
                     "identificativo arbitro mancante",
                 )
             )
@@ -55,7 +61,7 @@ def seleziona_candidati(
                 AnomaliaDati(
                     numero_riga,
                     CodiceAnomalia.NOME_MANCANTE,
-                    "nome",
+                    mappatura.nome,
                     "nome arbitro mancante",
                     arbitro.id_arbitro.strip() or None,
                 )
@@ -65,7 +71,7 @@ def seleziona_candidati(
                 AnomaliaDati(
                     numero_riga,
                     CodiceAnomalia.COGNOME_MANCANTE,
-                    "cognome",
+                    mappatura.cognome,
                     "cognome arbitro mancante",
                     arbitro.id_arbitro.strip() or None,
                 )
@@ -75,7 +81,7 @@ def seleziona_candidati(
                 AnomaliaDati(
                     numero_riga,
                     CodiceAnomalia.EMAIL_NON_VALIDA,
-                    "email",
+                    mappatura.email,
                     "indirizzo email mancante o non valido",
                     arbitro.id_arbitro.strip() or None,
                 )
@@ -97,7 +103,7 @@ def seleziona_candidati(
                 AnomaliaDati(
                     arbitro.numero_riga_sorgente,
                     CodiceAnomalia.ID_DUPLICATO,
-                    "id_arbitro",
+                    mappatura.id_arbitro,
                     "identificativo presente in più righe rilevanti; tutte le occorrenze sono escluse",
                     arbitro.id_arbitro,
                 )
