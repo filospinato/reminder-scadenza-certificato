@@ -12,7 +12,7 @@ def _normalizza_nome_proprio(valore: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Arbitro:
-    """Dati minimi di una riga valida di Operativo."""
+    """Dati minimi di una riga di Operativo con scadenza interpretabile."""
 
     id_arbitro: str
     nome: str
@@ -22,6 +22,7 @@ class Arbitro:
     attivo: bool = True
     qualifica: str = ""
     abilitazione: str = ""
+    numero_riga_sorgente: int = 0
 
     @property
     def nome_per_saluto(self) -> str:
