@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reminder-scadenza-certificato"
-version = "0.14.8"
+version = "0.14.9"
 description = "Reminder automatici per i certificati medici in scadenza"
 readme = "README.md"
 requires-python = ">=3.11"

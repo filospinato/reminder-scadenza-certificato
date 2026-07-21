@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -26,7 +27,8 @@ def test_manutenzione_gestisce_il_foglio_amministrativo() -> None:
     assert 'ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}' in workflow
     assert 'setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"' in workflow
     assert "setup-admin --spreadsheet-id \"$ADMIN_SPREADSHEET_ID\" --apply" in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "actions/upload-artifact@" in workflow
+    assert "# v7.0.1" in workflow
     assert "init-admin" not in workflow
     assert "migrate-admin" not in workflow
 
@@ -54,3 +56,18 @@ def test_modello_produzione_condivide_lock_e_limita_i_segreti() -> None:
     assert "SMTP_PASSWORD" in workflow
     assert "schedule:" not in workflow
     assert "reminder-certificati produzione" in workflow
+
+
+def test_tutte_le_actions_sono_fissate_a_sha_immutabili() -> None:
+    percorsi = (
+        ".github/workflows/ci.yml",
+        ".github/workflows/manual-maintenance.yml",
+        ".github/workflows/manual-preproduction.yml",
+        "docs/workflows/production.yml.example",
+    )
+
+    for percorso in percorsi:
+        workflow = _leggi(percorso)
+        riferimenti = re.findall(r"uses:\s*[^@\s]+@([^\s#]+)", workflow)
+        assert riferimenti, percorso
+        assert all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in riferimenti), percorso

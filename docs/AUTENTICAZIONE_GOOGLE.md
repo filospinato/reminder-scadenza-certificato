@@ -106,10 +106,10 @@ permissions:
   id-token: write
 
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
   - id: auth
-    uses: google-github-actions/auth@v3
+    uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
     with:
       project_id: ${{ vars.GCP_PROJECT_ID }}
       workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
