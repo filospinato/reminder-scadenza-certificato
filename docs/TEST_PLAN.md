@@ -28,6 +28,34 @@ Il workflow ordinario deve mostrare soltanto controllo e prova email. Il workflo
 
 Il modello produttivo deve restare non attivo e senza pianificazione automatica fino al go-live, mantenendo Environment protetto, WIF, lock condiviso, i soli ID dei due Spreadsheet e Secrets limitati allo step SMTP. Tab `Operativo`, riga 2 e intervallo `A:AS` sono un contratto applicativo, non Variables GitHub.
 
+## Verifica obbligatoria sui fogli Drive
+
+Ogni modifica al codice, indipendentemente dall'area interessata, deve essere
+collaudata sui due Spreadsheet Drive collegati prima di essere considerata
+completata o pronta per la produzione. La suite automatica e i trasporti fake
+sono necessari, ma non sostituiscono la verifica dell'integrazione reale.
+
+Il collaudo si svolge con `INVIO_AUTOMATICO_ATTIVO=false` e comprende:
+
+1. il workflow di manutenzione con `setup-preview`, controllando che non proponga
+   modifiche inattese al foglio amministrativo;
+2. il workflow manuale di preproduzione con `check`, verificando preflight Google,
+   lettura e validazione aggregate di `Operativo`, CONFIG, dashboard e registro;
+3. zero tentativi SMTP e nessun invio durante entrambi i controlli;
+4. per modifiche a schema, migrazioni, adapter o persistenza, anche
+   `registry-check`, che usa esclusivamente una chiave sintetica;
+5. conservazione degli URL dei run e dei risultati aggregati nella PR, nelle note
+   di rilascio o nell'handoff della modifica.
+
+`setup-apply` non fa parte del controllo ordinario in sola lettura: si esegue
+soltanto quando l'anteprima mostra una modifica attesa, dopo revisione esplicita
+e con backup. `test-smtp` richiede un'autorizzazione distinta e non può essere
+usato come sostituto del controllo Drive senza invii.
+
+Se WIF, permessi o fogli reali non sono disponibili, il limite deve essere
+dichiarato esplicitamente. In quel caso il cambiamento non soddisfa questo
+criterio di uscita e non deve essere attivato in produzione.
+
 ## Criteri di uscita
 
 - CI completa verde;
@@ -35,4 +63,6 @@ Il modello produttivo deve restare non attivo e senza pianificazione automatica 
 - schema, controllo, test SMTP e registro validati;
 - arresto tramite l'unico interruttore provato;
 - documentazione coerente con i comandi pubblici;
-- collaudi esterni completati prima del go-live.
+- collaudi Drive obbligatori completati per ogni modifica al codice, con evidenze
+  conservate e nessun invio SMTP implicito;
+- altri collaudi esterni completati prima del go-live.

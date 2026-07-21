@@ -42,10 +42,28 @@ def test_readme_dichiara_le_fonti_di_verita() -> None:
         "CHANGELOG.md",
         "ROADMAP.md",
         "docs/OPERATIONS.md",
+        "docs/TEST_PLAN.md",
         "docs/DEPLOYMENT_CHECKLIST.md",
         "docs/EMERGENCY.md",
     ):
         assert percorso in testo
+
+
+def test_ogni_modifica_al_codice_richiede_il_collaudo_drive() -> None:
+    readme = README.read_text(encoding="utf-8")
+    piano = TEST_PLAN.read_text(encoding="utf-8")
+
+    assert "## Verifica obbligatoria delle modifiche al codice" in readme
+    assert "## Verifica obbligatoria sui fogli Drive" in piano
+    for requisito in (
+        "Ogni modifica al codice",
+        "setup-preview",
+        "check",
+        "registry-check",
+        "INVIO_AUTOMATICO_ATTIVO=false",
+        "zero tentativi SMTP",
+    ):
+        assert requisito in readme or requisito in piano
 
 
 def test_roadmap_contiene_soltanto_lavoro_aperto() -> None:

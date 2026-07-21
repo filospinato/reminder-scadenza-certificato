@@ -26,6 +26,25 @@ Il controllo e la prova funzionano anche quando l'invio automatico è spento. So
 - Environment GitHub, WIF/OIDC e registro anti-duplicazione restano invariati;
 - SMTP `PLAIN` resta temporaneamente supportato e protetto da `ALLOW_PLAIN_SMTP=true`.
 
+## Verifica obbligatoria delle modifiche al codice
+
+Ogni modifica al codice deve essere verificata sia dalla CI sia contro i due
+Spreadsheet Drive realmente collegati prima di essere considerata completata o
+attivabile in produzione. I test con fake non sostituiscono questo collaudo.
+
+Con `INVIO_AUTOMATICO_ATTIVO=false` si eseguono almeno `setup-preview` nel
+workflow di manutenzione e `check` nel workflow manuale di preproduzione. Il
+primo non deve proporre aggiornamenti inattesi; il secondo deve confermare
+preflight, dati e registro senza scritture operative né tentativi SMTP. Le
+modifiche che interessano schema, migrazioni o persistenza richiedono anche il
+collaudo sintetico `registry-check`. Un eventuale `setup-apply` resta separato:
+si usa soltanto dopo avere revisionato l'anteprima e con backup.
+
+Gli URL e gli esiti dei workflow costituiscono evidenza della verifica. Se i
+fogli o le credenziali temporanee non sono disponibili, la modifica deve essere
+dichiarata non verificata su Drive e non è pronta per la produzione. La
+procedura completa è in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
+
 Se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` deve essere impostata come Variable dello specifico Environment GitHub; con `STARTTLS` o `SSL` non serve.
 
 ## Installazione
@@ -119,6 +138,7 @@ Per evitare documentazione duplicata:
 - `CHANGELOG.md` contiene la cronologia delle versioni;
 - `ROADMAP.md` contiene esclusivamente il lavoro ancora aperto;
 - `docs/OPERATIONS.md` contiene le procedure ordinarie;
+- `docs/TEST_PLAN.md` definisce CI e collaudi obbligatori sui fogli Drive;
 - `docs/DEPLOYMENT_CHECKLIST.md` contiene il percorso di go-live;
 - `docs/EMERGENCY.md` contiene le procedure di arresto e incidente.
 
@@ -127,6 +147,7 @@ Le issue coordinano il lavoro ma non duplicano versione, stato o roadmap.
 ## Guide
 
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)
 - [`docs/EMERGENCY.md`](docs/EMERGENCY.md)
 - [`docs/SCHEMA_FOGLI.md`](docs/SCHEMA_FOGLI.md)
 - [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md)
