@@ -52,7 +52,7 @@
 - [ ] mittente e Reply-To approvati;
 - [ ] credenziali inserite solo nei Secrets dello specifico Environment;
 - [ ] corpo e firma ufficiali approvati;
-- [ ] logo e CID approvati, se utilizzati;
+- [ ] resa HTML, logo inline e CID approvati nei client email usati;
 - [ ] `DESTINATARIO_OVERRIDE` configurato;
 - [ ] `INVIO_AUTOMATICO_ATTIVO=false` durante la prova;
 - [ ] `reminder-certificati test-smtp` riuscito;

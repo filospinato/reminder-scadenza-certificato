@@ -48,11 +48,16 @@ Ciao {{nome}}, ricevi questa mail perché il certificato medico presente nei nos
 Ti invitiamo a provvedere al rinnovo e alla trasmissione della nuova documentazione secondo le modalità previste.
 
 Firma:
-Cordiali saluti,
 CIA Lazio
+Mail: cia@lazio.fip.it
+
+Lungotevere Flaminio, 80
+00196 Roma RM
+06 36005548
+fip.it/cia
 ```
 
-Il testo iniziale resta quello concordato, ma può essere modificato senza cambiare il codice. Oggetto, corpo e firma vengono caricati da `CONFIG`; contenuto, contatti, firma ufficiale e logo devono essere approvati prima della produzione.
+Oggetto, corpo e firma testuale vengono caricati da `CONFIG`. La parte HTML usa invece una firma istituzionale versionata nel codice: soltanto `CIA Lazio` è in grassetto, la riga `Mail: cia@lazio.fip.it` è in peso normale, il logo FIP Lazio è incorporato tramite CID e seguono indirizzo, telefono e sito. In questo modo un valore del foglio non può iniettare HTML e il risultato resta coerente tra le esecuzioni. Contenuto, contatti e resa visiva devono comunque essere approvati prima della produzione.
 
 ## MIME e trasporto
 
@@ -62,7 +67,7 @@ Il testo iniziale resta quello concordato, ma può essere modificato senza cambi
 - Reply-To opzionale;
 - parte `text/plain`;
 - parte `text/html`;
-- immagine inline CID facoltativa;
+- logo FIP Lazio inline CID incluso nel pacchetto;
 - un solo destinatario per chiamata SMTP.
 
 Il trasporto supporta STARTTLS e SSL. La consegna avviene direttamente al server SMTP e non crea una copia nella Posta inviata.
@@ -92,7 +97,8 @@ Il test resta disponibile con `INVIO_AUTOMATICO_ATTIVO=false`. Non esiste una se
 - valori personalizzati sottoposti a escaping HTML;
 - ritorni a capo vietati nell'oggetto;
 - oggetto, corpo e firma non possono essere vuoti;
-- testo e HTML prodotti dalla stessa configurazione;
+- corpo testuale e HTML prodotti dalla stessa configurazione, con firma HTML istituzionale controllata dal codice;
+- nessuna immagine remota: il logo è allegato al messaggio e referenziato tramite CID;
 - i template non accedono a campi arbitrari;
 - i parametri SMTP vengono letti dall'ambiente e non sono versionati;
 - nessun invio reale è possibile con il solo inserimento dei parametri esterni.

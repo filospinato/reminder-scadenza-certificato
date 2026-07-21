@@ -55,7 +55,7 @@ SMTP_USERNAME
 ```
 <!-- END SMTP SECRETS -->
 
-`SMTP_REPLY_TO` non è una credenziale e resta una Variable. Anche `ALLOW_PLAIN_SMTP` è una Variable: deve valere `true` soltanto se MDaemon richiede esplicitamente il trasporto senza TLS e il canale di rete è stato approvato. Il nome del mittente, il timeout e il CID del logo usano default applicativi stabili. Username e password non devono essere trasformati in Variables di job né riportati nei log.
+`SMTP_REPLY_TO` non è una credenziale e resta una Variable. Anche `ALLOW_PLAIN_SMTP` è una Variable: deve valere `true` soltanto se MDaemon richiede esplicitamente il trasporto senza TLS e il canale di rete è stato approvato. Il nome del mittente e il timeout usano default applicativi stabili; logo e CID della firma sono inclusi nel codice e non richiedono configurazione esterna. Username e password non devono essere trasformati in Variables di job né riportati nei log.
 
 ## Regola di modifica
 

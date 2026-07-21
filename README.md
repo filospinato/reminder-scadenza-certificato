@@ -92,7 +92,7 @@ La tab usa tre sole colonne: `chiave`, `valore`, `descrizione`. Le chiavi sono:
 - `CORPO_EMAIL`;
 - `FIRMA_TESTO`.
 
-`CORPO_EMAIL` contiene il messaggio completo, compreso l'eventuale saluto. Il codice non aggiunge frasi implicite. I placeholder disponibili in oggetto, corpo e firma sono:
+`CORPO_EMAIL` contiene il messaggio completo, compreso l'eventuale saluto. Il codice non aggiunge frasi implicite. `FIRMA_TESTO` alimenta la parte testuale di fallback; la firma HTML istituzionale, compreso il logo inline, è versionata e verificata nel codice per mantenere stile e collegamenti coerenti. I placeholder disponibili in oggetto, corpo e firma testuale sono:
 
 ```text
 {{nome}}

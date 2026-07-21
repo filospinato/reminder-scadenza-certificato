@@ -5,6 +5,13 @@ import re
 from dataclasses import dataclass
 from typing import Mapping
 
+from .email_signature import (
+    FIRMA_HTML,
+    FIRMA_TESTO_PREDEFINITA,
+    LOGO_CID,
+    LOGO_FILENAME,
+    carica_logo_fip_lazio,
+)
 from .models import CandidatoNotifica
 
 _PLACEHOLDER_RE = re.compile(r"{{\s*([a-z_]+)\s*}}")
@@ -26,7 +33,16 @@ class ConfigurazioneEmail:
         "Ti invitiamo a provvedere al rinnovo e alla trasmissione della nuova "
         "documentazione secondo le modalità previste."
     )
-    firma: str = "Cordiali saluti,\nCIA Lazio"
+    firma: str = FIRMA_TESTO_PREDEFINITA
+
+
+@dataclass(frozen=True, slots=True)
+class RisorsaInline:
+    contenuto: bytes
+    maintype: str
+    subtype: str
+    cid: str
+    filename: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +51,7 @@ class MessaggioEmail:
     oggetto: str
     testo: str
     html: str
+    risorse_inline: tuple[RisorsaInline, ...] = ()
 
 
 def _valori(candidato: CandidatoNotifica) -> dict[str, str]:
@@ -87,8 +104,8 @@ def componi_email(
 ) -> MessaggioEmail:
     """Compone testo e HTML senza effettuare alcun invio.
 
-    Oggetto, corpo completo e firma vengono renderizzati esattamente dai template
-    configurati. Il codice non aggiunge saluti o altre frasi implicite.
+    Oggetto, corpo completo e firma testuale vengono renderizzati dai template
+    configurati. La parte HTML usa la firma istituzionale controllata dal codice.
     """
 
     valori = _valori(candidato)
@@ -100,13 +117,29 @@ def componi_email(
         raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")
 
     testo = f"{corpo}\n\n{firma}"
-    html_completo = "".join([*_paragrafi_html(corpo), *_paragrafi_html(firma)])
+    corpo_html = "".join(_paragrafi_html(corpo))
+    html_completo = (
+        '<html><head><meta charset="utf-8"></head><body>'
+        f"<div>{corpo_html}</div>"
+        '<div style="height:1em;line-height:1em;">&nbsp;</div>'
+        f"{FIRMA_HTML}"
+        "</body></html>"
+    )
 
     return MessaggioEmail(
         destinatario=candidato.arbitro.email.strip(),
         oggetto=oggetto,
         testo=testo,
         html=html_completo,
+        risorse_inline=(
+            RisorsaInline(
+                contenuto=carica_logo_fip_lazio(),
+                maintype="image",
+                subtype="png",
+                cid=LOGO_CID,
+                filename=LOGO_FILENAME,
+            ),
+        ),
     )
 
 

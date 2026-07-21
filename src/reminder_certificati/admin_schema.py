@@ -174,7 +174,7 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "FIRMA_TESTO",
             email.firma,
             TipoValoreConfig.TEMPLATE,
-            "Firma testuale del messaggio.",
+            "Firma della parte testuale; la versione HTML è gestita dal codice.",
             True,
         ),
     )
