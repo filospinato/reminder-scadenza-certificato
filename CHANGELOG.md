@@ -2,6 +2,23 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.7] - 2026-07-21
+
+### Modificato
+
+- le righe di `Operativo` prive di una data di scadenza vengono ignorate senza generare anomalie;
+- ID, nome, cognome ed email vengono validati soltanto per persone attive con certificato compreso nella finestra `0..GIORNI_PREAVVISO`;
+- i record incompleti con scadenza futura oltre la finestra o già trascorsa non producono anomalie operative;
+- il cognome resta obbligatorio insieme a ID, nome ed email per ogni candidato al reminder;
+- gli ID duplicati vengono considerati bloccanti soltanto quando più righe con lo stesso ID sono contemporaneamente rilevanti per l'invio.
+
+### Compatibilità e sicurezza
+
+- nessun hardcoding delle righe 3 e 4 o di specifici numeri di tessera;
+- nessuna modifica al foglio `Operativo`, ai permessi Google, a SMTP, al registro o ai workflow;
+- le date presenti ma malformate continuano a essere segnalate;
+- `INVIO_AUTOMATICO_ATTIVO` resta spento e non è stata attivata alcuna schedule produttiva.
+
 ## [0.14.6] - 2026-07-21
 
 ### Corretto
