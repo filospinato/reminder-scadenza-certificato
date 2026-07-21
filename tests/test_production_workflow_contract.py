@@ -24,7 +24,8 @@ def test_modello_usa_environment_wif_e_lock_condiviso() -> None:
     assert "cancel-in-progress: false" in testo
     assert "contents: read" in testo
     assert "id-token: write" in testo
-    assert "google-github-actions/auth@v3" in testo
+    assert "google-github-actions/auth@" in testo
+    assert "# v3" in testo
 
 
 def test_produzione_usa_il_solo_interruttore_del_foglio() -> None:

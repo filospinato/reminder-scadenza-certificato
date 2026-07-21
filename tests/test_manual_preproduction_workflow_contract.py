@@ -78,7 +78,8 @@ def test_workflow_manutenzione_separa_setup_e_registro() -> None:
         assert f"- {operazione}" in testo
     assert "reminder-certificati setup-admin" in testo
     assert "--apply --backup-path admin-migration-backup.json" in testo
-    assert "actions/upload-artifact@v4" in testo
+    assert "actions/upload-artifact@" in testo
+    assert "# v7.0.1" in testo
     assert "if: always() && inputs.operation == 'setup-apply'" in testo
     assert "retention-days: 7" in testo
     assert "reminder-certificati registry-check" in testo
@@ -93,5 +94,6 @@ def test_i_due_workflow_mantengono_wif_lock_e_installazione_riproducibile() -> N
         testo = percorso.read_text(encoding="utf-8")
         assert "environment: preproduction" in testo
         assert "group: reminder-certificati-runtime" in testo
-        assert "google-github-actions/auth@v3" in testo
+        assert "google-github-actions/auth@" in testo
+        assert "# v3" in testo
         assert "pip install --upgrade pip" not in testo

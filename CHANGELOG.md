@@ -2,6 +2,19 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.9] - 2026-07-21
+
+### Infrastruttura
+
+- aggiornate le Actions ufficiali alle release Node 24 correnti per eliminare gli avvisi di deprecazione Node 20;
+- tutti i riferimenti alle Actions sono fissati a commit SHA immutabili, mantenendo accanto la versione leggibile;
+- aggiunto Dependabot settimanale per proporre automaticamente gli aggiornamenti delle GitHub Actions fissate.
+
+### Compatibilità e sicurezza
+
+- nessuna modifica alla logica dei reminder, ai fogli, a SMTP o allo schema amministrativo;
+- produzione e schedule restano non attive.
+
 ## [0.14.8] - 2026-07-21
 
 ### Corretto
