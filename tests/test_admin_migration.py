@@ -165,6 +165,48 @@ def test_migrazione_corrente_e_idempotente() -> None:
     assert piano.dashboard_dopo == tuple(tuple(riga) for riga in dashboard)
 
 
+def test_config_corrente_preserva_descrizioni_personalizzate_senza_migrare() -> None:
+    schema = crea_schema_amministrativo()
+    config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
+    note = {
+        "CORPO_EMAIL": "Promemoria personale sul corpo HTML.",
+        "FIRMA_TESTO": "In futuro implementare la firma tramite HTML.",
+    }
+    for riga in config[1:]:
+        if riga[0] in note:
+            riga[2] = note[riga[0]]
+
+    piano = prepara_piano(
+        config,
+        [list(COLONNE_NOTIFICHE)],
+        _dashboard_corrente(),
+    )
+    descrizioni = {riga[0]: riga[2] for riga in piano.config_dopo[1:]}
+
+    assert piano.necessaria is False
+    assert piano.modifiche == ()
+    assert descrizioni["CORPO_EMAIL"] == note["CORPO_EMAIL"]
+    assert descrizioni["FIRMA_TESTO"] == note["FIRMA_TESTO"]
+
+
+def test_migrazione_reale_preserva_le_note_delle_chiavi_esistenti() -> None:
+    config = _config_v2()
+    nota = "Promemoria personale: implementare la firma tramite HTML."
+    for riga in config[1:]:
+        if riga[0] == "FIRMA_TESTO":
+            riga[3] = nota
+
+    piano = prepara_piano(
+        config,
+        _notifiche_legacy(),
+        _dashboard_legacy(),
+    )
+    descrizioni = {riga[0]: riga[2] for riga in piano.config_dopo[1:]}
+
+    assert piano.necessaria is True
+    assert descrizioni["FIRMA_TESTO"] == nota
+
+
 def test_rifiuta_collisioni_prodotte_dalla_chiave_stabile() -> None:
     with pytest.raises(ErroreMigrazioneAmministrativa, match="chiavi duplicate"):
         prepara_piano(

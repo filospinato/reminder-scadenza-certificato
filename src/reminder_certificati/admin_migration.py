@@ -201,7 +201,9 @@ def _migra_config(
     if not matrice or matrice[0] not in {COLONNE_CONFIG, COLONNE_CONFIG_V2}:
         raise ErroreMigrazioneAmministrativa("CONFIG: intestazioni non riconosciute")
     larghezza = len(matrice[0])
+    indice_descrizione = 2 if matrice[0] == COLONNE_CONFIG else 3
     valori: dict[str, str] = {}
+    descrizioni: dict[str, str] = {}
     for riga in matrice[1:]:
         if not any(cella.strip() for cella in riga):
             continue
@@ -213,6 +215,7 @@ def _migra_config(
         if not chiave or chiave in valori:
             raise ErroreMigrazioneAmministrativa("CONFIG: chiave vuota o duplicata")
         valori[chiave] = riga[1]
+        descrizioni[chiave] = riga[indice_descrizione]
 
     attivazione_precedente = valori.get(
         "INVIO_AUTOMATICO_ATTIVO",
@@ -225,7 +228,8 @@ def _migra_config(
             valore = str(VERSIONE_SCHEMA_AMMINISTRATIVO)
         elif voce.chiave == "INVIO_AUTOMATICO_ATTIVO":
             valore = "false" if forza_disattivazione else attivazione_precedente
-        righe.append((voce.chiave, valore, voce.descrizione))
+        descrizione = descrizioni.get(voce.chiave, voce.descrizione)
+        righe.append((voce.chiave, valore, descrizione))
     return tuple(righe)
 
 

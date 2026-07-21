@@ -2,6 +2,23 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.10] - 2026-07-21
+
+### Corretto
+
+- `setup-preview` non segnala più una migrazione quando una CONFIG corrente ha
+  descrizioni personalizzate;
+- le migrazioni reali preservano le note delle chiavi CONFIG esistenti, compresi
+  i promemoria operativi non usati dal runtime.
+
+### Verifica e manutenzione
+
+- README e piano di test richiedono per ogni modifica al codice anche il
+  collaudo sui fogli Drive collegati, in sola lettura e senza invii SMTP;
+- un test di contratto impedisce di rimuovere accidentalmente questa regola;
+- nessuna modifica allo schema, ai valori CONFIG, a SMTP o all'attivazione della
+  produzione.
+
 ## [0.14.9] - 2026-07-21
 
 ### Infrastruttura
