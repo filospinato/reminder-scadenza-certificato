@@ -62,6 +62,24 @@ def test_non_interpreta_un_anno_isolato_come_seriale_google() -> None:
 
 
 @pytest.mark.parametrize("valore", ["", "   ", None])
+def test_ignora_senza_anomalie_le_righe_prive_di_scadenza(valore: object) -> None:
+    esito = valida_righe(
+        [
+            riga(
+                nome="",
+                cognome="",
+                email="",
+                scadenza_certificato=valore,
+            )
+        ],
+        prima_riga_dati=3,
+    )
+
+    assert esito.arbitri == ()
+    assert esito.anomalie == ()
+
+
+@pytest.mark.parametrize("valore", ["", "   ", None])
 def test_stato_vuoto_significa_che_fa_attivita(valore: object) -> None:
     esito = valida_righe([riga(attivo=valore)])
 
@@ -92,7 +110,7 @@ def test_qualsiasi_annotazione_non_affermativa_significa_inattivo(valore: str) -
         ("Arbitro Regionale", "Non Attivo"),
     ],
 )
-def test_esclude_categorie_prima_di_validare_email_e_scadenza(
+def test_esclude_categorie_prima_di_validare_la_scadenza(
     qualifica: str,
     abilitazione: str,
 ) -> None:
@@ -116,7 +134,7 @@ def test_esclude_categorie_prima_di_validare_email_e_scadenza(
     assert esito.anomalie == ()
 
 
-def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
+def test_segnala_solo_la_scadenza_malformata_in_fase_di_lettura() -> None:
     esito = valida_righe(
         [
             riga(),
@@ -130,23 +148,31 @@ def test_raccoglie_piu_anomalie_senza_bloccare_le_righe_valide() -> None:
             ),
         ]
     )
+
     assert len(esito.arbitri) == 1
-    assert {item.codice for item in esito.anomalie} == {
-        CodiceAnomalia.ID_MANCANTE,
-        CodiceAnomalia.NOME_MANCANTE,
-        CodiceAnomalia.COGNOME_MANCANTE,
-        CodiceAnomalia.EMAIL_NON_VALIDA,
-        CodiceAnomalia.SCADENZA_NON_VALIDA,
-    }
-
-
-def test_esclude_tutte_le_occorrenze_di_un_id_duplicato() -> None:
-    esito = valida_righe([riga(), riga(email="altro@example.it")])
-    assert esito.arbitri == ()
     assert [item.codice for item in esito.anomalie] == [
-        CodiceAnomalia.ID_DUPLICATO,
-        CodiceAnomalia.ID_DUPLICATO,
+        CodiceAnomalia.SCADENZA_NON_VALIDA
     ]
+
+
+def test_conserva_i_dati_incompleti_se_la_scadenza_e_interpretabile() -> None:
+    esito = valida_righe(
+        [
+            riga(
+                id_arbitro="A-9",
+                nome="",
+                cognome="",
+                email="",
+                scadenza_certificato="2026-08-01",
+            )
+        ],
+        prima_riga_dati=3,
+    )
+
+    assert len(esito.arbitri) == 1
+    assert esito.arbitri[0].id_arbitro == "A-9"
+    assert esito.arbitri[0].numero_riga_sorgente == 3
+    assert esito.anomalie == ()
 
 
 def test_ignora_righe_interamente_vuote() -> None:
@@ -201,8 +227,11 @@ def test_intestazioni_mancanti_sono_errore_fatale() -> None:
 
 
 def test_numero_riga_parte_dalla_riga_dati_configurata() -> None:
-    esito = valida_righe([riga(email="non-valida")], prima_riga_dati=2)
-    assert esito.anomalie[0].numero_riga == 2
+    esito = valida_righe(
+        [riga(scadenza_certificato="non-data")],
+        prima_riga_dati=3,
+    )
+    assert esito.anomalie[0].numero_riga == 3
 
 
 def test_lista_vuota_e_valida_in_dry_run() -> None:

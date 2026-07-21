@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import StrEnum
@@ -169,10 +168,12 @@ def valida_righe(
     politica_stato: PoliticaStato = PoliticaStato(),
     prima_riga_dati: int = 2,
 ) -> EsitoValidazione:
-    """Converte righe grezze in arbitri validi e raccoglie anomalie non fatali.
+    """Converte le righe con scadenza interpretabile in record utilizzabili.
 
-    Le categorie non tenute al certificato vengono ignorate prima di validare i
-    campi specifici del reminder. Gli ID duplicati vengono esclusi integralmente.
+    Le categorie non tenute al certificato e le righe prive di una data di
+    scadenza vengono ignorate senza anomalie. Nome, cognome, email, ID e
+    duplicati vengono verificati successivamente soltanto per le scadenze che
+    rientrano nella finestra del reminder.
     """
 
     if prima_riga_dati < 1:
@@ -188,7 +189,7 @@ def valida_righe(
     valida_intestazioni(headers, mappatura)
 
     anomalie: list[AnomaliaDati] = []
-    candidati: list[tuple[int, Arbitro]] = []
+    arbitri: list[Arbitro] = []
     righe_vuote = 0
 
     for offset, riga in enumerate(righe):
@@ -219,49 +220,13 @@ def valida_righe(
         ):
             continue
 
-        scadenza = _parse_data(riga.get(mappatura.scadenza_certificato))
-        errori_riga: list[AnomaliaDati] = []
-        if not id_arbitro:
-            errori_riga.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.ID_MANCANTE,
-                    mappatura.id_arbitro,
-                    "identificativo arbitro mancante",
-                )
-            )
-        if not nome:
-            errori_riga.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.NOME_MANCANTE,
-                    mappatura.nome,
-                    "nome arbitro mancante",
-                    id_arbitro or None,
-                )
-            )
-        if not cognome:
-            errori_riga.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.COGNOME_MANCANTE,
-                    mappatura.cognome,
-                    "cognome arbitro mancante",
-                    id_arbitro or None,
-                )
-            )
-        if not email_valida(email):
-            errori_riga.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.EMAIL_NON_VALIDA,
-                    mappatura.email,
-                    "indirizzo email mancante o non valido",
-                    id_arbitro or None,
-                )
-            )
+        valore_scadenza = riga.get(mappatura.scadenza_certificato)
+        if not _testo(valore_scadenza):
+            continue
+
+        scadenza = _parse_data(valore_scadenza)
         if scadenza is None:
-            errori_riga.append(
+            anomalie.append(
                 AnomaliaDati(
                     numero_riga,
                     CodiceAnomalia.SCADENZA_NON_VALIDA,
@@ -270,48 +235,24 @@ def valida_righe(
                     id_arbitro or None,
                 )
             )
-
-        if errori_riga:
-            anomalie.extend(errori_riga)
             continue
 
-        assert scadenza is not None
-        candidati.append(
-            (
-                numero_riga,
-                Arbitro(
-                    id_arbitro=id_arbitro,
-                    nome=nome,
-                    cognome=cognome,
-                    email=email,
-                    scadenza_certificato=scadenza,
-                    attivo=attivo,
-                    qualifica=qualifica,
-                    abilitazione=abilitazione,
-                ),
+        arbitri.append(
+            Arbitro(
+                id_arbitro=id_arbitro,
+                nome=nome,
+                cognome=cognome,
+                email=email,
+                scadenza_certificato=scadenza,
+                attivo=attivo,
+                qualifica=qualifica,
+                abilitazione=abilitazione,
+                numero_riga_sorgente=numero_riga,
             )
         )
 
-    conteggi = Counter(arbitro.id_arbitro for _, arbitro in candidati)
-    duplicati = {id_arbitro for id_arbitro, numero in conteggi.items() if numero > 1}
-
-    validi: list[Arbitro] = []
-    for numero_riga, arbitro in candidati:
-        if arbitro.id_arbitro in duplicati:
-            anomalie.append(
-                AnomaliaDati(
-                    numero_riga,
-                    CodiceAnomalia.ID_DUPLICATO,
-                    mappatura.id_arbitro,
-                    "identificativo presente in più righe; tutte le occorrenze sono escluse",
-                    arbitro.id_arbitro,
-                )
-            )
-        else:
-            validi.append(arbitro)
-
     return EsitoValidazione(
-        arbitri=tuple(validi),
+        arbitri=tuple(arbitri),
         anomalie=tuple(sorted(anomalie, key=lambda item: (item.numero_riga, item.codice))),
         righe_totali=len(righe),
         righe_vuote_ignorate=righe_vuote,

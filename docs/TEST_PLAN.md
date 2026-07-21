@@ -6,6 +6,8 @@ Questo documento definisce i controlli automatici e i collaudi necessari per dim
 
 La suite verifica intestazioni, righe vuote o malformate, identificativi duplicati, date, email, stato di attività e categorie escluse. Nome, cognome, email, scadenza, qualifica e abilitazione devono provenire dalla stessa riga.
 
+Le righe senza data di scadenza devono essere ignorate senza anomalie. ID, nome, cognome ed email devono essere validati soltanto per persone attive con scadenza compresa tra oggi e `GIORNI_PREAVVISO`; dati incompleti fuori finestra non devono produrre anomalie. I duplicati sono bloccanti soltanto quando coinvolgono più righe contemporaneamente rilevanti.
+
 ## CONFIG e migrazione
 
 La suite verifica lo schema v3 a tre colonne, le sette chiavi canoniche, l'unico interruttore `INVIO_AUTOMATICO_ATTIVO`, il limite interno non configurabile e la migrazione conservativa dallo schema precedente. Ogni aggiornamento deve lasciare gli invii automatici spenti e preservare destinatario di prova e template.
