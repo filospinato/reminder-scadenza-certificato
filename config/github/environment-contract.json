@@ -2,8 +2,8 @@
   "schema_version": 1,
   "environment": "preproduction",
   "variables": [
-    "ALLOW_PLAIN_SMTP",
     "ADMIN_SPREADSHEET_ID",
+    "ALLOW_PLAIN_SMTP",
     "GCP_PROJECT_ID",
     "GCP_SERVICE_ACCOUNT",
     "GCP_WORKLOAD_IDENTITY_PROVIDER",
