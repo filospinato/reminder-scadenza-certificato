@@ -1,6 +1,6 @@
 # Deployment — release 0.14.18
 
-Questa guida descrive il provisioning e il rollout della release 0.14.18. I valori correnti controllati dal repository sono in `../../CURRENT_STATE.json`; i nomi esatti di Variables e Secrets sono in `../../config/github/environment-contract.json`.
+Questa guida descrive il provisioning e il rollout della release 0.14.18. La versione è autoritativa in `../../pyproject.toml`; i nomi esatti di Variables, Secrets ed Environment sono in `../../config/github/environment-contract.json`; trigger e limiti effettivi sono nei workflow GitHub.
 
 ## Prerequisiti
 
@@ -26,9 +26,10 @@ pytest
 
 GitHub Actions accede a Google Sheets tramite WIF/OIDC. Sono vietati file JSON di service account, password, token utente e Domain-Wide Delegation.
 
-La trust policy deve limitare almeno:
+Per questa release la trust policy deve limitare almeno:
 
-- repository numerico e proprietario numerico indicati in `CURRENT_STATE.json`;
+- repository GitHub ID `1303804647`;
+- proprietario GitHub ID `265553127`;
 - branch `main`;
 - workflow o Environment autorizzato prima dell’attivazione continuativa.
 
@@ -75,7 +76,7 @@ reminder-certificati setup-admin --spreadsheet-id ID --apply
 
 ## Configurazione GitHub
 
-Tutti i workflow usano un solo Environment, definito in `CURRENT_STATE.json`. I nomi consentiti di Variables e Secrets sono autoritativi nel contratto JSON.
+Tutti i workflow usano l’Environment dichiarato in `../../config/github/environment-contract.json`. Lo stesso file è autoritativo per i nomi consentiti di Variables e Secrets; i workflow restano autoritativi per il loro effettivo utilizzo.
 
 Regole:
 
