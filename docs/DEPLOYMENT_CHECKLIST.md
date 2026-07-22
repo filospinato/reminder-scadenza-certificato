@@ -51,18 +51,18 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 
 ## E. SMTP e contenuti
 
-- [ ] host, porta e sicurezza MDaemon verificati;
-- [ ] se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` configurato come Environment Variable dopo aver verificato il canale di rete;
-- [ ] mittente e Reply-To approvati;
+- [x] host, porta e sicurezza MDaemon verificati con un invio STARTTLS riuscito;
+- [x] supporto `PLAIN` non necessario: MDaemon ha accettato STARTTLS sulla porta 587;
+- [x] mittente approvato e Reply-To lasciato intenzionalmente uguale al mittente;
 - [x] password inserita nel Secret e parametri non sensibili nelle Variables dello specifico Environment;
-- [ ] corpo ufficiale approvato;
+- [x] corpo ufficiale approvato;
 - [x] firma ufficiale approvata;
-- [ ] resa HTML, logo inline e CID approvati nei client email usati;
+- [x] resa HTML, logo inline e CID approvati nel client usato per il collaudo;
 - [x] `DESTINATARIO_OVERRIDE` configurato;
-- [ ] `INVIO_AUTOMATICO_ATTIVO=false` durante la prova;
-- [ ] `reminder-certificati test-smtp` riuscito;
-- [ ] usato un candidato reale e inviata al massimo una email all'override;
-- [ ] registro test contiene la notifica `TEST_`;
+- [x] `INVIO_AUTOMATICO_ATTIVO=false` durante la prova;
+- [x] `reminder-certificati test-smtp` riuscito;
+- [x] usato un candidato reale e inviata una sola email all'override;
+- [x] registro test contiene una notifica `TEST_CERTIFICATO_SCADENZA_V1` in stato `SENT`, con un tentativo e nessun errore;
 - [ ] errori ritentabili, permanenti e incerti collaudati;
 - [ ] nessuna copia nella Posta inviata confermata.
 
@@ -70,7 +70,7 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 
 - [x] setup e controllo completi;
 - [x] scrittura sintetica sul foglio amministrativo;
-- [ ] test SMTP con override;
+- [x] test SMTP con override;
 - [ ] singolo invio reale autorizzato con `--max-sends 1`;
 - [ ] piccolo lotto controllato con `--max-sends 5`;
 - [ ] autorizzazione esplicita finale;

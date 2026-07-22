@@ -2,6 +2,17 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.17] - 2026-07-22
+
+### Collaudo SMTP
+
+- completato con successo un singolo invio STARTTLS al destinatario override,
+  usando un candidato reale e senza esiti incerti;
+- confermate ricezione e resa del messaggio HTML nel client di collaudo;
+- verificata in sola lettura la notifica di test in stato `SENT`, con un solo
+  tentativo e nessun errore;
+- riallineate checklist e roadmap alle evidenze del collaudo completato.
+
 ## [0.14.16] - 2026-07-22
 
 ### Configurazione SMTP
