@@ -12,6 +12,8 @@ Questo documento registra le versioni recenti e le modifiche rilasciate; lo stor
   completamento;
 - riallineate checklist e roadmap alle verifiche effettivamente concluse,
   lasciando aperte le attività prive di evidenza;
+- registrate le evidenze già disponibili per backup, accesso in scrittura del
+  service account e collaudo sintetico del registro;
 - esclusi dal versionamento gli artefatti standard prodotti dalla build locale.
 
 ## [0.14.13] - 2026-07-22
