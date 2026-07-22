@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 from reminder_certificati import google_preflight_cli
 from reminder_certificati.google_preflight import CodiceErrorePreflight
 
 CODICE_INATTESO = "PREFLIGHT_UNEXPECTED_ERROR"
-RIFERIMENTO_RELEASE = Path("releases/v0.14.18/REFERENCE.md")
+VERSIONE = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"][
+    "version"
+]
+RIFERIMENTO_RELEASE = Path(f"releases/v{VERSIONE}/REFERENCE.md")
 CHIAVI_MINIME = {
     "operation",
     "success",
