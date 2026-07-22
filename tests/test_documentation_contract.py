@@ -8,6 +8,7 @@ ROADMAP = Path("ROADMAP.md")
 CHANGELOG = Path("CHANGELOG.md")
 OPERATIONS = Path("docs/OPERATIONS.md")
 TEST_PLAN = Path("docs/TEST_PLAN.md")
+DEPLOYMENT_CHECKLIST = Path("docs/DEPLOYMENT_CHECKLIST.md")
 PYPROJECT = Path("pyproject.toml")
 
 DOCUMENTI_CON_SCOPO = (
@@ -70,6 +71,21 @@ def test_roadmap_contiene_soltanto_lavoro_aperto() -> None:
     testo = ROADMAP.read_text(encoding="utf-8")
     assert "- [ ]" in testo
     assert "- [x]" not in testo
+
+
+def test_ogni_passo_completato_aggiorna_checklist_e_roadmap() -> None:
+    readme = README.read_text(encoding="utf-8")
+
+    for requisito in (
+        "Ogni passo completato",
+        "docs/DEPLOYMENT_CHECKLIST.md",
+        "ROADMAP.md",
+        "stessa modifica",
+        "evidenze concrete",
+        "definizione di completamento",
+    ):
+        assert requisito in readme
+    assert DEPLOYMENT_CHECKLIST.exists()
 
 
 def test_versione_corrente_vive_in_pyproject_e_changelog() -> None:

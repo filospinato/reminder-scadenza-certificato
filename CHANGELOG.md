@@ -2,6 +2,18 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.14] - 2026-07-22
+
+### Processo di rilascio
+
+- resa esplicita nel README la regola di aggiornare checklist e roadmap insieme
+  a ogni passo completato;
+- aggiunta una regressione documentale che protegge questa definizione di
+  completamento;
+- riallineate checklist e roadmap alle verifiche effettivamente concluse,
+  lasciando aperte le attività prive di evidenza;
+- esclusi dal versionamento gli artefatti standard prodotti dalla build locale.
+
 ## [0.14.13] - 2026-07-22
 
 ### Schema amministrativo

@@ -145,6 +145,12 @@ Per evitare documentazione duplicata:
 
 Le issue coordinano il lavoro ma non duplicano versione, stato o roadmap.
 
+Ogni passo completato deve aggiornare, nella stessa modifica, anche lo stato
+documentale: `docs/DEPLOYMENT_CHECKLIST.md` va marcata soltanto per attività
+supportate da evidenze concrete e da `ROADMAP.md` vanno rimossi i lavori non più
+aperti. Questo allineamento fa parte della definizione di completamento; run,
+collaudi o configurazioni non verificati devono restare esplicitamente aperti.
+
 ## Guide
 
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md)

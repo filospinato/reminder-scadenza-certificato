@@ -4,19 +4,14 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 
 ## 1. Provisioning esterno
 
-- [ ] creare gli Environment GitHub `preproduction` e `production`;
-- [ ] configurare Variables e Secrets con ambito minimo;
-- [ ] creare progetto Google Cloud, service account e Workload Identity Federation;
+- [ ] creare e proteggere l'Environment GitHub `production`;
+- [ ] spostare Variables e futuri Secrets nello scope minimo necessario;
 - [ ] limitare il trust a repository, branch e workflow autorizzati;
-- [ ] condividere `Operativo` in sola lettura e il foglio amministrativo in modifica;
 - [ ] configurare una seconda identità umana di recupero.
 
 ## 2. Aggiornamento e collaudi Google
 
 - [ ] creare una copia di sicurezza del foglio amministrativo reale;
-- [ ] eseguire `setup-admin` in anteprima e portare il foglio allo schema v4 con backup;
-- [ ] verificare che `INVIO_AUTOMATICO_ATTIVO=false` dopo l'aggiornamento;
-- [ ] eseguire `check` sul foglio reale;
 - [ ] collaudare la scrittura sintetica del registro;
 - [ ] verificare concorrenza, lock e revoca dei permessi.
 
