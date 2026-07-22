@@ -14,7 +14,6 @@ GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
 GCP_WORKLOAD_IDENTITY_PROVIDER
 OPERATIVO_SPREADSHEET_ID
-SMTP_FROM
 SMTP_HOST
 SMTP_PORT
 SMTP_REPLY_TO
@@ -39,7 +38,6 @@ GCP_PROJECT_ID
 GCP_SERVICE_ACCOUNT
 GCP_WORKLOAD_IDENTITY_PROVIDER
 OPERATIVO_SPREADSHEET_ID
-SMTP_FROM
 SMTP_HOST
 SMTP_PORT
 SMTP_REPLY_TO
@@ -61,13 +59,13 @@ SMTP_PASSWORD
 <!-- END SMTP SECRETS -->
 
 Soltanto `SMTP_PASSWORD` è una credenziale e resta un Secret. Host, porta,
-sicurezza, mittente, Reply-To e username sono impostazioni non sensibili e
-restano Variables limitate allo specifico Environment; il workflow le espone
-soltanto nello step SMTP. `ALLOW_PLAIN_SMTP` deve valere `true` esclusivamente
-se MDaemon richiede il trasporto senza TLS e il canale di rete è stato
-approvato. Il nome del mittente e il timeout usano default applicativi stabili;
-logo e CID della firma sono inclusi nel codice. Nessun valore SMTP deve essere
-riportato nei log.
+sicurezza, Reply-To e username sono impostazioni non sensibili e restano
+Variables limitate allo specifico Environment; il workflow usa
+`SMTP_USERNAME` anche come mittente `SMTP_FROM` e le espone soltanto nello step
+SMTP. `ALLOW_PLAIN_SMTP` deve valere `true` esclusivamente se MDaemon richiede
+il trasporto senza TLS e il canale di rete è stato approvato. Il nome del
+mittente e il timeout usano default applicativi stabili; logo e CID della firma
+sono inclusi nel codice. Nessun valore SMTP deve essere riportato nei log.
 
 ## Regola di modifica
 

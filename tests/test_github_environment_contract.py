@@ -61,11 +61,11 @@ def test_solo_la_password_smtp_e_un_secret() -> None:
         "SMTP_HOST",
         "SMTP_PORT",
         "SMTP_SECURITY",
-        "SMTP_FROM",
         "SMTP_REPLY_TO",
         "SMTP_USERNAME",
     ):
         assert nome in pubbliche
+    assert "SMTP_FROM" not in pubbliche
     assert "SMTP_FROM_NAME" not in pubbliche
 
 

@@ -61,7 +61,7 @@ jobs:
           SMTP_PORT: ${{ vars.SMTP_PORT }}
           SMTP_SECURITY: ${{ vars.SMTP_SECURITY }}
           ALLOW_PLAIN_SMTP: ${{ vars.ALLOW_PLAIN_SMTP }}
-          SMTP_FROM: ${{ vars.SMTP_FROM }}
+          SMTP_FROM: ${{ vars.SMTP_USERNAME }}
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ vars.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
