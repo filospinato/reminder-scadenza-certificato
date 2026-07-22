@@ -73,7 +73,7 @@ L'aggiornamento:
 8. minimizza il registro e stabilizza le chiavi legacy;
 9. rifiuta collisioni tra chiavi convertite.
 
-Durante il passaggio il runtime accetta ancora una CONFIG v3 completa, ma ignora il valore di `FIRMA_TESTO`. Gli stati misti v3/v4 vengono rifiutati per evitare configurazioni ambigue.
+Il runtime accetta esclusivamente una CONFIG v4 completa. `setup-preview` riconosce gli schemi precedenti soltanto per produrre l'anteprima di migrazione; non li usa per le operazioni ordinarie.
 
 ## DASHBOARD e ANOMALIE
 
