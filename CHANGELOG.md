@@ -1,15 +1,16 @@
 # Changelog
 
-Questo documento registra soltanto i delta funzionali delle release. Evidenze di collaudo, cronache di pull request e stato corrente vivono rispettivamente negli artefatti di validazione, su GitHub e in `CURRENT_STATE.json`.
+Questo documento registra soltanto i delta funzionali delle release. Evidenze di collaudo e cronache di pull request vivono rispettivamente negli artefatti di validazione e su GitHub; i valori correnti restano nelle fonti tecniche che li usano.
 
 ## [Unreleased]
 
 ### Documentazione e architettura dell’informazione
 
-- introdotte le quattro fonti canoniche di root: `README.md`, `AGENTS.md`, `CHANGELOG.md` e `CURRENT_STATE.json`;
+- consolidate in root le tre fonti documentali canoniche: `README.md`, `AGENTS.md` e `CHANGELOG.md`;
 - spostati guide, contratti e validazioni della release in `releases/v0.14.18/`;
 - sostituito il contratto Markdown dell’Environment con `config/github/environment-contract.json`;
 - rimossi roadmap, checklist, handoff e documenti concorrenti sotto `docs/`;
+- evitato un manifesto di stato separato, mantenendo versione, workflow e configurazioni nelle rispettive fonti autoritative;
 - aggiornati i test per proteggere la nuova architettura SSoT.
 
 ## [0.14.18] - 2026-07-22
