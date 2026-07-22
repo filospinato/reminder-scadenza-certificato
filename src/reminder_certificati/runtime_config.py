@@ -42,8 +42,6 @@ class ConfigurazioneRuntime:
 
 
 _CHIAVI_CANONICHE = tuple(voce.chiave for voce in configurazione_iniziale_sicura())
-_VERSIONE_SCHEMA_LEGACY_TRANSIZIONE = 3
-_CHIAVI_SCHEMA_LEGACY_TRANSIZIONE = (*_CHIAVI_CANONICHE, "FIRMA_TESTO")
 
 
 def carica_configurazione(
@@ -91,22 +89,13 @@ def carica_configurazione(
         minimo=1,
         massimo=999,
     )
-    if schema_version == VERSIONE_SCHEMA_AMMINISTRATIVO:
-        chiavi_attese = _CHIAVI_CANONICHE
-    elif (
-        VERSIONE_SCHEMA_AMMINISTRATIVO == 4
-        and schema_version == _VERSIONE_SCHEMA_LEGACY_TRANSIZIONE
-    ):
-        # Compatibilità temporanea: la vecchia firma viene ignorata e non può
-        # modificare né la parte text/plain né quella HTML del messaggio.
-        chiavi_attese = _CHIAVI_SCHEMA_LEGACY_TRANSIZIONE
-    else:
+    if schema_version != VERSIONE_SCHEMA_AMMINISTRATIVO:
         raise ErroreConfigurazioneRuntime(
             "CONFIG: versione schema non supportata; eseguire setup-admin"
         )
 
-    mancanti = [chiave for chiave in chiavi_attese if chiave not in righe]
-    sconosciute = sorted(set(righe) - set(chiavi_attese))
+    mancanti = [chiave for chiave in _CHIAVI_CANONICHE if chiave not in righe]
+    sconosciute = sorted(set(righe) - set(_CHIAVI_CANONICHE))
     if mancanti:
         raise ErroreConfigurazioneRuntime(
             "CONFIG: chiavi mancanti: " + ", ".join(mancanti)

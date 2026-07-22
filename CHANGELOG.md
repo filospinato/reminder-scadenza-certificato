@@ -2,6 +2,17 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.13] - 2026-07-22
+
+### Schema amministrativo
+
+- il runtime accetta esclusivamente la CONFIG v4 e rifiuta ogni versione
+  precedente, anche se formalmente completa;
+- rimossa la compatibilità transitoria con la CONFIG v3 per mantenere un solo
+  contratto operativo;
+- `setup-preview` continua a riconoscere i vecchi schemi unicamente per
+  descrivere la migrazione, senza usarli nelle operazioni ordinarie.
+
 ## [0.14.12] - 2026-07-22
 
 ### Firma email

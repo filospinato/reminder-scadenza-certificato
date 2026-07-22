@@ -107,7 +107,7 @@ Il valore predefinito inizia con `Ciao {{nome}},`, ma può essere sostituito con
 
 Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite ordinario resta interno; `--max-sends` può soltanto ridurlo temporaneamente da 10 fino a 1 per il rollout.
 
-Il runtime accetta temporaneamente anche lo schema v3 completo per consentire un aggiornamento senza interruzioni, ma ignora sempre la vecchia chiave `FIRMA_TESTO`. Il foglio va poi portato allo schema v4 eliminando quella riga e impostando `SCHEMA_VERSION=4`.
+Il runtime accetta esclusivamente lo schema v4. `setup-preview` può leggere uno schema precedente soltanto per descrivere la migrazione necessaria; finché `SCHEMA_VERSION` non vale `4`, le operazioni ordinarie vengono arrestate in sicurezza.
 
 ## Registro
 
