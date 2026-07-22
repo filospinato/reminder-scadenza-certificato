@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "environment": "preproduction",
+  "variables": [
+    "ALLOW_PLAIN_SMTP",
+    "ADMIN_SPREADSHEET_ID",
+    "GCP_PROJECT_ID",
+    "GCP_SERVICE_ACCOUNT",
+    "GCP_WORKLOAD_IDENTITY_PROVIDER",
+    "OPERATIVO_SPREADSHEET_ID",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_REPLY_TO",
+    "SMTP_SECURITY",
+    "SMTP_USERNAME"
+  ],
+  "secrets": [
+    "SMTP_PASSWORD"
+  ]
+}
