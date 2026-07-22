@@ -14,6 +14,8 @@ Questo documento registra le versioni recenti e le modifiche rilasciate; lo stor
   lasciando aperte le attività prive di evidenza;
 - registrate le evidenze già disponibili per backup, accesso in scrittura del
   service account e collaudo sintetico del registro;
+- registrata la versione pre-live nominata nella cronologia del foglio, evitando
+  una copia Drive separata non necessaria;
 - esclusi dal versionamento gli artefatti standard prodotti dalla build locale.
 
 ## [0.14.13] - 2026-07-22

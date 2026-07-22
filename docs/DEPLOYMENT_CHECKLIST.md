@@ -28,6 +28,7 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 ## C. Spreadsheet
 
 - [x] foglio amministrativo creato dall'account umano;
+- [x] versione pre-live nominata nella cronologia del foglio;
 - [ ] proprietà e recupero umano verificati;
 - [x] file condiviso direttamente con il service account come editor;
 - [x] `reminder-certificati setup-admin --spreadsheet-id ID` eseguito in anteprima;
