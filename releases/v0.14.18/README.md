@@ -13,4 +13,4 @@ Questa directory contiene la fotografia documentale immutabile della release app
 
 Questi documenti descrivono esclusivamente la release 0.14.18. Le release successive devono creare una nuova directory `releases/vX.Y.Z/` invece di riscrivere questa fotografia.
 
-Lo stato corrente controllato dal repository è in `../../CURRENT_STATE.json`; le regole per modificare il progetto sono in `../../AGENTS.md`.
+La versione applicativa autoritativa è in `../../pyproject.toml`; le regole per modificare il progetto sono in `../../AGENTS.md`. Trigger e configurazioni operative esatte restano nei workflow e nel contratto GitHub Environment.
