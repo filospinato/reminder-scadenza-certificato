@@ -8,7 +8,9 @@ Questo documento registra le versioni recenti e le modifiche rilasciate; lo stor
 
 - rimossa la Variable ridondante `SMTP_FROM`;
 - il workflow usa `SMTP_USERNAME` sia per l'autenticazione sia come mittente,
-  riducendo il futuro cambio di casella a una Variable e un Secret.
+  riducendo il futuro cambio di casella a una Variable e un Secret;
+- registrata la configurazione completa di Variables e Secret SMTP
+  nell'Environment `preproduction`, senza esporre il valore della password.
 
 ## [0.14.15] - 2026-07-22
 
