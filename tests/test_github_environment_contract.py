@@ -50,14 +50,22 @@ def test_workflow_smtp_usano_i_segreti_documentati() -> None:
     assert produzione == attesi
 
 
-def test_credenziali_smtp_non_sono_variables() -> None:
+def test_solo_la_password_smtp_e_un_secret() -> None:
     contratto = CONTRATTO.read_text(encoding="utf-8")
     pubbliche = _sezione_documentata(
         contratto, "PREPRODUCTION VARIABLES"
     ) | _sezione_documentata(contratto, "PRODUCTION VARIABLES")
 
-    assert {"SMTP_USERNAME", "SMTP_PASSWORD"}.isdisjoint(pubbliche)
-    assert "SMTP_REPLY_TO" in pubbliche
+    assert "SMTP_PASSWORD" not in pubbliche
+    for nome in (
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_SECURITY",
+        "SMTP_FROM",
+        "SMTP_REPLY_TO",
+        "SMTP_USERNAME",
+    ):
+        assert nome in pubbliche
     assert "SMTP_FROM_NAME" not in pubbliche
 
 

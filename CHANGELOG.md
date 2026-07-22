@@ -2,6 +2,16 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.15] - 2026-07-22
+
+### Configurazione SMTP
+
+- classificati host, porta, sicurezza, mittente, Reply-To e username come
+  Variables non sensibili dello specifico Environment;
+- mantenuta soltanto `SMTP_PASSWORD` nei Secrets;
+- reso possibile sostituire l'account tecnico di invio senza modificare codice,
+  workflow o fogli Drive.
+
 ## [0.14.14] - 2026-07-22
 
 ### Processo di rilascio
