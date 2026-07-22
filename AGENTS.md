@@ -18,13 +18,16 @@ Leggere nell’ordine:
 
 1. `README.md`: scopo, architettura e stato semantico di alto livello;
 2. `AGENTS.md`: regole operative per le modifiche;
-3. `CURRENT_STATE.json`: stato esatto corrente controllato dal repository;
-4. `CHANGELOG.md`: delta funzionali delle release;
+3. `CHANGELOG.md`: delta funzionali delle release;
+4. `pyproject.toml`: versione, dipendenze, compatibilità Python ed entry point;
 5. `config/github/environment-contract.json`: nomi canonici di Variables, Secrets ed Environment;
-6. `releases/vX.Y.Z/`: documentazione immutabile della release interessata;
-7. codice, workflow e test come contratto eseguibile.
+6. `.github/workflows/`: trigger, branch, limiti, permessi e concorrenza effettivamente eseguiti;
+7. `releases/vX.Y.Z/`: documentazione immutabile della release interessata;
+8. codice e test come contratto eseguibile.
 
-Le GitHub Issues e i milestone contengono esclusivamente lavoro aperto. Non creare `LATEST.md`, `ROADMAP.md`, `PROJECT_RULES.md`, `PROJECT_INSTRUCTION.md`, handoff temporanei o altre fonti concorrenti.
+Le GitHub Issues e i milestone contengono esclusivamente lavoro aperto. Non creare `LATEST.md`, `CURRENT_STATE.md`, `CURRENT_STATE.json`, `ROADMAP.md`, `PROJECT_RULES.md`, `PROJECT_INSTRUCTION.md`, handoff temporanei o altre fonti concorrenti.
+
+Un file di stato separato è ammesso soltanto se viene letto o aggiornato automaticamente dal sistema e costituisce davvero un input operativo. Non va creato per ricopiare valori già autoritativi in package, workflow, configurazioni o GitHub.
 
 ## 3. Metodo di modifica
 
@@ -32,8 +35,8 @@ Le GitHub Issues e i milestone contengono esclusivamente lavoro aperto. Non crea
 - Verificare prima branch, pull request aperte, issue rilevanti e stato della CI.
 - Lavorare su un branch `agent/<descrizione>` dedicato a un intervento coerente.
 - Evitare refactoring estranei, dipendenze non necessarie, duplicazioni e overengineering.
-- Aggiornare nella stessa modifica codice, test, documentazione, contratto di configurazione e stato esatto quando sono realmente coinvolti.
-- Non copiare stato corrente o cronologia nei documenti di release; non inserire cronologia in `CURRENT_STATE.json`.
+- Aggiornare nella stessa modifica codice, test, documentazione e contratti di configurazione quando sono realmente coinvolti.
+- Non copiare nei documenti di release dati mutevoli già autoritativi altrove, salvo quelli necessari a riprodurre quella specifica release.
 - I testi destinati alla configurazione manuale di agenti esterni devono stare sotto `config/<prodotto>/`, mai in questo file.
 
 ## 4. Verifica automatica obbligatoria
@@ -57,7 +60,7 @@ I test devono coprire il comportamento modificato e, quando applicabile, protegg
 - composizione testo/HTML e sicurezza MIME;
 - classificazione degli esiti SMTP;
 - isolamento dei Secrets negli step di invio;
-- coerenza tra workflow, `CURRENT_STATE.json` e contratto JSON dell’Environment;
+- coerenza tra workflow e contratto JSON dell’Environment;
 - struttura documentale SSoT.
 
 ## 5. Collaudi esterni
@@ -74,11 +77,11 @@ Quando le risorse live non sono disponibili, dichiarare chiaramente il limite: l
 
 ## 6. Versioni e artefatti di release
 
-- La versione applicativa vive in `pyproject.toml` e deve coincidere con `CURRENT_STATE.json` e con una voce del `CHANGELOG.md`.
+- La versione applicativa vive in `pyproject.toml` e deve avere una voce nel `CHANGELOG.md`.
 - Ogni release documentata deve avere una directory `releases/vX.Y.Z/` coerente con la versione.
 - I documenti sotto `releases/` sono fotografie immutabili: non vanno riscritti per descrivere release successive.
 - `CHANGELOG.md` contiene solo delta funzionali; evidenze di collaudo, cronache di PR e log di run appartengono alla PR o al file `VALIDATION.md` della release.
-- `CURRENT_STATE.json` contiene solo valori correnti, senza sezioni storiche, vecchie versioni o cronache.
+- I valori esatti devono vivere nella fonte che li usa: package, workflow, contratto di configurazione, codice o piattaforma GitHub.
 
 ## 7. Pull request e revisione finale
 
