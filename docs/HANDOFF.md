@@ -26,7 +26,7 @@ L'inventario di consegna deve indicare:
 - repository e ramo predefinito;
 - foglio `Operativo` e foglio amministrativo;
 - progetto e identità Google usati dal sistema;
-- Environment GitHub collegati;
+- unico Environment GitHub `preproduction` collegato;
 - casella mittente e Reply-To;
 - data dell'ultima revisione degli accessi.
 

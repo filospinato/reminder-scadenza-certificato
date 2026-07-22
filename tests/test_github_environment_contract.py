@@ -5,7 +5,7 @@ from pathlib import Path
 
 WORKFLOW_ORDINARIO = Path(".github/workflows/manual-preproduction.yml")
 WORKFLOW_MANUTENZIONE = Path(".github/workflows/manual-maintenance.yml")
-MODELLO_PRODUZIONE = Path("docs/workflows/production.yml.example")
+WORKFLOW_PRODUZIONE = Path(".github/workflows/production.yml")
 CONTRATTO = Path("docs/CONTRATTO_ENVIRONMENT_GITHUB.md")
 
 
@@ -26,13 +26,13 @@ def test_variables_usate_dai_workflow_sono_documentate() -> None:
         percorso.read_text(encoding="utf-8")
         for percorso in (WORKFLOW_ORDINARIO, WORKFLOW_MANUTENZIONE)
     )
-    produzione = MODELLO_PRODUZIONE.read_text(encoding="utf-8")
+    produzione = WORKFLOW_PRODUZIONE.read_text(encoding="utf-8")
 
     assert _riferimenti(manuali, "vars") <= _sezione_documentata(
         contratto, "PREPRODUCTION VARIABLES"
     )
     assert _riferimenti(produzione, "vars") <= _sezione_documentata(
-        contratto, "PRODUCTION VARIABLES"
+        contratto, "PREPRODUCTION VARIABLES"
     )
 
 
@@ -43,7 +43,9 @@ def test_workflow_smtp_usano_i_segreti_documentati() -> None:
     manutenzione = _riferimenti(
         WORKFLOW_MANUTENZIONE.read_text(encoding="utf-8"), "secrets"
     )
-    produzione = _riferimenti(MODELLO_PRODUZIONE.read_text(encoding="utf-8"), "secrets")
+    produzione = _riferimenti(
+        WORKFLOW_PRODUZIONE.read_text(encoding="utf-8"), "secrets"
+    )
 
     assert ordinario == attesi
     assert manutenzione == set()
@@ -52,9 +54,7 @@ def test_workflow_smtp_usano_i_segreti_documentati() -> None:
 
 def test_solo_la_password_smtp_e_un_secret() -> None:
     contratto = CONTRATTO.read_text(encoding="utf-8")
-    pubbliche = _sezione_documentata(
-        contratto, "PREPRODUCTION VARIABLES"
-    ) | _sezione_documentata(contratto, "PRODUCTION VARIABLES")
+    pubbliche = _sezione_documentata(contratto, "PREPRODUCTION VARIABLES")
 
     assert "SMTP_PASSWORD" not in pubbliche
     for nome in (
@@ -75,7 +75,7 @@ def test_struttura_operativo_non_e_una_configurazione_github() -> None:
         for percorso in (
             WORKFLOW_ORDINARIO,
             WORKFLOW_MANUTENZIONE,
-            MODELLO_PRODUZIONE,
+            WORKFLOW_PRODUZIONE,
             CONTRATTO,
         )
     )
@@ -93,7 +93,7 @@ def test_non_esistono_gate_ridondanti() -> None:
         for percorso in (
             WORKFLOW_ORDINARIO,
             WORKFLOW_MANUTENZIONE,
-            MODELLO_PRODUZIONE,
+            WORKFLOW_PRODUZIONE,
             CONTRATTO,
         )
     )

@@ -121,11 +121,14 @@ Il registro non conserva nome, cognome o email. Gli stati tecnici restano distin
 
 ## Produzione
 
-Il modello resta non attivo in `docs/workflows/production.yml.example` e non contiene ancora una schedule. Il dispatch manuale parte da un massimo di un invio; al go-live verrà aggiunta una sola esecuzione giornaliera dopo i collaudi finali.
+Il workflow `.github/workflows/production.yml` è attivo soltanto manualmente,
+usa l'unico Environment `preproduction` e parte da un massimo di un invio. Non
+contiene ancora una schedule; al go-live verrà aggiunta una sola esecuzione
+giornaliera dopo i collaudi finali.
 
 Gli invii reali richiedono:
 
-- Environment GitHub `production` protetto;
+- Environment GitHub `preproduction` già configurato;
 - `INVIO_AUTOMATICO_ATTIVO=true` nella tab `CONFIG`;
 - configurazione Google e SMTP valida.
 

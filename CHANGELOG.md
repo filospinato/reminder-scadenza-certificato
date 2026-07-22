@@ -2,6 +2,19 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.18] - 2026-07-22
+
+### Workflow produttivo
+
+- attivato il workflow degli invii reali come dispatch esclusivamente manuale,
+  limitato al branch `main` e privo di schedule;
+- mantenuto intenzionalmente un solo Environment `preproduction`, perché test e
+  produzione usano le stesse risorse e duplicarne la configurazione non
+  aggiungerebbe isolamento effettivo;
+- preservati il lock condiviso, il limite selezionabile di 1, 5 o 10 invii e
+  l'interruttore unico `INVIO_AUTOMATICO_ATTIVO` sul foglio;
+- aggiornati test contrattuali, checklist, roadmap e procedure operative.
+
 ## [0.14.17] - 2026-07-22
 
 ### Collaudo SMTP

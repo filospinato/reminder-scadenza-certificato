@@ -26,7 +26,11 @@ La suite verifica prenotazione preventiva, deduplicazione, massimo tre tentativi
 
 Il workflow ordinario deve mostrare soltanto controllo e prova email. Il workflow di manutenzione deve contenere anteprima setup, applicazione setup e collaudo sintetico. Non devono esistere gate, date simulate o conferme duplicate.
 
-Il modello produttivo deve restare non attivo e senza pianificazione automatica fino al go-live, mantenendo Environment protetto, WIF, lock condiviso, i soli ID dei due Spreadsheet e Secrets limitati allo step SMTP. Tab `Operativo`, riga 2 e intervallo `A:AS` sono un contratto applicativo, non Variables GitHub.
+Il workflow produttivo resta soltanto manuale e senza pianificazione automatica
+fino al go-live. Deve usare l'unico Environment `preproduction`, essere limitato
+a `main` e mantenere WIF, lock condiviso, i soli ID dei due Spreadsheet e
+Secrets limitati allo step SMTP. Tab `Operativo`, riga 2 e intervallo `A:AS`
+sono un contratto applicativo, non Variables GitHub.
 
 ## Verifica obbligatoria sui fogli Drive
 
