@@ -4,8 +4,6 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 
 ## 1. Provisioning esterno
 
-- [ ] creare e proteggere l'Environment GitHub `production`;
-- [ ] spostare Variables e futuri Secrets nello scope minimo necessario;
 - [ ] limitare il trust a repository, branch e workflow autorizzati;
 - [ ] configurare una seconda identità umana di recupero.
 
@@ -25,9 +23,8 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 - [ ] eseguire un piccolo lotto controllato;
 - [ ] verificare dashboard, anomalie e deduplicazione;
 - [ ] autorizzare formalmente il go-live;
-- [ ] aggiungere una sola schedule giornaliera al modello revisionato;
-- [ ] spostare il workflow produttivo in `.github/workflows`;
-- [ ] impostare `INVIO_AUTOMATICO_ATTIVO=true` soltanto al termine dei collaudi;
+- [ ] aggiungere una sola schedule giornaliera al workflow produttivo;
+- [ ] impostare `INVIO_AUTOMATICO_ATTIVO=true` soltanto per invii reali autorizzati;
 - [ ] verificare la schedule rispetto a UTC e ora legale;
 - [ ] monitorare ravvicinatamente le prime esecuzioni.
 

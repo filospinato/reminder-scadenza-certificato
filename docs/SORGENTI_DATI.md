@@ -131,7 +131,13 @@ I permessi sui file derivano dalla condivisione diretta.
 
 Preparazione del foglio e collaudo sintetico del registro sono separati nel workflow di manutenzione.
 
-Il workflow usa WIF, permessi minimi, timeout e un gruppo `concurrency` condiviso con il futuro workflow di produzione. I segreti SMTP sono disponibili soltanto allo step di test.
+Il workflow usa WIF, permessi minimi, timeout e un gruppo `concurrency`
+condiviso con il workflow di produzione. I segreti SMTP sono disponibili
+soltanto allo step di test.
+
+`.github/workflows/production.yml` usa lo stesso Environment `preproduction` e
+lo stesso lock, è limitato al branch `main` e consente esclusivamente invii
+reali manuali con limite 1, 5 o 10. Non contiene una schedule.
 
 ## Concorrenza ed errori
 
@@ -141,4 +147,7 @@ Gli errori Google vengono convertiti in errori applicativi che riportano il tipo
 
 ## Stato operativo
 
-Codice, fake, adapter, CLI, workflow manuali e preproduzione Google sono presenti. Restano esterni al repository la verifica dei permessi effettivi, la configurazione SMTP, l'Environment `production` protetto e l'attivazione autorizzata del workflow produttivo.
+Codice, fake, adapter, CLI, workflow manuali e integrazione Google sono
+presenti. Configurazione SMTP e collaudo con override sono verificati. Restano
+esterni al repository l'attivazione dell'interruttore sul foglio, le
+autorizzazioni ai lotti reali e la futura schedule giornaliera.

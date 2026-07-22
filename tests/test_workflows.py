@@ -45,8 +45,8 @@ def test_segreti_smtp_ordinari_esistono_solo_nello_step_di_invio() -> None:
     assert "reminder-certificati test-smtp" in workflow
 
 
-def test_modello_produzione_condivide_lock_e_limita_i_segreti() -> None:
-    workflow = _leggi("docs/workflows/production.yml.example")
+def test_workflow_produzione_condivide_lock_e_limita_i_segreti() -> None:
+    workflow = _leggi(".github/workflows/production.yml")
     prima_dell_invio = workflow.split("- name: Esecuzione produzione", maxsplit=1)[0]
 
     assert "group: reminder-certificati-runtime" in workflow
@@ -63,7 +63,7 @@ def test_tutte_le_actions_sono_fissate_a_sha_immutabili() -> None:
         ".github/workflows/ci.yml",
         ".github/workflows/manual-maintenance.yml",
         ".github/workflows/manual-preproduction.yml",
-        "docs/workflows/production.yml.example",
+        ".github/workflows/production.yml",
     )
 
     for percorso in percorsi:

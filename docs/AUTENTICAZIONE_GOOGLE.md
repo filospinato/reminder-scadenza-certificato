@@ -121,7 +121,10 @@ Il file temporaneo `gha-creds-*.json` prodotto sul runner è escluso da Git tram
 
 ## Environment GitHub
 
-Il job dichiara esplicitamente l'Environment `preproduction`; variabili e segreti SMTP vengono letti dal relativo scope. Non esiste un gate applicativo duplicato: eventuali approvazioni e restrizioni devono essere configurate nelle regole dell'Environment e nella trust policy WIF.
+Tutti i job dichiarano esplicitamente l'unico Environment `preproduction`;
+variabili e segreti SMTP vengono letti dal relativo scope. Non esiste un gate
+GitHub duplicato: eventuali approvazioni e restrizioni devono essere configurate
+nelle regole dell'Environment e nella trust policy WIF.
 
 ## Verifiche di sicurezza
 
@@ -138,4 +141,7 @@ Il job dichiara esplicitamente l'Environment `preproduction`; variabili e segret
 
 ## Attivazione reale
 
-Il provisioning IAM/OIDC, la condivisione dei fogli e la valorizzazione dell'Environment richiedono un passaggio controllato e una verifica esplicita. Il workflow di produzione resta un file `.example` non attivo.
+Il provisioning IAM/OIDC, la condivisione dei fogli e la valorizzazione
+dell'Environment richiedono un passaggio controllato e una verifica esplicita.
+Il workflow produttivo è disponibile soltanto come dispatch manuale su `main` e
+non contiene ancora una schedule.

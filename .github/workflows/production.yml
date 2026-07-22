@@ -1,5 +1,4 @@
-# MODELLO NON ATTIVO: prima del go-live aggiungere la singola schedule autorizzata.
-name: Reminder certificati produzione
+name: Reminder certificati — invii reali
 
 on:
   workflow_dispatch:
@@ -24,9 +23,10 @@ concurrency:
 
 jobs:
   reminder:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: production
+    environment: preproduction
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -65,12 +65,8 @@ jobs:
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ vars.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: reminder-certificati produzione --max-sends "${{ inputs.max_sends || '10' }}"
+        run: reminder-certificati produzione --max-sends "${{ inputs.max_sends }}"
 
-# Prima dell'attivazione:
-# 1. vincolare WIF a questo workflow_ref o all'environment production;
-# 2. approvare mittente, Reply-To, contenuto e resa della firma HTML con logo inline;
-# 3. completare controllo e test SMTP con override;
-# 4. iniziare manualmente con max_sends=1, poi 5 e infine 10;
-# 5. aggiungere una sola schedule giornaliera e verificarne l'orario UTC;
-# 6. impostare INVIO_AUTOMATICO_ATTIVO=true soltanto al go-live autorizzato.
+# Gli invii richiedono INVIO_AUTOMATICO_ATTIVO=true nella CONFIG.
+# Nessuna schedule è attiva. Aggiungerne una sola esclusivamente dopo il
+# completamento dei lotti controllati e l'autorizzazione finale al go-live.

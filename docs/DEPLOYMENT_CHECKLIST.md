@@ -10,7 +10,7 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 - [x] unico entry point `reminder-certificati` verificato;
 - [x] workflow ordinario e workflow di manutenzione verificati;
 - [x] Environment `preproduction` e lock condiviso verificati;
-- [x] modello produttivo revisionato, non attivo e senza schedule;
+- [x] workflow produttivo manuale verificato, limitato a `main` e senza schedule;
 - [ ] nessun segreto o dato personale nel repository;
 - [ ] issue #1 e documentazione allineate.
 
@@ -74,10 +74,10 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 - [ ] singolo invio reale autorizzato con `--max-sends 1`;
 - [ ] piccolo lotto controllato con `--max-sends 5`;
 - [ ] autorizzazione esplicita finale;
-- [ ] Environment `production` protetto;
+- [x] unico Environment `preproduction` mantenuto intenzionalmente per test e produzione sulle stesse risorse;
 - [ ] una sola schedule giornaliera aggiunta e verificata rispetto a UTC e ora legale;
-- [ ] workflow produttivo spostato in `.github/workflows`;
-- [ ] `INVIO_AUTOMATICO_ATTIVO=true` impostato soltanto al go-live;
+- [x] workflow produttivo pubblicato in `.github/workflows` senza schedule;
+- [ ] `INVIO_AUTOMATICO_ATTIVO=true` impostato soltanto per un invio reale esplicitamente autorizzato;
 - [ ] monitoraggio ravvicinato delle prime esecuzioni.
 
 ## G. Arresto e handoff

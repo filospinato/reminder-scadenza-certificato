@@ -15,6 +15,13 @@ Il workflow ordinario presenta due sole scelte:
 - `check`, che verifica configurazione, dati, candidati e registro senza inviare;
 - `test-smtp`, che mantiene il comportamento corrente e invia al massimo un messaggio al `DESTINATARIO_OVERRIDE`.
 
+## Invii reali
+
+Il workflow **Reminder certificati — invii reali** è disponibile soltanto
+manualmente su `main`, usa lo stesso Environment `preproduction` e consente di
+scegliere un limite di 1, 5 o 10 messaggi. Richiede
+`INVIO_AUTOMATICO_ATTIVO=true`; fino al go-live non contiene una schedule.
+
 ## Manutenzione
 
 Il workflow di manutenzione presenta tre scelte:

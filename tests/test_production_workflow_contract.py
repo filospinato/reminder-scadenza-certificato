@@ -2,24 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-MODELLO = Path("docs/workflows/production.yml.example")
-WORKFLOW_ATTIVO = Path(".github/workflows/production.yml")
+WORKFLOW = Path(".github/workflows/production.yml")
 
 
 def _testo() -> str:
-    return MODELLO.read_text(encoding="utf-8")
+    return WORKFLOW.read_text(encoding="utf-8")
 
 
-def test_modello_resta_non_attivo_e_fuori_dai_workflow_eseguibili() -> None:
+def test_workflow_produttivo_e_attivo_solo_manualmente() -> None:
     testo = _testo()
-    assert MODELLO.exists()
-    assert not WORKFLOW_ATTIVO.exists()
-    assert testo.startswith("# MODELLO NON ATTIVO:")
+    assert WORKFLOW.exists()
+    assert "workflow_dispatch:" in testo
+    assert "schedule:" not in testo
+    assert "cron:" not in testo
 
 
-def test_modello_usa_environment_wif_e_lock_condiviso() -> None:
+def test_workflow_usa_unico_environment_wif_e_lock_condiviso() -> None:
     testo = _testo()
-    assert "environment: production" in testo
+    assert "environment: preproduction" in testo
+    assert "environment: production" not in testo
     assert "group: reminder-certificati-runtime" in testo
     assert "cancel-in-progress: false" in testo
     assert "contents: read" in testo
@@ -45,10 +46,14 @@ def test_schedule_non_e_preconfigurata_prima_del_go_live() -> None:
     testo = _testo()
     assert "schedule:" not in testo
     assert "cron:" not in testo
-    assert "aggiungere una sola schedule" in testo
+    assert "Aggiungerne una sola" in testo
 
 
-def test_modello_non_contiene_bootstrap_collaudi_o_modalita_non_produttive() -> None:
+def test_invio_reale_e_limitato_al_branch_main() -> None:
+    assert "if: github.ref == 'refs/heads/main'" in _testo()
+
+
+def test_workflow_non_contiene_bootstrap_collaudi_o_modalita_non_produttive() -> None:
     testo = _testo()
     for valore in (
         "init-admin",
@@ -83,7 +88,7 @@ def test_segreti_smtp_restano_nello_step_produttivo() -> None:
     assert "SMTP_FROM_NAME" not in testo
 
 
-def test_modello_configura_solo_l_id_del_foglio_operativo() -> None:
+def test_workflow_configura_solo_l_id_del_foglio_operativo() -> None:
     testo = _testo()
     assert "${{ vars.OPERATIVO_SPREADSHEET_ID }}" in testo
     for nome in (
@@ -94,5 +99,5 @@ def test_modello_configura_solo_l_id_del_foglio_operativo() -> None:
         assert nome not in testo
 
 
-def test_modello_non_esegue_upgrade_dinamici_del_package_manager() -> None:
+def test_workflow_non_esegue_upgrade_dinamici_del_package_manager() -> None:
     assert "pip install --upgrade pip" not in _testo()
