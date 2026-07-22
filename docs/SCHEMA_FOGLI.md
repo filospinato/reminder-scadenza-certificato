@@ -4,10 +4,10 @@ Il file separato canonico è `Reminder certificati CIA Lazio — Gestione`. Le t
 
 ## Versione dello schema
 
-La versione corrente è **3** ed è registrata in CONFIG come:
+La versione corrente è **4** ed è registrata in CONFIG come:
 
 ```text
-SCHEMA_VERSION | 3
+SCHEMA_VERSION | 4
 ```
 
 `SCHEMA_VERSION` è gestita dal programma. `setup-admin` riconosce automaticamente un file vuoto, uno schema precedente oppure un file già aggiornato.
@@ -22,15 +22,16 @@ chiave | valore | descrizione
 
 | Chiave | Valore iniziale | Scopo |
 |---|---:|---|
-| `SCHEMA_VERSION` | `3` | versione del contratto amministrativo |
+| `SCHEMA_VERSION` | `4` | versione del contratto amministrativo |
 | `INVIO_AUTOMATICO_ATTIVO` | `false` | unico interruttore degli invii programmati |
 | `GIORNI_PREAVVISO` | `30` | finestra inclusiva |
 | `DESTINATARIO_OVERRIDE` | vuoto | destinatario del test SMTP |
 | `OGGETTO_EMAIL` | predefinito | oggetto del promemoria |
 | `CORPO_EMAIL` | predefinito | messaggio completo, compreso l'eventuale saluto |
-| `FIRMA_TESTO` | predefinita | firma della parte testuale di fallback; l'HTML istituzionale è nel codice |
 
 Il codice non aggiunge saluti o altre frasi implicite. `CORPO_EMAIL` può usare `{{nome}}`, `{{cognome}}`, `{{nome_completo}}`, `{{data_scadenza}}` e `{{giorni_residui}}`. Il valore iniziale comincia con `Ciao {{nome}},`, ma l'operatore può modificare liberamente la formulazione dal foglio.
+
+La firma istituzionale non è configurabile dal foglio. Il codice genera sia la parte HTML con logo inline sia la parte `text/plain` dagli stessi dati, con una regressione automatica che ne verifica l'allineamento.
 
 Il limite di 10 invii per esecuzione è una costante interna e non compare nel foglio. Non esistono più chiavi separate per produzione, preproduzione o invii reali.
 
@@ -67,9 +68,12 @@ L'aggiornamento:
 3. salva un backup JSON prima di modificare un foglio esistente;
 4. converte la CONFIG dalle cinque colonne precedenti alle tre colonne correnti;
 5. sostituisce i vecchi interruttori con `INVIO_AUTOMATICO_ATTIVO=false`;
-6. preserva giorni, destinatario override e template;
-7. minimizza il registro e stabilizza le chiavi legacy;
-8. rifiuta collisioni tra chiavi convertite.
+6. preserva giorni, destinatario override, oggetto, corpo e relative descrizioni;
+7. elimina la vecchia chiave `FIRMA_TESTO`, ora gestita unicamente dal codice;
+8. minimizza il registro e stabilizza le chiavi legacy;
+9. rifiuta collisioni tra chiavi convertite.
+
+Durante il passaggio il runtime accetta ancora una CONFIG v3 completa, ma ignora il valore di `FIRMA_TESTO`. Gli stati misti v3/v4 vengono rifiutati per evitare configurazioni ambigue.
 
 ## DASHBOARD e ANOMALIE
 

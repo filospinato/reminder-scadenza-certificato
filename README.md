@@ -89,10 +89,9 @@ La tab usa tre sole colonne: `chiave`, `valore`, `descrizione`. Le chiavi sono:
 - `GIORNI_PREAVVISO`;
 - `DESTINATARIO_OVERRIDE`;
 - `OGGETTO_EMAIL`;
-- `CORPO_EMAIL`;
-- `FIRMA_TESTO`.
+- `CORPO_EMAIL`.
 
-`CORPO_EMAIL` contiene il messaggio completo, compreso l'eventuale saluto. Il codice non aggiunge frasi implicite. `FIRMA_TESTO` alimenta la parte testuale di fallback; la firma HTML istituzionale, compreso il logo inline, è versionata e verificata nel codice per mantenere stile e collegamenti coerenti. I placeholder disponibili in oggetto, corpo e firma testuale sono:
+`CORPO_EMAIL` contiene il messaggio completo, compreso l'eventuale saluto. Il codice non aggiunge frasi implicite. La firma istituzionale è versionata nel codice: le parti HTML e `text/plain` sono generate dagli stessi dati e un test ne verifica l'allineamento. Il logo inline compare soltanto nella parte HTML. I placeholder disponibili in oggetto e corpo sono:
 
 ```text
 {{nome}}
@@ -107,6 +106,8 @@ I placeholder anagrafici `{{nome}}`, `{{cognome}}` e `{{nome_completo}}` vengono
 Il valore predefinito inizia con `Ciao {{nome}},`, ma può essere sostituito con qualsiasi formulazione valida direttamente dal foglio.
 
 Durante una migrazione l'invio automatico viene sempre lasciato su `false`. Il limite ordinario resta interno; `--max-sends` può soltanto ridurlo temporaneamente da 10 fino a 1 per il rollout.
+
+Il runtime accetta temporaneamente anche lo schema v3 completo per consentire un aggiornamento senza interruzioni, ma ignora sempre la vecchia chiave `FIRMA_TESTO`. Il foglio va poi portato allo schema v4 eliminando quella riga e impostando `SCHEMA_VERSION=4`.
 
 ## Registro
 

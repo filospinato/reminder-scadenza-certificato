@@ -31,10 +31,11 @@ La tab contiene soltanto `chiave`, `valore` e `descrizione`. Le impostazioni mod
 - `GIORNI_PREAVVISO`;
 - `DESTINATARIO_OVERRIDE`;
 - `OGGETTO_EMAIL`;
-- `CORPO_EMAIL`;
-- `FIRMA_TESTO`.
+- `CORPO_EMAIL`.
 
 `SCHEMA_VERSION` è gestita dal programma. Il limite di 10 messaggi per esecuzione è interno e non richiede decisioni dell'operatore.
+
+La firma HTML e quella `text/plain` sono gestite insieme nel codice e non si modificano dal foglio.
 
 Per il rollout produttivo il comando accetta `--max-sends 1..10`: il valore può soltanto ridurre il limite interno. Usare prima 1, poi 5 e infine 10 dopo aver verificato gli esiti del lotto precedente.
 

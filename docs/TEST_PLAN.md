@@ -10,7 +10,7 @@ Le righe senza data di scadenza devono essere ignorate senza anomalie. ID, nome,
 
 ## CONFIG e migrazione
 
-La suite verifica lo schema v3 a tre colonne, le sette chiavi canoniche, l'unico interruttore `INVIO_AUTOMATICO_ATTIVO`, il limite interno non configurabile e la migrazione conservativa dallo schema precedente. Ogni aggiornamento deve lasciare gli invii automatici spenti e preservare destinatario di prova e template.
+La suite verifica lo schema v4 a tre colonne, le sei chiavi canoniche, l'unico interruttore `INVIO_AUTOMATICO_ATTIVO`, il limite interno non configurabile e la migrazione conservativa dallo schema precedente. Verifica inoltre che la firma HTML e quella `text/plain` derivino dagli stessi dati visibili. Ogni aggiornamento deve lasciare gli invii automatici spenti e preservare destinatario di prova, oggetto e corpo.
 
 ## Modalità operative
 

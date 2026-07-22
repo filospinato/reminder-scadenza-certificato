@@ -23,7 +23,11 @@ from .admin_migration import (
     applica_piano,
     prepara_piano,
 )
-from .admin_schema import NOMI_TAB_AMMINISTRATIVE, crea_schema_amministrativo
+from .admin_schema import (
+    NOMI_TAB_AMMINISTRATIVE,
+    VERSIONE_SCHEMA_AMMINISTRATIVO,
+    crea_schema_amministrativo,
+)
 from .google_preflight_cli import run as esegui_preflight
 from .google_runtime import (
     MAPPATURA_OPERATIVO_REALE,
@@ -210,7 +214,7 @@ def _setup_admin(
                 "mode": "APPLY" if applica else "PREVIEW",
                 "action": "INITIALIZE",
                 "changes_required": True,
-                "changes": ["ADMIN_SCHEMA_V3"],
+                "changes": [f"ADMIN_SCHEMA_V{VERSIONE_SCHEMA_AMMINISTRATIVO}"],
                 "tabs_configured": bool(esito and esito.tab_configurate),
                 "initialized_tabs": list(esito.tab_inizializzate) if esito else [],
                 "backup_written": False,

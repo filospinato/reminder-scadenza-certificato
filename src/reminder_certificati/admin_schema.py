@@ -9,7 +9,7 @@ from .admin_store import COLONNE_NOTIFICHE
 from .email_templates import ConfigurazioneEmail
 
 NOME_SPREADSHEET_AMMINISTRATIVO = "Reminder certificati CIA Lazio — Gestione"
-VERSIONE_SCHEMA_AMMINISTRATIVO = 3
+VERSIONE_SCHEMA_AMMINISTRATIVO = 4
 NOMI_TAB_AMMINISTRATIVE: tuple[str, ...] = (
     "CONFIG",
     "NOTIFICHE",
@@ -170,13 +170,6 @@ def configurazione_iniziale_sicura() -> tuple[VoceConfig, ...]:
             "Messaggio completo; può usare placeholder come {{nome}} e {{data_scadenza}}.",
             True,
         ),
-        VoceConfig(
-            "FIRMA_TESTO",
-            email.firma,
-            TipoValoreConfig.TEMPLATE,
-            "Firma della parte testuale; la versione HTML è gestita dal codice.",
-            True,
-        ),
     )
     _valida_configurazione_sicura(voci)
     return voci
@@ -230,6 +223,6 @@ def _valida_configurazione_sicura(voci: tuple[VoceConfig, ...]) -> None:
         raise ErroreSchemaAmministrativo(
             "DESTINATARIO_OVERRIDE deve essere vuoto nello schema iniziale"
         )
-    for chiave in ("OGGETTO_EMAIL", "CORPO_EMAIL", "FIRMA_TESTO"):
+    for chiave in ("OGGETTO_EMAIL", "CORPO_EMAIL"):
         if not per_chiave[chiave].valore.strip():
             raise ErroreSchemaAmministrativo(f"{chiave} non può essere vuoto")
