@@ -54,7 +54,7 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 - [ ] host, porta e sicurezza MDaemon verificati;
 - [ ] se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` configurato come Environment Variable dopo aver verificato il canale di rete;
 - [ ] mittente e Reply-To approvati;
-- [ ] password inserita nel Secret e parametri non sensibili nelle Variables dello specifico Environment;
+- [x] password inserita nel Secret e parametri non sensibili nelle Variables dello specifico Environment;
 - [ ] corpo ufficiale approvato;
 - [x] firma ufficiale approvata;
 - [ ] resa HTML, logo inline e CID approvati nei client email usati;

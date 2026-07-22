@@ -16,7 +16,6 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 ## 3. SMTP e contenuti
 
 - [ ] approvare mittente, Reply-To, oggetto, corpo, firma e logo;
-- [ ] configurare i Secrets MDaemon nell'Environment corretto;
 - [ ] eseguire il test SMTP sul `DESTINATARIO_OVERRIDE` usando un candidato reale;
 - [ ] verificare se MDaemon consente di eliminare in futuro il supporto SMTP `PLAIN`;
 - [ ] collaudare errori ritentabili, permanenti ed esiti incerti;
