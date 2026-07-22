@@ -147,7 +147,7 @@ SENDING -> UNKNOWN_REVIEW_REQUIRED
 FAILED_RETRYABLE -> SENDING
 ```
 
-`SENDING` viene registrato prima del contatto SMTP per impedire che un’interruzione faccia apparire la notifica come mai tentata. Tutti i workflow condividono il gruppo di concorrenza dichiarato in `CURRENT_STATE.json`.
+`SENDING` viene registrato prima del contatto SMTP per impedire che un’interruzione faccia apparire la notifica come mai tentata. Tutti i workflow canonici condividono il gruppo di concorrenza `reminder-certificati-runtime`, definito direttamente nei file sotto `.github/workflows/`.
 
 ## Contratto del messaggio
 
