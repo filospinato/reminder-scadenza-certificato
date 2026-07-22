@@ -1,106 +1,112 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
 WORKFLOW_ORDINARIO = Path(".github/workflows/manual-preproduction.yml")
 WORKFLOW_MANUTENZIONE = Path(".github/workflows/manual-maintenance.yml")
 WORKFLOW_PRODUZIONE = Path(".github/workflows/production.yml")
-CONTRATTO = Path("docs/CONTRATTO_ENVIRONMENT_GITHUB.md")
+CONTRATTO = Path("config/github/environment-contract.json")
+CURRENT_STATE = Path("CURRENT_STATE.json")
 
 
 def _riferimenti(testo: str, contesto: str) -> set[str]:
     return set(re.findall(rf"\$\{{\{{\s*{contesto}\.([A-Z0-9_]+)\s*\}}\}}", testo))
 
 
-def _sezione_documentata(testo: str, nome: str) -> set[str]:
-    pattern = rf"<!-- BEGIN {re.escape(nome)} -->\s*```text\s*(.*?)\s*```\s*<!-- END {re.escape(nome)} -->"
-    match = re.search(pattern, testo, flags=re.DOTALL)
-    assert match is not None, f"Sezione documentale mancante: {nome}"
-    return {riga.strip() for riga in match.group(1).splitlines() if riga.strip()}
+def _contratto() -> dict:
+    return json.loads(CONTRATTO.read_text(encoding="utf-8"))
 
 
 def test_variables_usate_dai_workflow_sono_documentate() -> None:
-    contratto = CONTRATTO.read_text(encoding="utf-8")
-    manuali = "\n".join(
-        percorso.read_text(encoding="utf-8")
-        for percorso in (WORKFLOW_ORDINARIO, WORKFLOW_MANUTENZIONE)
-    )
-    produzione = WORKFLOW_PRODUZIONE.read_text(encoding="utf-8")
+    contract = _contratto()
+    documented = set(contract["variables"])
+    workflows = (WORKFLOW_ORDINARIO, WORKFLOW_MANUTENZIONE, WORKFLOW_PRODUZIONE)
 
-    assert _riferimenti(manuali, "vars") <= _sezione_documentata(
-        contratto, "PREPRODUCTION VARIABLES"
+    used = set().union(
+        *(_riferimenti(path.read_text(encoding="utf-8"), "vars") for path in workflows)
     )
-    assert _riferimenti(produzione, "vars") <= _sezione_documentata(
-        contratto, "PREPRODUCTION VARIABLES"
-    )
+    assert used <= documented
 
 
 def test_workflow_smtp_usano_i_segreti_documentati() -> None:
-    contratto = CONTRATTO.read_text(encoding="utf-8")
-    attesi = _sezione_documentata(contratto, "SMTP SECRETS")
-    ordinario = _riferimenti(WORKFLOW_ORDINARIO.read_text(encoding="utf-8"), "secrets")
-    manutenzione = _riferimenti(
+    expected = set(_contratto()["secrets"])
+    ordinary = _riferimenti(WORKFLOW_ORDINARIO.read_text(encoding="utf-8"), "secrets")
+    maintenance = _riferimenti(
         WORKFLOW_MANUTENZIONE.read_text(encoding="utf-8"), "secrets"
     )
-    produzione = _riferimenti(
-        WORKFLOW_PRODUZIONE.read_text(encoding="utf-8"), "secrets"
-    )
+    production = _riferimenti(WORKFLOW_PRODUZIONE.read_text(encoding="utf-8"), "secrets")
 
-    assert ordinario == attesi
-    assert manutenzione == set()
-    assert produzione == attesi
+    assert ordinary == expected
+    assert maintenance == set()
+    assert production == expected
 
 
 def test_solo_la_password_smtp_e_un_secret() -> None:
-    contratto = CONTRATTO.read_text(encoding="utf-8")
-    pubbliche = _sezione_documentata(contratto, "PREPRODUCTION VARIABLES")
+    contract = _contratto()
+    public = set(contract["variables"])
+    secrets = set(contract["secrets"])
 
-    assert "SMTP_PASSWORD" not in pubbliche
-    for nome in (
+    assert secrets == {"SMTP_PASSWORD"}
+    assert "SMTP_PASSWORD" not in public
+    for name in (
         "SMTP_HOST",
         "SMTP_PORT",
         "SMTP_SECURITY",
         "SMTP_REPLY_TO",
         "SMTP_USERNAME",
     ):
-        assert nome in pubbliche
-    assert "SMTP_FROM" not in pubbliche
-    assert "SMTP_FROM_NAME" not in pubbliche
+        assert name in public
+    assert "SMTP_FROM" not in public
+    assert "SMTP_FROM_NAME" not in public
 
 
 def test_struttura_operativo_non_e_una_configurazione_github() -> None:
-    testo = "\n".join(
-        percorso.read_text(encoding="utf-8")
-        for percorso in (
+    text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
             WORKFLOW_ORDINARIO,
             WORKFLOW_MANUTENZIONE,
             WORKFLOW_PRODUZIONE,
             CONTRATTO,
         )
     )
-    for nome in (
+    for name in (
         "OPERATIVO_SHEET_NAME",
         "OPERATIVO_HEADER_ROW",
         "OPERATIVO_COLUMNS_A1",
     ):
-        assert nome not in testo
+        assert name not in text
 
 
 def test_non_esistono_gate_ridondanti() -> None:
-    testo = "\n".join(
-        percorso.read_text(encoding="utf-8")
-        for percorso in (
+    text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
             WORKFLOW_ORDINARIO,
             WORKFLOW_MANUTENZIONE,
             WORKFLOW_PRODUZIONE,
             CONTRATTO,
         )
     )
-    for nome in (
+    for name in (
         "PREPRODUCTION_ENABLED",
         "PRODUCTION_ENABLED",
         "ALLOW_EMAIL_DELIVERY",
         "ALLOW_SYNTHETIC_REGISTRY_WRITE",
     ):
-        assert nome not in testo
+        assert name not in text
+
+
+def test_environment_e_coerente_con_stato_corrente_e_workflow() -> None:
+    environment = _contratto()["environment"]
+    state = json.loads(CURRENT_STATE.read_text(encoding="utf-8"))
+
+    assert state["github"]["environment"] == environment
+    for workflow in (
+        WORKFLOW_ORDINARIO,
+        WORKFLOW_MANUTENZIONE,
+        WORKFLOW_PRODUZIONE,
+    ):
+        assert f"environment: {environment}" in workflow.read_text(encoding="utf-8")
