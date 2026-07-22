@@ -8,6 +8,9 @@ venv/
 !.env.example
 coverage.xml
 htmlcov/
+build/
+dist/
+*.egg-info/
 .DS_Store
 
 # File temporanei generati da google-github-actions/auth.

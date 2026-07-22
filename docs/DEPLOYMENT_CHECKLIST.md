@@ -1,22 +1,25 @@
 # Checklist di deployment graduale
 
+Questa checklist registra soltanto attività concluse con evidenze verificabili;
+va aggiornata insieme a ogni modifica che completa un passo di deployment.
+
 ## A. Software
 
-- [ ] CI verde sulla PR e su `main`;
-- [ ] dipendenze Google installabili con l'extra `google`;
-- [ ] unico entry point `reminder-certificati` verificato;
-- [ ] workflow ordinario e workflow di manutenzione verificati;
-- [ ] Environment e lock condiviso verificati;
-- [ ] modello produttivo revisionato, non attivo e senza schedule;
+- [x] CI verde sulla PR e su `main`;
+- [x] dipendenze Google installabili con l'extra `google`;
+- [x] unico entry point `reminder-certificati` verificato;
+- [x] workflow ordinario e workflow di manutenzione verificati;
+- [x] Environment `preproduction` e lock condiviso verificati;
+- [x] modello produttivo revisionato, non attivo e senza schedule;
 - [ ] nessun segreto o dato personale nel repository;
 - [ ] issue #1 e documentazione allineate.
 
 ## B. Google Cloud
 
-- [ ] progetto creato;
-- [ ] Sheets API abilitata;
-- [ ] service account dedicato senza chiavi permanenti;
-- [ ] pool e provider WIF creati;
+- [x] progetto creato;
+- [x] Sheets API abilitata;
+- [x] service account dedicato senza chiavi permanenti;
+- [x] pool e provider WIF creati;
 - [ ] trust limitata a repository, proprietario, `main` e workflow/Environment;
 - [ ] binding `roles/iam.workloadIdentityUser` limitato;
 - [ ] seconda identità umana CIA configurata;
@@ -24,26 +27,26 @@
 
 ## C. Spreadsheet
 
-- [ ] foglio amministrativo creato dall'account umano;
+- [x] foglio amministrativo creato dall'account umano;
 - [ ] proprietà e recupero umano verificati;
 - [ ] file condiviso direttamente con il service account come editor;
-- [ ] `reminder-certificati setup-admin --spreadsheet-id ID` eseguito in anteprima;
+- [x] `reminder-certificati setup-admin --spreadsheet-id ID` eseguito in anteprima;
 - [ ] `setup-admin --apply` completato con backup quando necessario;
 - [ ] artifact del backup scaricato, custodito con accesso limitato e poi eliminato allo scadere della necessità;
-- [ ] quattro tab presenti e visibili;
-- [ ] service account lettore di `Operativo`;
-- [ ] `INVIO_AUTOMATICO_ATTIVO=false` verificato dopo il setup;
-- [ ] `reminder-certificati check` riuscito;
+- [x] quattro tab presenti e visibili;
+- [x] service account lettore di `Operativo`;
+- [x] `INVIO_AUTOMATICO_ATTIVO=false` verificato dopo il setup;
+- [x] `reminder-certificati check` riuscito;
 - [ ] collaudo sintetico del registro riuscito.
 
 ## D. Controllo senza invio
 
-- [ ] `INVIO_AUTOMATICO_ATTIVO=false`;
-- [ ] nessun obbligo di override o parametri SMTP;
-- [ ] `reminder-certificati check` riuscito;
-- [ ] conteggi aggregati e categorie escluse verificati;
-- [ ] zero scritture in `NOTIFICHE` durante il controllo;
-- [ ] zero chiamate SMTP.
+- [x] `INVIO_AUTOMATICO_ATTIVO=false`;
+- [x] nessun obbligo di override o parametri SMTP;
+- [x] `reminder-certificati check` riuscito;
+- [x] conteggi aggregati e categorie escluse verificati;
+- [x] zero scritture in `NOTIFICHE` durante il controllo;
+- [x] zero chiamate SMTP.
 
 ## E. SMTP e contenuti
 
@@ -51,9 +54,10 @@
 - [ ] se MDaemon richiede `PLAIN`, `ALLOW_PLAIN_SMTP=true` configurato come Environment Variable dopo aver verificato il canale di rete;
 - [ ] mittente e Reply-To approvati;
 - [ ] credenziali inserite solo nei Secrets dello specifico Environment;
-- [ ] corpo e firma ufficiali approvati;
+- [ ] corpo ufficiale approvato;
+- [x] firma ufficiale approvata;
 - [ ] resa HTML, logo inline e CID approvati nei client email usati;
-- [ ] `DESTINATARIO_OVERRIDE` configurato;
+- [x] `DESTINATARIO_OVERRIDE` configurato;
 - [ ] `INVIO_AUTOMATICO_ATTIVO=false` durante la prova;
 - [ ] `reminder-certificati test-smtp` riuscito;
 - [ ] usato un candidato reale e inviata al massimo una email all'override;
@@ -63,7 +67,7 @@
 
 ## F. Attivazione graduale
 
-- [ ] setup e controllo completi;
+- [x] setup e controllo completi;
 - [ ] scrittura sintetica sul foglio amministrativo;
 - [ ] test SMTP con override;
 - [ ] singolo invio reale autorizzato con `--max-sends 1`;
