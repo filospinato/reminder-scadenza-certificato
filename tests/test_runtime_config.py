@@ -21,6 +21,13 @@ def _imposta(matrice: list[list[str]], chiave: str, valore: str) -> None:
     raise AssertionError(chiave)
 
 
+def _matrice_config_v3_legacy(*, firma: str = "Firma legacy") -> list[list[str]]:
+    matrice = _matrice_config()
+    _imposta(matrice, "SCHEMA_VERSION", "3")
+    matrice.append(["FIRMA_TESTO", firma, "Vecchia firma configurabile."])
+    return matrice
+
+
 def test_configurazione_iniziale_e_disattivata() -> None:
     config = carica_configurazione(_matrice_config())
 
@@ -87,6 +94,33 @@ def test_accetta_descrizioni_modificate_e_corpo_libero() -> None:
     assert config.email.corpo.startswith("Il certificato")
 
 
+def test_accetta_transitoriamente_config_v3_ma_ignora_la_firma_legacy() -> None:
+    config = carica_configurazione(
+        _matrice_config_v3_legacy(firma="Firma }} volutamente non valida")
+    )
+
+    assert config.schema_version == 3
+    assert not hasattr(config.email, "firma")
+
+
+@pytest.mark.parametrize(
+    "matrice",
+    (
+        _matrice_config() + [["FIRMA_TESTO", "Firma", "Riga non prevista in v4"]],
+        [
+            riga
+            for riga in _matrice_config_v3_legacy()
+            if not riga or riga[0] != "FIRMA_TESTO"
+        ],
+    ),
+)
+def test_rifiuta_stati_parziali_della_migrazione_v3_v4(
+    matrice: list[list[str]],
+) -> None:
+    with pytest.raises(ErroreConfigurazioneRuntime):
+        carica_configurazione(matrice)
+
+
 def test_rifiuta_corpo_vuoto_e_giorni_fuori_intervallo() -> None:
     matrice = _matrice_config()
     _imposta(matrice, "CORPO_EMAIL", "")
@@ -104,7 +138,6 @@ def test_rifiuta_corpo_vuoto_e_giorni_fuori_intervallo() -> None:
     [
         ("OGGETTO_EMAIL", "Promemoria {{campo_sconosciuto}}"),
         ("CORPO_EMAIL", "Certificato in scadenza {{data_scadenza"),
-        ("FIRMA_TESTO", "Firma }} non valida"),
     ],
 )
 def test_rifiuta_template_non_validi_prima_di_leggere_i_candidati(

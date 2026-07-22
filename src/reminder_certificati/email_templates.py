@@ -7,7 +7,7 @@ from typing import Mapping
 
 from .email_signature import (
     FIRMA_HTML,
-    FIRMA_TESTO_PREDEFINITA,
+    FIRMA_TESTO,
     LOGO_CID,
     LOGO_FILENAME,
     carica_logo_fip_lazio,
@@ -33,7 +33,6 @@ class ConfigurazioneEmail:
         "Ti invitiamo a provvedere al rinnovo e alla trasmissione della nuova "
         "documentazione secondo le modalità previste."
     )
-    firma: str = FIRMA_TESTO_PREDEFINITA
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,19 +103,18 @@ def componi_email(
 ) -> MessaggioEmail:
     """Compone testo e HTML senza effettuare alcun invio.
 
-    Oggetto, corpo completo e firma testuale vengono renderizzati dai template
-    configurati. La parte HTML usa la firma istituzionale controllata dal codice.
+    Oggetto e corpo completo vengono renderizzati dai template configurati.
+    Le firme testuale e HTML sono entrambe controllate dal codice.
     """
 
     valori = _valori(candidato)
     oggetto = _render(configurazione.oggetto, valori, campo="oggetto")
     corpo = _render(configurazione.corpo, valori, campo="corpo")
-    firma = _render(configurazione.firma, valori, campo="firma")
 
     if "\n" in oggetto or "\r" in oggetto:
         raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")
 
-    testo = f"{corpo}\n\n{firma}"
+    testo = f"{corpo}\n\n{FIRMA_TESTO}"
     corpo_html = "".join(_paragrafi_html(corpo))
     html_completo = (
         '<html><head><meta charset="utf-8"></head><body>'
@@ -159,6 +157,5 @@ def valida_configurazione_email(configurazione: ConfigurazioneEmail) -> None:
         campo="oggetto",
     )
     _render(configurazione.corpo, valori_sintetici, campo="corpo")
-    _render(configurazione.firma, valori_sintetici, campo="firma")
     if "\n" in oggetto or "\r" in oggetto:
         raise ErroreTemplate("oggetto: non sono consentiti ritorni a capo")

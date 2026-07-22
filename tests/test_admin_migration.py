@@ -111,7 +111,7 @@ def test_migra_dashboard_legacy_senza_perdere_le_altre_metriche() -> None:
     assert "kill_switch" not in metriche
     assert metriche["automazione_attiva"][0] == "NO"
     assert metriche["righe_lette"][0] == "0"
-    assert "DASHBOARD_SCHEMA_V3" in piano.modifiche
+    assert "DASHBOARD_SCHEMA_V4" in piano.modifiche
 
 
 def test_migra_versione_schema_errata_e_spegne_invii() -> None:
@@ -131,7 +131,7 @@ def test_migra_versione_schema_errata_e_spegne_invii() -> None:
     valori = {riga[0]: riga[1] for riga in piano.config_dopo[1:]}
     dashboard = {riga[0]: riga[1] for riga in piano.dashboard_dopo[1:]}
 
-    assert valori["SCHEMA_VERSION"] == "3"
+    assert valori["SCHEMA_VERSION"] == "4"
     assert valori["INVIO_AUTOMATICO_ATTIVO"] == "false"
     assert dashboard["automazione_attiva"] == "NO"
     assert piano.necessaria is True
@@ -168,10 +168,7 @@ def test_migrazione_corrente_e_idempotente() -> None:
 def test_config_corrente_preserva_descrizioni_personalizzate_senza_migrare() -> None:
     schema = crea_schema_amministrativo()
     config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
-    note = {
-        "CORPO_EMAIL": "Promemoria personale sul corpo HTML.",
-        "FIRMA_TESTO": "In futuro implementare la firma tramite HTML.",
-    }
+    note = {"CORPO_EMAIL": "Promemoria personale sul corpo HTML."}
     for riga in config[1:]:
         if riga[0] in note:
             riga[2] = note[riga[0]]
@@ -186,14 +183,13 @@ def test_config_corrente_preserva_descrizioni_personalizzate_senza_migrare() -> 
     assert piano.necessaria is False
     assert piano.modifiche == ()
     assert descrizioni["CORPO_EMAIL"] == note["CORPO_EMAIL"]
-    assert descrizioni["FIRMA_TESTO"] == note["FIRMA_TESTO"]
 
 
-def test_migrazione_reale_preserva_le_note_delle_chiavi_esistenti() -> None:
+def test_migrazione_reale_preserva_le_note_delle_chiavi_che_restano() -> None:
     config = _config_v2()
-    nota = "Promemoria personale: implementare la firma tramite HTML."
+    nota = "Promemoria personale sul corpo del messaggio."
     for riga in config[1:]:
-        if riga[0] == "FIRMA_TESTO":
+        if riga[0] == "CORPO_EMAIL":
             riga[3] = nota
 
     piano = prepara_piano(
@@ -204,7 +200,44 @@ def test_migrazione_reale_preserva_le_note_delle_chiavi_esistenti() -> None:
     descrizioni = {riga[0]: riga[2] for riga in piano.config_dopo[1:]}
 
     assert piano.necessaria is True
-    assert descrizioni["FIRMA_TESTO"] == nota
+    assert descrizioni["CORPO_EMAIL"] == nota
+
+
+def test_migra_config_v3_rimuovendo_firma_legacy_senza_perdere_altro() -> None:
+    schema = crea_schema_amministrativo()
+    config = [list(riga) for riga in schema.ottieni_tab("CONFIG").matrice()]
+    nota_corpo = "Nota personalizzata da preservare."
+    for riga in config[1:]:
+        if riga[0] == "SCHEMA_VERSION":
+            riga[1] = "3"
+        elif riga[0] == "INVIO_AUTOMATICO_ATTIVO":
+            riga[1] = "true"
+        elif riga[0] == "CORPO_EMAIL":
+            riga[1] = "Testo personalizzato {{data_scadenza}}."
+            riga[2] = nota_corpo
+    config.append(
+        [
+            "FIRMA_TESTO",
+            "Firma legacy personalizzata",
+            "Promemoria personale da eliminare insieme alla chiave.",
+        ]
+    )
+
+    piano = prepara_piano(
+        config,
+        [list(COLONNE_NOTIFICHE)],
+        _dashboard_corrente(),
+    )
+    valori = {riga[0]: riga[1] for riga in piano.config_dopo[1:]}
+    descrizioni = {riga[0]: riga[2] for riga in piano.config_dopo[1:]}
+
+    assert piano.necessaria is True
+    assert "CONFIG_SCHEMA_V4" in piano.modifiche
+    assert valori["SCHEMA_VERSION"] == "4"
+    assert valori["INVIO_AUTOMATICO_ATTIVO"] == "false"
+    assert valori["CORPO_EMAIL"] == "Testo personalizzato {{data_scadenza}}."
+    assert descrizioni["CORPO_EMAIL"] == nota_corpo
+    assert "FIRMA_TESTO" not in valori
 
 
 def test_rifiuta_collisioni_prodotte_dalla_chiave_stabile() -> None:

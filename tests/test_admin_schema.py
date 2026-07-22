@@ -30,7 +30,7 @@ def test_schema_canonico_crea_le_quattro_tab() -> None:
 def test_config_iniziale_ha_un_solo_interruttore() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
-    assert VERSIONE_SCHEMA_AMMINISTRATIVO == 3
+    assert VERSIONE_SCHEMA_AMMINISTRATIVO == 4
     assert voci["INVIO_AUTOMATICO_ATTIVO"].valore == "false"
     assert voci["DESTINATARIO_OVERRIDE"].valore == ""
     assert voci["GIORNI_PREAVVISO"].valore == "30"
@@ -51,17 +51,17 @@ def test_config_visibile_contiene_solo_tre_colonne() -> None:
     assert all(len(riga) == 3 for riga in matrice)
 
 
-def test_config_contiene_destinatario_e_template_modificabili() -> None:
+def test_config_contiene_solo_destinatario_oggetto_e_corpo_modificabili() -> None:
     voci = {voce.chiave: voce for voce in configurazione_iniziale_sicura()}
 
     for chiave in (
         "DESTINATARIO_OVERRIDE",
         "OGGETTO_EMAIL",
         "CORPO_EMAIL",
-        "FIRMA_TESTO",
     ):
         assert chiave in voci
         assert voci[chiave].modificabile is True
+    assert "FIRMA_TESTO" not in voci
 
 
 def test_corpo_predefinito_contiene_il_saluto_configurabile() -> None:

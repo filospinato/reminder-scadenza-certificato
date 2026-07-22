@@ -14,7 +14,7 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 ## 2. Aggiornamento e collaudi Google
 
 - [ ] creare una copia di sicurezza del foglio amministrativo reale;
-- [ ] eseguire `setup-admin` in anteprima e applicare lo schema v3 con backup;
+- [ ] eseguire `setup-admin` in anteprima e portare il foglio allo schema v4 con backup;
 - [ ] verificare che `INVIO_AUTOMATICO_ATTIVO=false` dopo l'aggiornamento;
 - [ ] eseguire `check` sul foglio reale;
 - [ ] collaudare la scrittura sintetica del registro;

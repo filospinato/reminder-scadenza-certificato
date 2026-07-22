@@ -57,7 +57,7 @@ Lungotevere Flaminio, 80
 fip.it/cia
 ```
 
-Oggetto, corpo e firma testuale vengono caricati da `CONFIG`. La parte HTML usa invece una firma istituzionale versionata nel codice: soltanto `CIA Lazio` è in grassetto, la riga `Mail: cia@lazio.fip.it` è in peso normale, il logo FIP Lazio è incorporato tramite CID e seguono indirizzo, telefono e sito. In questo modo un valore del foglio non può iniettare HTML e il risultato resta coerente tra le esecuzioni. Contenuto, contatti e resa visiva devono comunque essere approvati prima della produzione.
+Oggetto e corpo vengono caricati da `CONFIG`. Le firme `text/plain` e HTML sono invece generate da un'unica sorgente dati versionata nel codice: soltanto `CIA Lazio` è in grassetto nella parte HTML, la riga `Mail: cia@lazio.fip.it` è in peso normale, il logo FIP Lazio è incorporato tramite CID e seguono indirizzo, telefono e sito. Un test confronta i dati visibili delle due rappresentazioni. In questo modo un valore del foglio non può alterare la firma e il risultato resta coerente tra le esecuzioni. Contenuto, contatti e resa visiva devono comunque essere approvati prima della produzione.
 
 ## MIME e trasporto
 
@@ -96,8 +96,8 @@ Il test resta disponibile con `INVIO_AUTOMATICO_ATTIVO=false`. Non esiste una se
 - nome, cognome, email e scadenza provengono dalla medesima riga validata;
 - valori personalizzati sottoposti a escaping HTML;
 - ritorni a capo vietati nell'oggetto;
-- oggetto, corpo e firma non possono essere vuoti;
-- corpo testuale e HTML prodotti dalla stessa configurazione, con firma HTML istituzionale controllata dal codice;
+- oggetto e corpo non possono essere vuoti;
+- corpo testuale e HTML prodotti dalla stessa configurazione, con entrambe le firme istituzionali controllate dal codice;
 - nessuna immagine remota: il logo è allegato al messaggio e referenziato tramite CID;
 - i template non accedono a campi arbitrari;
 - i parametri SMTP vengono letti dall'ambiente e non sono versionati;

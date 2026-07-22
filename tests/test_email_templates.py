@@ -1,6 +1,7 @@
 from datetime import date
 from hashlib import sha256
 import html
+from html.parser import HTMLParser
 
 import pytest
 
@@ -9,6 +10,7 @@ from reminder_certificati.email_templates import (
     ErroreTemplate,
     componi_email,
 )
+from reminder_certificati.email_signature import FIRMA_HTML, FIRMA_TESTO
 from reminder_certificati.models import Arbitro, CandidatoNotifica
 
 
@@ -26,6 +28,34 @@ def candidato(*, nome: str = "Mario", cognome: str = "Rossi") -> CandidatoNotifi
         giorni_residui=15,
         notification_id="A-1|2026-08-01|REMINDER_30",
     )
+
+
+class _TestoVisibileFirmaHtml(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.frammenti: list[str] = []
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if tag == "br":
+            self.frammenti.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "div":
+            self.frammenti.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        self.frammenti.append(data)
+
+    def righe_non_vuote(self) -> list[str]:
+        return [
+            riga.strip()
+            for riga in "".join(self.frammenti).splitlines()
+            if riga.strip()
+        ]
 
 
 def test_template_predefinito_usa_la_colonna_nome() -> None:
@@ -96,11 +126,7 @@ def test_nome_composto_non_viene_troncato() -> None:
 
 def test_nome_e_cognome_completo_sono_disponibili_nei_template() -> None:
     config = ConfigurazioneEmail(
-        corpo=(
-            "Gentile {{nome_completo}}, il certificato "
-            "scade il {{data_scadenza}}."
-        ),
-        firma="Cordiali saluti,\nCIA Lazio",
+        corpo=("Gentile {{nome_completo}}, il certificato scade il {{data_scadenza}}."),
     )
     messaggio = componi_email(candidato(nome="Anna", cognome="Verdi"), config)
     assert "Anna Verdi" in messaggio.testo
@@ -127,7 +153,7 @@ def test_data_e_firma_sono_presenti_in_testo_e_html() -> None:
     assert "Lungotevere Flaminio, 80\n00196 Roma RM" in messaggio.testo
     assert "01/08/2026" in messaggio.html
     assert '<div style="font-weight:700;">CIA Lazio</div>' in messaggio.html
-    assert "Mail: <a href=\"mailto:cia@lazio.fip.it\"" in messaggio.html
+    assert 'Mail: <a href="mailto:cia@lazio.fip.it"' in messaggio.html
     assert "Giorgio Silvestri" not in messaggio.html
     assert "Presidente CIA Lazio" not in messaggio.html
 
@@ -149,16 +175,14 @@ def test_firma_html_rispetta_stile_e_link_richiesti() -> None:
     assert 'width="98" height="56"' in messaggio.html
     assert "Lungotevere Flaminio, 80<br>00196 Roma RM" in messaggio.html
     assert 'href="tel:+390636005548"' in messaggio.html
-    assert '>06 36005548</a>' in messaggio.html
+    assert ">06 36005548</a>" in messaggio.html
     assert 'href="https://cia.fip.it/"' in messaggio.html
 
 
 def test_mail_della_firma_non_e_in_grassetto_ne_evidenziata() -> None:
     messaggio = componi_email(candidato())
 
-    riga_mail = next(
-        riga for riga in messaggio.html.splitlines() if "Mail:" in riga
-    )
+    riga_mail = next(riga for riga in messaggio.html.splitlines() if "Mail:" in riga)
     assert "font-weight:400" in riga_mail
     assert "background" not in riga_mail
     assert "<mark" not in riga_mail
@@ -178,13 +202,12 @@ def test_logo_incorporato_e_identico_a_quello_del_generatore_mdaemon() -> None:
     )
 
 
-def test_firma_configurabile_resta_nella_parte_testuale_senza_iniettare_html() -> None:
-    config = ConfigurazioneEmail(firma="Nota <operativa>")
-    messaggio = componi_email(candidato(), config)
+def test_firma_testuale_e_html_hanno_sempre_gli_stessi_dati_visibili() -> None:
+    parser = _TestoVisibileFirmaHtml()
+    parser.feed(FIRMA_HTML)
 
-    assert messaggio.testo.endswith("Nota <operativa>")
-    assert "Nota <operativa>" not in messaggio.html
-    assert "Nota &lt;operativa&gt;" not in messaggio.html
+    righe_testo = [riga for riga in FIRMA_TESTO.splitlines() if riga]
+    assert parser.righe_non_vuote() == righe_testo
 
 
 def test_html_esegue_escape_dei_dati_personalizzati() -> None:

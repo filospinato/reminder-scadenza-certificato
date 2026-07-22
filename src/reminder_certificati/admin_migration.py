@@ -137,11 +137,11 @@ def prepara_piano(
 
     modifiche: list[str] = []
     if config_dopo != config_prima:
-        modifiche.append("CONFIG_SCHEMA_V3")
+        modifiche.append(f"CONFIG_SCHEMA_V{VERSIONE_SCHEMA_AMMINISTRATIVO}")
     if notifiche_dopo != notifiche_prima:
         modifiche.append("NOTIFICHE_MINIMIZZATE")
     if dashboard is not None and dashboard_dopo != dashboard_prima:
-        modifiche.append("DASHBOARD_SCHEMA_V3")
+        modifiche.append(f"DASHBOARD_SCHEMA_V{VERSIONE_SCHEMA_AMMINISTRATIVO}")
     return PianoMigrazione(
         config_prima=config_prima,
         notifiche_prima=notifiche_prima,

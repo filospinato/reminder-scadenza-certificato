@@ -2,6 +2,26 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.12] - 2026-07-22
+
+### Firma email
+
+- la firma HTML e quella `text/plain` vengono ora generate da un'unica sorgente
+  dati versionata nel codice;
+- aggiunta una regressione che confronta i dati visibili delle due
+  rappresentazioni e impedisce che divergano;
+- rimossa `FIRMA_TESTO` dalle impostazioni del foglio, perché non deve più
+  produrre varianti indipendenti della firma istituzionale.
+
+### Migrazione sicura
+
+- introdotto lo schema amministrativo v4 a sei chiavi;
+- la migrazione elimina la riga legacy preservando valori e descrizioni delle
+  altre chiavi e lasciando gli invii automatici spenti;
+- il runtime accetta temporaneamente una CONFIG v3 completa, ignorandone la
+  firma, così codice e foglio possono essere aggiornati senza interruzioni;
+- gli stati parziali o ambigui tra v3 e v4 vengono rifiutati.
+
 ## [0.14.11] - 2026-07-22
 
 ### Firma email

@@ -42,6 +42,8 @@ class ConfigurazioneRuntime:
 
 
 _CHIAVI_CANONICHE = tuple(voce.chiave for voce in configurazione_iniziale_sicura())
+_VERSIONE_SCHEMA_LEGACY_TRANSIZIONE = 3
+_CHIAVI_SCHEMA_LEGACY_TRANSIZIONE = (*_CHIAVI_CANONICHE, "FIRMA_TESTO")
 
 
 def carica_configurazione(
@@ -80,16 +82,8 @@ def carica_configurazione(
             raise ErroreConfigurazioneRuntime(f"CONFIG: chiave duplicata: {chiave}")
         righe[chiave] = mappa
 
-    mancanti = [chiave for chiave in _CHIAVI_CANONICHE if chiave not in righe]
-    sconosciute = sorted(set(righe) - set(_CHIAVI_CANONICHE))
-    if mancanti:
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: chiavi mancanti: " + ", ".join(mancanti)
-        )
-    if sconosciute:
-        raise ErroreConfigurazioneRuntime(
-            "CONFIG: chiavi sconosciute: " + ", ".join(sconosciute)
-        )
+    if "SCHEMA_VERSION" not in righe:
+        raise ErroreConfigurazioneRuntime("CONFIG: chiavi mancanti: SCHEMA_VERSION")
 
     schema_version = _intero_limitato(
         righe["SCHEMA_VERSION"]["valore"],
@@ -97,9 +91,29 @@ def carica_configurazione(
         minimo=1,
         massimo=999,
     )
-    if schema_version != VERSIONE_SCHEMA_AMMINISTRATIVO:
+    if schema_version == VERSIONE_SCHEMA_AMMINISTRATIVO:
+        chiavi_attese = _CHIAVI_CANONICHE
+    elif (
+        VERSIONE_SCHEMA_AMMINISTRATIVO == 4
+        and schema_version == _VERSIONE_SCHEMA_LEGACY_TRANSIZIONE
+    ):
+        # Compatibilità temporanea: la vecchia firma viene ignorata e non può
+        # modificare né la parte text/plain né quella HTML del messaggio.
+        chiavi_attese = _CHIAVI_SCHEMA_LEGACY_TRANSIZIONE
+    else:
         raise ErroreConfigurazioneRuntime(
             "CONFIG: versione schema non supportata; eseguire setup-admin"
+        )
+
+    mancanti = [chiave for chiave in chiavi_attese if chiave not in righe]
+    sconosciute = sorted(set(righe) - set(chiavi_attese))
+    if mancanti:
+        raise ErroreConfigurazioneRuntime(
+            "CONFIG: chiavi mancanti: " + ", ".join(mancanti)
+        )
+    if sconosciute:
+        raise ErroreConfigurazioneRuntime(
+            "CONFIG: chiavi sconosciute: " + ", ".join(sconosciute)
         )
 
     automazione_attiva = _booleano(
@@ -119,20 +133,16 @@ def carica_configurazione(
 
     oggetto = righe["OGGETTO_EMAIL"]["valore"]
     corpo = righe["CORPO_EMAIL"]["valore"]
-    firma = righe["FIRMA_TESTO"]["valore"]
     if not oggetto or "\n" in oggetto or "\r" in oggetto:
         raise ErroreConfigurazioneRuntime(
             "CONFIG: OGGETTO_EMAIL vuoto o contenente ritorni a capo"
         )
     if not corpo:
         raise ErroreConfigurazioneRuntime("CONFIG: CORPO_EMAIL non può essere vuoto")
-    if not firma:
-        raise ErroreConfigurazioneRuntime("CONFIG: FIRMA_TESTO non può essere vuota")
 
     configurazione_email = ConfigurazioneEmail(
         oggetto=oggetto,
         corpo=corpo,
-        firma=firma,
     )
     try:
         valida_configurazione_email(configurazione_email)
