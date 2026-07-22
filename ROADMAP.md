@@ -12,7 +12,6 @@ Questo file contiene esclusivamente lavoro ancora aperto. Le funzionalità già 
 ## 2. Aggiornamento e collaudi Google
 
 - [ ] creare una copia di sicurezza del foglio amministrativo reale;
-- [ ] collaudare la scrittura sintetica del registro;
 - [ ] verificare concorrenza, lock e revoca dei permessi.
 
 ## 3. SMTP e contenuti

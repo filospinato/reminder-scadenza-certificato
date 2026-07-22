@@ -29,15 +29,15 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 
 - [x] foglio amministrativo creato dall'account umano;
 - [ ] proprietà e recupero umano verificati;
-- [ ] file condiviso direttamente con il service account come editor;
+- [x] file condiviso direttamente con il service account come editor;
 - [x] `reminder-certificati setup-admin --spreadsheet-id ID` eseguito in anteprima;
-- [ ] `setup-admin --apply` completato con backup quando necessario;
+- [x] `setup-admin --apply` completato con backup quando necessario;
 - [ ] artifact del backup scaricato, custodito con accesso limitato e poi eliminato allo scadere della necessità;
 - [x] quattro tab presenti e visibili;
 - [x] service account lettore di `Operativo`;
 - [x] `INVIO_AUTOMATICO_ATTIVO=false` verificato dopo il setup;
 - [x] `reminder-certificati check` riuscito;
-- [ ] collaudo sintetico del registro riuscito.
+- [x] collaudo sintetico del registro riuscito.
 
 ## D. Controllo senza invio
 
@@ -68,7 +68,7 @@ va aggiornata insieme a ogni modifica che completa un passo di deployment.
 ## F. Attivazione graduale
 
 - [x] setup e controllo completi;
-- [ ] scrittura sintetica sul foglio amministrativo;
+- [x] scrittura sintetica sul foglio amministrativo;
 - [ ] test SMTP con override;
 - [ ] singolo invio reale autorizzato con `--max-sends 1`;
 - [ ] piccolo lotto controllato con `--max-sends 5`;
