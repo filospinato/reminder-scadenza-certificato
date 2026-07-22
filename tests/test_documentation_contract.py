@@ -4,97 +4,112 @@ import tomllib
 from pathlib import Path
 
 README = Path("README.md")
-ROADMAP = Path("ROADMAP.md")
+AGENTS = Path("AGENTS.md")
 CHANGELOG = Path("CHANGELOG.md")
-OPERATIONS = Path("docs/OPERATIONS.md")
-TEST_PLAN = Path("docs/TEST_PLAN.md")
-DEPLOYMENT_CHECKLIST = Path("docs/DEPLOYMENT_CHECKLIST.md")
+ENVIRONMENT_CONTRACT = Path("config/github/environment-contract.json")
 PYPROJECT = Path("pyproject.toml")
 
-DOCUMENTI_CON_SCOPO = (
-    README,
-    ROADMAP,
-    CHANGELOG,
-    OPERATIONS,
-    TEST_PLAN,
+ROOT_DOCUMENTS = {
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+}
+
+LEGACY_PATHS = (
+    Path("LATEST.md"),
+    Path("CURRENT_STATE.md"),
+    Path("CURRENT_STATE.json"),
+    Path("ROADMAP.md"),
+    Path("PROJECT_RULES.md"),
+    Path("PROJECT_INSTRUCTION.md"),
+    Path("docs"),
 )
 
-
-def test_non_esiste_un_file_di_stato_corrente_duplicato() -> None:
-    assert not Path("LATEST.md").exists()
-
-
-def test_i_documenti_dichiarano_subito_il_proprio_scopo() -> None:
-    for percorso in DOCUMENTI_CON_SCOPO:
-        righe = percorso.read_text(encoding="utf-8").splitlines()
-        assert righe[0].startswith("# "), percorso
-        assert righe[1] == "", percorso
-        descrizione = righe[2].strip()
-        assert descrizione, percorso
-        assert not descrizione.startswith(("#", "-", "```")), percorso
-        assert len(descrizione) >= 40, percorso
+RELEASE_FILES = {
+    "README.md",
+    "OPERATOR_GUIDE.md",
+    "DEPLOYMENT.md",
+    "REFERENCE.md",
+    "VALIDATION.md",
+}
 
 
-def test_readme_dichiara_le_fonti_di_verita() -> None:
-    testo = README.read_text(encoding="utf-8")
-    assert "## Fonti di verità" in testo
-    for percorso in (
+def test_root_contiene_esattamente_le_tre_fonti_documentali_canoniche() -> None:
+    presenti = {
+        path.name
+        for path in Path(".").iterdir()
+        if path.is_file() and path.suffix in {".md", ".json"}
+    }
+    assert presenti == ROOT_DOCUMENTS
+
+
+def test_non_esistono_fonti_documentali_legacy_o_manifesti_di_stato() -> None:
+    for path in LEGACY_PATHS:
+        assert not path.exists(), path
+
+
+def test_versione_changelog_e_release_sono_coerenti() -> None:
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    release_path = Path(f"releases/v{version}")
+
+    assert project["project"]["scripts"]["reminder-certificati"]
+    assert release_path.is_dir()
+    assert {path.name for path in release_path.iterdir() if path.is_file()} == RELEASE_FILES
+    assert f"## [{version}]" in CHANGELOG.read_text(encoding="utf-8")
+
+
+def test_readme_e_solo_ssot_semantica() -> None:
+    readme = README.read_text(encoding="utf-8")
+    version = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
+
+    for section in (
+        "## Obiettivo",
+        "## Architettura",
+        "## Modello di sicurezza",
+        "## Stato semantico",
+        "## Fonti di verità",
+    ):
+        assert section in readme
+
+    for path in ROOT_DOCUMENTS | {
         "pyproject.toml",
-        "CHANGELOG.md",
-        "ROADMAP.md",
-        "docs/OPERATIONS.md",
-        "docs/TEST_PLAN.md",
-        "docs/DEPLOYMENT_CHECKLIST.md",
-        "docs/EMERGENCY.md",
-    ):
-        assert percorso in testo
+        ".github/workflows/",
+        "config/github/environment-contract.json",
+        "releases/",
+    }:
+        assert path in readme
+
+    assert version not in readme
+    assert "ROADMAP.md" not in readme
+    assert "LATEST.md" not in readme
+    assert "CURRENT_STATE" not in readme
 
 
-def test_ogni_modifica_al_codice_richiede_il_collaudo_drive() -> None:
-    readme = README.read_text(encoding="utf-8")
-    piano = TEST_PLAN.read_text(encoding="utf-8")
+def test_agents_e_unica_ssot_operativa() -> None:
+    agents = AGENTS.read_text(encoding="utf-8")
 
-    assert "## Verifica obbligatoria delle modifiche al codice" in readme
-    assert "## Verifica obbligatoria sui fogli Drive" in piano
-    for requisito in (
-        "Ogni modifica al codice",
-        "setup-preview",
-        "check",
-        "registry-check",
+    for requirement in (
+        "## 1. Sicurezza e invarianti non negoziabili",
+        "## 2. Fonti di verità",
+        "## 3. Metodo di modifica",
+        "## 4. Verifica automatica obbligatoria",
+        "## 5. Collaudi esterni",
+        "## 6. Versioni e artefatti di release",
+        "## 7. Pull request e revisione finale",
         "INVIO_AUTOMATICO_ATTIVO=false",
-        "zero tentativi SMTP",
+        "setup-preview",
+        "registry-check",
+        "pull request in bozza",
+        "pyproject.toml",
+        ".github/workflows/",
     ):
-        assert requisito in readme or requisito in piano
+        assert requirement in agents
+
+    assert "PROJECT_RULES.md" in agents
+    assert "CURRENT_STATE.json" in agents
+    assert "Non creare" in agents
 
 
-def test_roadmap_contiene_soltanto_lavoro_aperto() -> None:
-    testo = ROADMAP.read_text(encoding="utf-8")
-    assert "- [ ]" in testo
-    assert "- [x]" not in testo
-
-
-def test_ogni_passo_completato_aggiorna_checklist_e_roadmap() -> None:
-    readme = README.read_text(encoding="utf-8")
-
-    for requisito in (
-        "Ogni passo completato",
-        "docs/DEPLOYMENT_CHECKLIST.md",
-        "ROADMAP.md",
-        "stessa modifica",
-        "evidenze concrete",
-        "definizione di completamento",
-    ):
-        assert requisito in readme
-    assert DEPLOYMENT_CHECKLIST.exists()
-
-
-def test_versione_corrente_vive_in_pyproject_e_changelog() -> None:
-    progetto = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-    versione = progetto["project"]["version"]
-    changelog = CHANGELOG.read_text(encoding="utf-8")
-    readme = README.read_text(encoding="utf-8")
-    roadmap = ROADMAP.read_text(encoding="utf-8")
-
-    assert f"## [{versione}]" in changelog
-    assert versione not in readme
-    assert versione not in roadmap
+def test_contratto_environment_esiste_fuori_dalla_root() -> None:
+    assert ENVIRONMENT_CONTRACT.is_file()

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 from reminder_certificati import google_preflight_cli
 from reminder_certificati.google_preflight import CodiceErrorePreflight
 
 CODICE_INATTESO = "PREFLIGHT_UNEXPECTED_ERROR"
+VERSIONE = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"][
+    "version"
+]
+RIFERIMENTO_RELEASE = Path(f"releases/v{VERSIONE}/REFERENCE.md")
 CHIAVI_MINIME = {
     "operation",
     "success",
@@ -22,7 +27,7 @@ def test_codici_applicativi_sono_univoci_e_documentati():
     assert len(codici) == len(CodiceErrorePreflight)
     assert all(codice.startswith("PREFLIGHT_") for codice in codici)
 
-    testo = Path("docs/PREFLIGHT_DIAGNOSTICA.md").read_text(encoding="utf-8")
+    testo = RIFERIMENTO_RELEASE.read_text(encoding="utf-8")
     for codice in codici | {CODICE_INATTESO}:
         assert f"`{codice}`" in testo
 
