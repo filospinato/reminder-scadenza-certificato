@@ -7,6 +7,7 @@ from reminder_certificati import google_preflight_cli
 from reminder_certificati.google_preflight import CodiceErrorePreflight
 
 CODICE_INATTESO = "PREFLIGHT_UNEXPECTED_ERROR"
+RIFERIMENTO_RELEASE = Path("releases/v0.14.18/REFERENCE.md")
 CHIAVI_MINIME = {
     "operation",
     "success",
@@ -22,7 +23,7 @@ def test_codici_applicativi_sono_univoci_e_documentati():
     assert len(codici) == len(CodiceErrorePreflight)
     assert all(codice.startswith("PREFLIGHT_") for codice in codici)
 
-    testo = Path("docs/PREFLIGHT_DIAGNOSTICA.md").read_text(encoding="utf-8")
+    testo = RIFERIMENTO_RELEASE.read_text(encoding="utf-8")
     for codice in codici | {CODICE_INATTESO}:
         assert f"`{codice}`" in testo
 
