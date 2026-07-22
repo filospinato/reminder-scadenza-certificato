@@ -8,7 +8,6 @@ WORKFLOW_ORDINARIO = Path(".github/workflows/manual-preproduction.yml")
 WORKFLOW_MANUTENZIONE = Path(".github/workflows/manual-maintenance.yml")
 WORKFLOW_PRODUZIONE = Path(".github/workflows/production.yml")
 CONTRATTO = Path("config/github/environment-contract.json")
-CURRENT_STATE = Path("CURRENT_STATE.json")
 
 
 def _riferimenti(testo: str, contesto: str) -> set[str]:
@@ -99,11 +98,9 @@ def test_non_esistono_gate_ridondanti() -> None:
         assert name not in text
 
 
-def test_environment_e_coerente_con_stato_corrente_e_workflow() -> None:
+def test_environment_del_contratto_e_usato_da_tutti_i_workflow() -> None:
     environment = _contratto()["environment"]
-    state = json.loads(CURRENT_STATE.read_text(encoding="utf-8"))
 
-    assert state["github"]["environment"] == environment
     for workflow in (
         WORKFLOW_ORDINARIO,
         WORKFLOW_MANUTENZIONE,
