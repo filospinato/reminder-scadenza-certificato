@@ -78,7 +78,7 @@ Componenti principali:
 | Rollout reale continuativo | richiede autorizzazione e collaudi finali |
 | Consegna a responsabile non tecnico | da completare |
 
-I valori esatti correnti sono in [`CURRENT_STATE.json`](CURRENT_STATE.json). Le evidenze della release corrente sono nel relativo file `VALIDATION.md` sotto `releases/`.
+Lo stato semantico resta volutamente ad alto livello. I valori esatti vivono nelle fonti che li usano: `pyproject.toml`, workflow, codice, contratto dell’Environment e configurazione GitHub.
 
 ## Comandi pubblici
 
@@ -116,17 +116,18 @@ pytest
 
 - [`README.md`](README.md): overview, architettura e stato semantico;
 - [`AGENTS.md`](AGENTS.md): unica fonte delle regole operative per le modifiche;
-- [`CURRENT_STATE.json`](CURRENT_STATE.json): stato esatto corrente;
 - [`CHANGELOG.md`](CHANGELOG.md): storia semantica delle release;
-- [`config/github/environment-contract.json`](config/github/environment-contract.json): contratto macchina di Variables e Secrets;
+- [`pyproject.toml`](pyproject.toml): versione, compatibilità Python, dipendenze ed entry point;
+- [`.github/workflows/`](.github/workflows/): comportamento CI e operativo realmente eseguito;
+- [`config/github/environment-contract.json`](config/github/environment-contract.json): contratto macchina di Variables, Secrets ed Environment;
 - [`releases/`](releases/): guide e riferimenti immutabili delle singole release;
 - GitHub Issues e milestone: lavoro ancora aperto.
 
-Non devono essere introdotte roadmap, file `LATEST`, handoff temporanei o altre fonti concorrenti.
+Non devono essere introdotte roadmap, file `LATEST`, manifesti di stato duplicati, handoff temporanei o altre fonti concorrenti.
 
-## Documentazione della release corrente
+## Documentazione delle release
 
-La directory indicata da `CURRENT_STATE.json` contiene:
+La directory `releases/vX.Y.Z/`, coerente con la versione in `pyproject.toml`, contiene:
 
 - guida operativa;
 - deployment e rollout;
