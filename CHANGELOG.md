@@ -2,6 +2,14 @@
 
 Questo documento registra le versioni recenti e le modifiche rilasciate; lo storico fino alla 0.12.0 è conservato integralmente in `docs/CHANGELOG_ARCHIVE.md`.
 
+## [0.14.16] - 2026-07-22
+
+### Configurazione SMTP
+
+- rimossa la Variable ridondante `SMTP_FROM`;
+- il workflow usa `SMTP_USERNAME` sia per l'autenticazione sia come mittente,
+  riducendo il futuro cambio di casella a una Variable e un Secret.
+
 ## [0.14.15] - 2026-07-22
 
 ### Configurazione SMTP

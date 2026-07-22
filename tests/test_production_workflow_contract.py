@@ -75,10 +75,10 @@ def test_segreti_smtp_restano_nello_step_produttivo() -> None:
         "SMTP_HOST",
         "SMTP_PORT",
         "SMTP_SECURITY",
-        "SMTP_FROM",
         "SMTP_USERNAME",
     ):
         assert f"${{{{ vars.{nome} }}}}" in produzione
+    assert "SMTP_FROM: ${{ vars.SMTP_USERNAME }}" in produzione
     assert "${{ secrets.SMTP_PASSWORD }}" in produzione
     assert "SMTP_FROM_NAME" not in testo
 

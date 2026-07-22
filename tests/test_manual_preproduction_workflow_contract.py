@@ -63,10 +63,10 @@ def test_segreti_smtp_restano_nel_solo_test_email() -> None:
         "SMTP_HOST",
         "SMTP_PORT",
         "SMTP_SECURITY",
-        "SMTP_FROM",
         "SMTP_USERNAME",
     ):
         assert f"${{{{ vars.{nome} }}}}" in blocco
+    assert "SMTP_FROM: ${{ vars.SMTP_USERNAME }}" in blocco
     assert "${{ secrets.SMTP_PASSWORD }}" in blocco
     assert "SMTP_FROM_NAME" not in testo
 
