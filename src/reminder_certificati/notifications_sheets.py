@@ -12,6 +12,8 @@ from .admin_store import (
 )
 from .data_sources import ErroreSorgenteDati, tabella_da_matrice
 
+_NUM_RETRIES_OPERAZIONI_IDEMPOTENTI_GOOGLE = 5
+
 
 class TrasportoNotificheSheets(Protocol):
     def leggi_valori(
@@ -241,7 +243,7 @@ class TrasportoNotificheGoogleApi:
                 range=intervallo_a1,
                 majorDimension="ROWS",
             )
-            .execute()
+            .execute(num_retries=_NUM_RETRIES_OPERAZIONI_IDEMPOTENTI_GOOGLE)
         )
         if not isinstance(risposta, Mapping):
             raise ErroreArchivioNotifiche(
@@ -302,5 +304,5 @@ class TrasportoNotificheGoogleApi:
                 valueInputOption="RAW",
                 body={"majorDimension": "ROWS", "values": [list(valori)]},
             )
-            .execute()
+            .execute(num_retries=_NUM_RETRIES_OPERAZIONI_IDEMPOTENTI_GOOGLE)
         )

@@ -306,8 +306,18 @@ class OrchestratoreReminder:
                         errore=type(exc).__name__,
                         ora=istante,
                     )
-                except Exception:
-                    pass
+                except Exception as errore_registro:
+                    self._registra_anomalia(
+                        severita=SeveritaAnomalia.CRITICAL,
+                        origine="REGISTRO",
+                        codice="REGISTRO_INCOERENTE",
+                        messaggio=(
+                            "aggiornamento dopo "
+                            f"{type(exc).__name__} non riuscito: "
+                            f"{type(errore_registro).__name__}"
+                        ),
+                        istante=istante,
+                    )
                 self._registra_anomalia(
                     severita=SeveritaAnomalia.CRITICAL,
                     origine="SMTP",

@@ -12,6 +12,8 @@ from .validation import (
     valida_righe,
 )
 
+_NUM_RETRIES_LETTURE_GOOGLE = 5
+
 
 class ErroreSorgenteDati(RuntimeError):
     """La sorgente non può essere letta o presenta una struttura ambigua."""
@@ -278,7 +280,7 @@ class LettoreGoogleApi:
                     range=intervallo_a1,
                     majorDimension="ROWS",
                 )
-                .execute()
+                .execute(num_retries=_NUM_RETRIES_LETTURE_GOOGLE)
             )
         except Exception as exc:
             raise ErroreSorgenteDati(
@@ -301,7 +303,7 @@ class LettoreGoogleApi:
                     ranges=list(intervalli_a1),
                     majorDimension="ROWS",
                 )
-                .execute()
+                .execute(num_retries=_NUM_RETRIES_LETTURE_GOOGLE)
             )
         except Exception as exc:
             raise ErroreSorgenteDati(

@@ -222,8 +222,10 @@ class RichiestaFake:
     def __init__(self, risposta: Any = None, errore: Exception | None = None) -> None:
         self.risposta = risposta
         self.errore = errore
+        self.num_retries: list[int] = []
 
-    def execute(self) -> Any:
+    def execute(self, *, num_retries: int = 0) -> Any:
+        self.num_retries.append(num_retries)
         if self.errore:
             raise self.errore
         return self.risposta
@@ -244,6 +246,10 @@ class ServizioGoogleFake:
         self.parametri = kwargs
         return self.richiesta
 
+    def batchGet(self, **kwargs: Any) -> RichiestaFake:
+        self.parametri = kwargs
+        return self.richiesta
+
 
 def test_lettore_google_api_usa_sola_lettura_per_righe() -> None:
     servizio = ServizioGoogleFake(RichiestaFake({"values": matrice_valida()}))
@@ -257,6 +263,32 @@ def test_lettore_google_api_usa_sola_lettura_per_righe() -> None:
         "range": "'Operativo'!A2:F2",
         "majorDimension": "ROWS",
     }
+    assert servizio.richiesta.num_retries == [5]
+
+
+def test_lettore_google_api_ritenta_anche_la_lettura_batch() -> None:
+    richiesta = RichiestaFake(
+        {
+            "valueRanges": [
+                {"values": [["A-1"]]},
+                {"values": [["Mario"]]},
+            ]
+        }
+    )
+    servizio = ServizioGoogleFake(richiesta)
+
+    valori = LettoreGoogleApi(servizio).leggi_intervalli(
+        spreadsheet_id="sheet",
+        intervalli_a1=("'Operativo'!A3:A", "'Operativo'!B3:B"),
+    )
+
+    assert valori == [[["A-1"]], [["Mario"]]]
+    assert servizio.parametri == {
+        "spreadsheetId": "sheet",
+        "ranges": ["'Operativo'!A3:A", "'Operativo'!B3:B"],
+        "majorDimension": "ROWS",
+    }
+    assert richiesta.num_retries == [5]
 
 
 def test_lettore_google_api_converte_errori_e_risposte_non_valide() -> None:

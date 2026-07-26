@@ -66,9 +66,6 @@ class PoliticaStato:
     valori_attivi: frozenset[str] = frozenset(
         {"1", "true", "si", "sì", "attivo", "operativo"}
     )
-    valori_inattivi: frozenset[str] = frozenset(
-        {"0", "false", "no", "inattivo", "non operativo"}
-    )
 
 
 @dataclass(frozen=True, slots=True)

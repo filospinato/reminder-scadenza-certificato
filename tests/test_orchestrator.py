@@ -272,6 +272,42 @@ def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:
     assert archivio.snapshot()[0].stato is StatoNotifica.UNKNOWN_REVIEW_REQUIRED
 
 
+def test_fallimento_del_fallback_sul_registro_viene_segnalato() -> None:
+    class RegistroConFallbackNonDisponibile:
+        def puo_prenotare(self, notification_id: str) -> bool:
+            return True
+
+        def prenota(self, candidato, *, ora=None) -> None:
+            pass
+
+        def segna_esito_incerto(self, candidato, *, errore, ora=None) -> None:
+            raise RuntimeError("registro non disponibile")
+
+    anomalie = AnomalieMemoria()
+    orchestratore = OrchestratoreReminder(
+        sorgente=_sorgente(),
+        configurazione=_config(),
+        dashboard=DashboardMemoria(),
+        anomalie=anomalie,
+        versione_app=VERSIONE,
+        registro=RegistroConFallbackNonDisponibile(),
+        trasporto_email=TrasportoEmailMemoria(errore=RuntimeError("errore inatteso")),
+    )
+
+    esito = orchestratore.esegui(
+        oggi=date(2026, 7, 17),
+        modalita=ModalitaEsecuzione.TEST_SMTP,
+        consenso_esterno_invio=True,
+    )
+
+    assert esito.stato == "REVISIONE_RICHIESTA"
+    assert esito.esiti_incerti == 1
+    assert {item.codice for item in anomalie.snapshot()} == {
+        "ERRORE_NON_CLASSIFICATO",
+        "REGISTRO_INCOERENTE",
+    }
+
+
 def test_errore_smtp_permanente_diventa_failed_permanent() -> None:
     archivio = ArchivioNotificheMemoria()
     smtp = TrasportoEmailMemoria(errore=ErroreSmtpPermanente("rifiutata"))

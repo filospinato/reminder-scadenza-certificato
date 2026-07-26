@@ -59,6 +59,12 @@ def test_versione_changelog_e_release_sono_coerenti() -> None:
     assert f"## [{version}]" in CHANGELOG.read_text(encoding="utf-8")
 
 
+def test_ruff_usa_un_set_di_regole_esplicito_e_stabile() -> None:
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+
+    assert project["tool"]["ruff"]["lint"]["select"] == ["E4", "E7", "E9", "F"]
+
+
 def test_readme_e_solo_ssot_semantica() -> None:
     readme = README.read_text(encoding="utf-8")
     version = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
