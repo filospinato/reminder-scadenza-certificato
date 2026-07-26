@@ -4,6 +4,17 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ## [Unreleased]
 
+### Affidabilità
+
+- reso esplicito il set stabile di regole Ruff usato dalla CI;
+- aggiunti retry automatici alle operazioni runtime idempotenti di Google Sheets,
+  mantenendo gli append senza retry automatici per non duplicare scritture dall’esito
+  incerto;
+- rimossa dalla politica dello stato una lista di valori inattivi che non partecipava
+  alla semantica documentata di `Operativo`;
+- resa visibile come anomalia critica anche l’eventuale mancata registrazione di un
+  esito SMTP non classificato.
+
 ### Documentazione e architettura dell’informazione
 
 - consolidate in root le tre fonti documentali canoniche: `README.md`, `AGENTS.md` e `CHANGELOG.md`;

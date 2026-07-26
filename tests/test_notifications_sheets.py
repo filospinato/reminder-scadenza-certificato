@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -10,6 +11,7 @@ from reminder_certificati.admin_store import (
 from reminder_certificati.models import Arbitro, CandidatoNotifica
 from reminder_certificati.notifications_sheets import (
     ArchivioNotificheGoogleSheets,
+    TrasportoNotificheGoogleApi,
     TrasportoNotificheMemoria,
 )
 from reminder_certificati.registry import RecordNotifica, StatoNotifica
@@ -180,3 +182,64 @@ def test_configurazione_mancante_non_contatta_il_trasporto() -> None:
     with pytest.raises(ErroreArchivioNotifiche, match="spreadsheet_id"):
         adapter.ottieni("chiave")
     assert trasporto.letture == 0
+
+
+class RichiestaGoogleFake:
+    def __init__(self, risposta: Any) -> None:
+        self.risposta = risposta
+        self.num_retries: list[int] = []
+
+    def execute(self, *, num_retries: int = 0) -> Any:
+        self.num_retries.append(num_retries)
+        return self.risposta
+
+
+class ServizioNotificheGoogleFake:
+    def __init__(self) -> None:
+        self.lettura = RichiestaGoogleFake({"values": [["notification_id"]]})
+        self.aggiunta = RichiestaGoogleFake(
+            {"updates": {"updatedRange": "'NOTIFICHE'!A2:K2"}}
+        )
+        self.aggiornamento = RichiestaGoogleFake({})
+
+    def spreadsheets(self):
+        return self
+
+    def values(self):
+        return self
+
+    def get(self, **_kwargs: Any) -> RichiestaGoogleFake:
+        return self.lettura
+
+    def append(self, **_kwargs: Any) -> RichiestaGoogleFake:
+        return self.aggiunta
+
+    def update(self, **_kwargs: Any) -> RichiestaGoogleFake:
+        return self.aggiornamento
+
+
+def test_trasporto_google_api_ritenta_solo_le_operazioni_idempotenti() -> None:
+    servizio = ServizioNotificheGoogleFake()
+    trasporto = TrasportoNotificheGoogleApi(servizio)
+
+    assert trasporto.leggi_valori(
+        spreadsheet_id="sheet",
+        intervallo_a1="'NOTIFICHE'!A:K",
+    ) == [["notification_id"]]
+    assert (
+        trasporto.aggiungi_riga(
+            spreadsheet_id="sheet",
+            intervallo_a1="'NOTIFICHE'!A:K",
+            valori=("id",),
+        )
+        == 2
+    )
+    trasporto.aggiorna_riga(
+        spreadsheet_id="sheet",
+        intervallo_a1="'NOTIFICHE'!A2:K2",
+        valori=("id",),
+    )
+
+    assert servizio.lettura.num_retries == [5]
+    assert servizio.aggiunta.num_retries == [0]
+    assert servizio.aggiornamento.num_retries == [5]
