@@ -58,6 +58,18 @@ def test_workflow_produzione_condivide_lock_e_limita_i_segreti() -> None:
     assert "reminder-certificati produzione" in workflow
 
 
+def test_ci_annulla_i_run_superati_solo_sulle_pull_request() -> None:
+    workflow = _leggi(".github/workflows/ci.yml")
+
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
+    # Il gruppo per i push a main e distinto per commit: senza lo SHA GitHub
+    # terrebbe un solo run in attesa per gruppo e annullerebbe i precedenti.
+    assert (
+        "group: ${{ github.workflow }}-"
+        "${{ github.event_name == 'pull_request' && github.ref || github.sha }}" in workflow
+    )
+
+
 def test_tutte_le_actions_sono_fissate_a_sha_immutabili() -> None:
     percorsi = (
         ".github/workflows/ci.yml",

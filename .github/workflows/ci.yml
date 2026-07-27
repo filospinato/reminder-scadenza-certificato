@@ -9,6 +9,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Sulle pull request i run superati da un push successivo vengono annullati:
+  # pagare una macchina per validare codice gia sostituito e spreco puro.
+  # Sui push a main il gruppo include lo SHA, quindi ogni commit ha il suo
+  # gruppo e nessun run su main puo annullarne un altro. Un gruppo condiviso
+  # con cancel-in-progress: false non basterebbe: GitHub tiene un solo run in
+  # attesa per gruppo e annulla il precedente ancora in coda.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Python ${{ matrix.python-version }}
