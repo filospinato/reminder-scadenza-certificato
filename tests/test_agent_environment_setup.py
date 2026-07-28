@@ -103,7 +103,7 @@ def test_settings_registra_solo_avvio_e_ripresa_con_comando_robusto() -> None:
 
     assert settings["hooks"]["SessionStart"] == [
         {
-            "matcher": "startup|resume",
+            "matcher": "startup|resume|fork",
             "hooks": [{"type": "command", "command": EXPECTED_HOOK_COMMAND}],
         }
     ]
