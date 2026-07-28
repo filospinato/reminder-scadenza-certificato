@@ -102,6 +102,10 @@ reminder-certificati produzione --max-sends 1
 
 ## Installazione per lo sviluppo
 
+Su un ambiente già isolato — il container di un agente, per esempio — bastano `bash scripts/setup.sh` e poi i controlli. Claude Code lo esegue da solo all’avvio della sessione; per Codex va indicato nel campo dello script di setup, perché la sua fase agente gira senza rete e ciò che non viene installato prima non è più installabile.
+
+Su una macchina personale conviene isolare l’ambiente:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -120,6 +124,8 @@ pytest
 - [`pyproject.toml`](pyproject.toml): versione, compatibilità Python, dipendenze ed entry point;
 - [`.github/workflows/`](.github/workflows/): comportamento CI e operativo realmente eseguito;
 - [`config/github/environment-contract.json`](config/github/environment-contract.json): contratto macchina di Variables, Secrets ed Environment;
+- [`config/codex/ENVIRONMENT_SETUP.md`](config/codex/ENVIRONMENT_SETUP.md): configurazione da applicare nell’interfaccia Codex;
+- [`scripts/setup.sh`](scripts/setup.sh): preparazione dell’ambiente di sviluppo, condivisa da tutti gli agenti;
 - [`releases/`](releases/): guide e riferimenti immutabili delle singole release;
 - GitHub Issues e milestone: lavoro ancora aperto.
 

@@ -41,6 +41,8 @@ Un file di stato separato è ammesso soltanto se viene letto o aggiornato automa
 
 ## 4. Verifica automatica obbligatoria
 
+Un ambiente nuovo non ha le dipendenze. Prepararlo con `bash scripts/setup.sh`, che installa gli stessi extra usati dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`. Claude Code lo esegue da solo tramite `.claude/hooks/session-start.sh`; per Codex va indicato nel campo dello script di setup, come descritto in `config/codex/ENVIRONMENT_SETUP.md`, perché la sua fase agente gira senza rete e ciò che non viene installato prima non è più installabile.
+
 Eseguire almeno:
 
 ```bash
