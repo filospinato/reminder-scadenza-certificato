@@ -22,7 +22,13 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 - sostituito il contratto Markdown dell’Environment con `config/github/environment-contract.json`;
 - rimossi roadmap, checklist, handoff e documenti concorrenti sotto `docs/`;
 - evitato un manifesto di stato separato, mantenendo versione, workflow e configurazioni nelle rispettive fonti autoritative;
-- aggiornati i test per proteggere la nuova architettura SSoT.
+- aggiornati i test per proteggere la nuova architettura SSoT;
+- introdotto `scripts/setup.sh` come unica procedura di preparazione dell’ambiente per
+  tutti gli agenti, richiamato soltanto all’avvio o alla ripresa delle sessioni Claude
+  Code sul web da `.claude/hooks/session-start.sh` e documentato per Codex in
+  `config/codex/ENVIRONMENT_SETUP.md`; la configurazione Codex va salvata solo quando
+  lo script è già presente su `main`, mentre lo script installa gli stessi extra della
+  CI senza duplicarne l’elenco, che resta in `pyproject.toml`.
 
 ## [0.14.18] - 2026-07-22
 
