@@ -8,6 +8,13 @@ Non inserire mai valori segreti in file, issue, pull request o log.
 
 Gli ambienti cloud di Codex lavorano in due fasi: la fase di **setup** dispone della rete, la fase **agente** gira isolata salvo abilitazione esplicita. Le dipendenze non installate durante il setup non sono più installabili dopo: senza questo passaggio l'agente si trova senza `pytest` né `ruff` e non può eseguire la verifica automatica obbligatoria della sezione 4 di `AGENTS.md`.
 
+## Quando salvare la configurazione
+
+Salvare il valore indicato sotto soltanto dopo che `scripts/setup.sh` è presente su
+`main`, il branch predefinito del repository. Non salvarlo mentre lo script esiste
+soltanto in una pull request: il setup partirebbe dal branch predefinito e fallirebbe
+perché il file non è ancora disponibile.
+
 ## Percorso nell'interfaccia
 
 Aprire l'ambiente Codex associato a questo repository e cercare il campo dello **script di setup**.
