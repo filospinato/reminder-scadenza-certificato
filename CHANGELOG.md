@@ -23,12 +23,14 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 - rimossi roadmap, checklist, handoff e documenti concorrenti sotto `docs/`;
 - evitato un manifesto di stato separato, mantenendo versione, workflow e configurazioni nelle rispettive fonti autoritative;
 - aggiornati i test per proteggere la nuova architettura SSoT;
-- introdotto `scripts/setup.sh` come unica procedura di preparazione dell’ambiente per
-  tutti gli agenti, richiamato soltanto all’avvio o alla ripresa delle sessioni Claude
-  Code sul web da `.claude/hooks/session-start.sh` e documentato per Codex in
-  `config/codex/ENVIRONMENT_SETUP.md`; la configurazione Codex va salvata solo quando
-  lo script è già presente su `main`, mentre lo script installa gli stessi extra della
-  CI senza duplicarne l’elenco, che resta in `pyproject.toml`.
+- introdotto `scripts/setup.sh` come unica procedura di preparazione dell’ambiente
+  per tutti gli agenti, richiamato all’avvio, alla ripresa e al fork delle
+  sessioni Claude Code locali e remote e documentato per Codex in
+  `config/codex/ENVIRONMENT_SETUP.md`; la configurazione Cloud va salvata solo
+  quando lo script è già presente su `main`, mentre un hook Codex di progetto
+  applica lo stesso gate a Local e Worktree; lo script installa gli stessi extra
+  della CI in una `.venv` per-checkout senza modificare il Python globale e senza
+  duplicare l’elenco, che resta in `pyproject.toml`.
 
 ## [0.14.18] - 2026-07-22
 

@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# Hook di avvio sessione per Claude Code sul web.
+# Hook di avvio sessione per Claude Code locale e remoto.
 #
 # Non contiene logica propria: la preparazione vive in `scripts/setup.sh`, così
 # Claude Code e Codex eseguono esattamente la stessa procedura e non possono
-# divergere. In locale non fa nulla, perché l'ambiente di chi sviluppa a mano è
-# già preparato e non va toccato a ogni avvio.
+# divergere. La `.venv` vive nel singolo checkout, quindi anche l'esecuzione
+# locale non modifica il Python globale del computer.
 
 set -uo pipefail
 
-if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
-    exit 0
+output="$(bash "${CLAUDE_PROJECT_DIR:-.}/scripts/setup.sh" 2>&1)"
+status=$?
+
+if [ -n "$output" ]; then
+    printf '%s\n' "$output"
 fi
 
-exec bash "${CLAUDE_PROJECT_DIR:-.}/scripts/setup.sh"
+if [ "$status" -ne 0 ]; then
+    printf '%s\n' \
+        'setup: GATE BLOCCANTE — non analizzare, modificare o testare il repository'
+fi
