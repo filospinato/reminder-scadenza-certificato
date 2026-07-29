@@ -6,6 +6,14 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ### Affidabilità
 
+- `scripts/setup.sh` ripara uno strumento di sviluppo guasto invece di fallire
+  per sempre. Un eseguibile presente ma rotto lascia il requisito già
+  soddisfatto, quindi `pip install --editable .[dev,google]` non ha nulla da fare
+  e non riscrive il file: il gate rilevava il guasto, reinstallava a vuoto e
+  usciva con errore a ogni esecuzione successiva. È lo stato che impedisce a
+  un'automazione di eseguire `ruff check .` e di rimettersi in sesto da sola. La
+  riparazione ora passa a `--force-reinstall`, che il file lo riscrive davvero.
+
 - reso esplicito il set stabile di regole Ruff usato dalla CI;
 - aggiunti retry automatici alle operazioni runtime idempotenti di Google Sheets,
   mantenendo gli append senza retry automatici per non duplicare scritture dall’esito
@@ -24,7 +32,8 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 - evitato un manifesto di stato separato, mantenendo versione, workflow e configurazioni nelle rispettive fonti autoritative;
 - aggiornati i test per proteggere la nuova architettura SSoT;
 - introdotto `scripts/setup.sh` come unica procedura di preparazione dell’ambiente
-  per tutti gli agenti, richiamato all’avvio, alla ripresa e al fork delle
+  per tutti gli agenti, richiamato all’avvio, alla ripresa, dopo `/clear`, dopo
+  una compattazione e al fork delle
   sessioni Claude Code locali e remote e documentato per Codex in
   `config/codex/ENVIRONMENT_SETUP.md`; la configurazione Cloud va salvata solo
   quando lo script è già presente su `main`, mentre un hook Codex di progetto
