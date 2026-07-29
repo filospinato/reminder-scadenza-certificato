@@ -128,6 +128,7 @@ Dopo il setup, eseguire i controlli attraverso la `.venv`:
 
 - [`README.md`](README.md): overview, architettura e stato semantico;
 - [`AGENTS.md`](AGENTS.md): unica fonte delle regole operative per le modifiche;
+- [`CLAUDE.md`](CLAUDE.md): importa `AGENTS.md`, perché Claude Code legge questo file e non `AGENTS.md`;
 - [`CHANGELOG.md`](CHANGELOG.md): storia semantica delle release;
 - [`pyproject.toml`](pyproject.toml): versione, compatibilità Python, dipendenze ed entry point;
 - [`.github/workflows/`](.github/workflows/): comportamento CI e operativo realmente eseguito;
