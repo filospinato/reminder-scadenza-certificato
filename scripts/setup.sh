@@ -19,6 +19,8 @@ set -uo pipefail
 radice="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$radice" || exit 1
 
+venv="$radice/.venv"
+python_venv="$venv/bin/python"
 esito=0
 
 avviso() {
@@ -26,12 +28,20 @@ avviso() {
     esito=1
 }
 
+rimuovi_flag_nascosto_macos() {
+    if command -v chflags >/dev/null 2>&1 &&
+       ! find "$venv" -type f -name '*.pth' \
+           -exec chflags nohidden {} + 2>/dev/null; then
+        avviso 'impossibile rimuovere il flag hidden macOS dalla .venv'
+    fi
+}
+
 # I mirror dei pacchetti rispondono a intermittenza e un timeout a metà lavoro
 # costa più di qualche secondo di attesa qui.
 installa() {
     local tentativo
     for tentativo in 1 2 3; do
-        if python3 -m pip install --quiet --disable-pip-version-check \
+        if "$python_venv" -m pip install --quiet --disable-pip-version-check \
             --root-user-action=ignore --timeout 60 --retries 5 \
             --editable '.[dev,google]'; then
             return 0
@@ -45,20 +55,40 @@ installa() {
     return 1
 }
 
-if installa; then
-    printf 'setup: dipendenze installate da pyproject.toml (extra dev, google)\n'
-else
-    avviso 'installazione delle dipendenze non riuscita: pytest e ruff potrebbero mancare'
+if [ -L "$venv" ]; then
+    avviso 'rifiutata .venv simbolica: l’ambiente deve restare nel checkout'
+elif [ ! -x "$python_venv" ] && ! python3 -m venv "$venv"; then
+    avviso "creazione dell'ambiente virtuale non riuscita: $venv"
 fi
 
-for comando in pytest ruff; do
-    if ! command -v "$comando" >/dev/null 2>&1; then
-        avviso "$comando non disponibile dopo l'installazione"
+if [ "$esito" -eq 0 ] && [ -x "$python_venv" ]; then
+    rimuovi_flag_nascosto_macos
+    if installa; then
+        rimuovi_flag_nascosto_macos
+        printf 'setup: dipendenze installate da pyproject.toml in .venv (extra dev, google)\n'
+    else
+        avviso 'installazione delle dipendenze non riuscita: pytest e ruff potrebbero mancare'
     fi
-done
+
+    if [ "$esito" -eq 0 ] &&
+       ! "$python_venv" -c 'import reminder_certificati'; then
+        avviso 'pacchetto reminder_certificati non importabile dalla .venv'
+    fi
+
+    if [ "$esito" -eq 0 ]; then
+        for comando in pytest ruff; do
+            if [ ! -x "$venv/bin/$comando" ] ||
+               ! "$venv/bin/$comando" --version >/dev/null 2>&1; then
+                avviso "$comando non funzionante in .venv dopo l'installazione"
+            fi
+        done
+    fi
+elif [ "$esito" -eq 0 ]; then
+    avviso 'python non disponibile nell’ambiente virtuale'
+fi
 
 if [ "$esito" -eq 0 ]; then
-    printf 'setup: ambiente pronto (%s)\n' "$(python3 --version)"
+    printf 'setup: ambiente pronto (%s)\n' "$("$python_venv" --version)"
 fi
 
 exit "$esito"

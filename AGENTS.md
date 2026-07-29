@@ -41,16 +41,30 @@ Un file di stato separato è ammesso soltanto se viene letto o aggiornato automa
 
 ## 4. Verifica automatica obbligatoria
 
-Un ambiente nuovo non ha le dipendenze. Prepararlo con `bash scripts/setup.sh`, che installa gli stessi extra usati dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`. Claude Code lo esegue da solo tramite `.claude/hooks/session-start.sh`; per Codex va indicato nel campo dello script di setup, come descritto in `config/codex/ENVIRONMENT_SETUP.md`, perché la sua fase agente gira senza rete e ciò che non viene installato prima non è più installabile.
+Il `SessionStart` di Codex Local/Worktree deve eseguire
+`bash scripts/setup.sh`, dalla radice del worktree, prima della prima richiesta
+al modello. Lo stesso comando è il primo gate operativo per qualunque agente,
+incluso Claude Code. Il progetto deve essere attendibile perché Codex possa caricare
+`.codex/hooks.json`. Se l’hook è disabilitato, non ancora approvato o viene
+saltato, eseguire manualmente lo stesso comando come primo gate operativo dopo
+avere caricato queste regole e prima di analizzare altri file, modificare file o
+eseguire test. Proseguire soltanto se il comando termina con codice `0` e
+l’output contiene `setup: ambiente pronto`; in caso contrario fermarsi e
+riportare il fallimento.
+
+Lo script crea una `.venv` nel singolo checkout e installa gli stessi extra
+usati dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`.
+Claude Code lo esegue tramite `.claude/hooks/session-start.sh`; per Codex Cloud
+va indicato nel campo dello script di setup descritto in
+`config/codex/ENVIRONMENT_SETUP.md`.
 
 Eseguire almeno:
 
 ```bash
-python -m pip install -e ".[dev,google]"
-ruff check .
-python -m compileall -q src
-python -m pip check
-pytest
+.venv/bin/ruff check .
+.venv/bin/python -m compileall -q src
+.venv/bin/python -m pip check
+.venv/bin/pytest
 ```
 
 I test devono coprire il comportamento modificato e, quando applicabile, proteggere:

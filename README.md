@@ -102,18 +102,20 @@ reminder-certificati produzione --max-sends 1
 
 ## Installazione per lo sviluppo
 
-Su un ambiente già isolato — il container di un agente, per esempio — bastano `bash scripts/setup.sh` e poi i controlli. Claude Code lo esegue da solo all’avvio della sessione; per Codex va indicato nel campo dello script di setup, perché la sua fase agente gira senza rete e ciò che non viene installato prima non è più installabile.
+Usare `bash scripts/setup.sh` in ogni ambiente di sviluppo. Lo script crea una
+`.venv` nel singolo checkout e installa gli stessi extra della CI senza
+modificare il Python globale. Claude Code lo esegue automaticamente all’avvio, alla ripresa, dopo `/clear`,
+dopo una compattazione e al fork; Codex Cloud lo usa come script di setup, mentre Codex
+Local/Worktree applica lo stesso gate tramite `.codex/hooks.json` dopo
+l’approvazione dell’hook di progetto.
 
-Su una macchina personale conviene isolare l’ambiente:
+Dopo il setup, eseguire i controlli attraverso la `.venv`:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev,google]"
-ruff check .
-python -m compileall -q src
-python -m pip check
-pytest
+.venv/bin/ruff check .
+.venv/bin/python -m compileall -q src
+.venv/bin/python -m pip check
+.venv/bin/pytest
 ```
 
 ## Fonti di verità
