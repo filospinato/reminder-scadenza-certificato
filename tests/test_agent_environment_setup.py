@@ -20,6 +20,11 @@ EXPECTED_PIP_COMMAND = (
     "--root-user-action=ignore --timeout 60 --retries 5 "
     "--editable .[dev,google]"
 )
+EXPECTED_FORCED_PIP_COMMAND = (
+    "-m pip install --quiet --disable-pip-version-check "
+    "--root-user-action=ignore --timeout 60 --retries 5 "
+    "--force-reinstall --editable .[dev,google]"
+)
 
 
 def _esegui(
@@ -43,24 +48,29 @@ def _scrivi_eseguibile(path: Path, contenuto: str) -> None:
     path.chmod(0o755)
 
 
-def _esegui_setup_con_comandi_fake(
+def _prepara_setup_con_comandi_fake(
     tmp_path: Path,
     *,
     successo_al_tentativo: int,
-    venv_simbolica: bool = False,
-    rompi_ruff_e_ripeti: bool = False,
-) -> tuple[subprocess.CompletedProcess[str], list[str], list[str]]:
+) -> tuple[Path, dict[str, str], Path, Path]:
     progetto = tmp_path / "repository con spazi"
     setup = progetto / SETUP_SCRIPT
     setup.parent.mkdir(parents=True)
     shutil.copyfile(SETUP_SCRIPT, setup)
     setup.chmod(0o755)
+    (progetto / "pyproject.toml").write_text(
+        "[project]\nname = 'progetto-fake'\n",
+        encoding="utf-8",
+    )
 
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     tentativi = tmp_path / "tentativi-pip"
     log_pip = tmp_path / "pip.log"
     log_sleep = tmp_path / "sleep.log"
+    stato_core = tmp_path / "stato-core"
+    stato_google = tmp_path / "stato-google"
+    stato_pip_check = tmp_path / "stato-pip-check"
 
     _scrivi_eseguibile(
         fake_bin / "python3",
@@ -68,6 +78,7 @@ def _esegui_setup_con_comandi_fake(
 if [ "${1:-}" = "-m" ] && [ "${2:-}" = "venv" ]; then
     mkdir -p "$3/bin"
     cp "$0" "$3/bin/python"
+    cp "${FAKE_BIN:?}/pip" "$3/bin/pip"
     cp "${FAKE_BIN:?}/pytest" "$3/bin/pytest"
     cp "${FAKE_BIN:?}/ruff" "$3/bin/ruff"
     exit 0
@@ -82,11 +93,14 @@ if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pip" ]; then
     printf '%s\n' "$*" >> "${FAKE_PIP_LOG:?}"
     if [ "${FAKE_PIP_SUCCESS_ON:?}" -gt 0 ] &&
        [ "$tentativo" -ge "${FAKE_PIP_SUCCESS_ON:?}" ]; then
+        if [ "${FAKE_GOOGLE_REPAIR_ON_PIP:?}" = "1" ]; then
+            printf 'ok\n' > "${FAKE_GOOGLE_STATE:?}"
+        fi
         # pip vero riscrive un eseguibile solo quando reinstalla per davvero:
         # con il requisito soddisfatto non tocca il file e un tool rotto resta rotto.
         case "$*" in
             *--force-reinstall*)
-                for tool in pytest ruff; do
+                for tool in pip pytest ruff; do
                     printf '#!/usr/bin/env bash\nexit 0\n' > "$(dirname "$0")/$tool"
                     chmod 755 "$(dirname "$0")/$tool"
                 done
@@ -101,13 +115,44 @@ if [ "${1:-}" = "--version" ]; then
     exit 0
 fi
 if [ "${1:-}" = "-c" ]; then
+    if [ "$#" -ge 4 ]; then
+        cksum "$3" "$4" | cksum | awk '{print $1}'
+    elif printf '%s\n' "${2:-}" | grep -q 'reminder_certificati' &&
+         [ -f "${FAKE_CORE_STATE:?}" ] &&
+         grep -q '^rotto$' "${FAKE_CORE_STATE:?}"; then
+        exit 1
+    elif printf '%s\n' "${2:-}" | grep -q 'google' &&
+         [ -f "${FAKE_GOOGLE_STATE:?}" ] &&
+         grep -q '^rotto$' "${FAKE_GOOGLE_STATE:?}"; then
+        exit 1
+    fi
     exit 0
 fi
 exit 97
 """,
     )
+    _scrivi_eseguibile(
+        fake_bin / "pip",
+        r"""#!/usr/bin/env bash
+if [ "${1:-}" = "check" ] &&
+   [ -f "${FAKE_PIP_CHECK_STATE:?}" ] &&
+   grep -q '^rotto$' "${FAKE_PIP_CHECK_STATE:?}"; then
+    exit 1
+fi
+exit 0
+""",
+    )
     for comando in ("pytest", "ruff"):
         _scrivi_eseguibile(fake_bin / comando, "#!/usr/bin/env bash\nexit 0\n")
+    _scrivi_eseguibile(
+        fake_bin / "chflags",
+        r"""#!/usr/bin/env bash
+if [ "${FAKE_BREAK_CORE_ON_CHFLAGS:?}" = "1" ]; then
+    printf 'rotto\n' > "${FAKE_CORE_STATE:?}"
+fi
+exit 0
+""",
+    )
     _scrivi_eseguibile(
         fake_bin / "sleep",
         "#!/usr/bin/env bash\nprintf '%s\\n' \"${1:-}\" >> \"${FAKE_SLEEP_LOG:?}\"\n",
@@ -118,11 +163,38 @@ exit 97
         {
             "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
             "FAKE_BIN": str(fake_bin),
+            "FAKE_BREAK_CORE_ON_CHFLAGS": "0",
+            "FAKE_CORE_STATE": str(stato_core),
+            "FAKE_GOOGLE_REPAIR_ON_PIP": "1",
+            "FAKE_GOOGLE_STATE": str(stato_google),
+            "FAKE_PIP_CHECK_STATE": str(stato_pip_check),
             "FAKE_PIP_ATTEMPTS": str(tentativi),
             "FAKE_PIP_LOG": str(log_pip),
             "FAKE_PIP_SUCCESS_ON": str(successo_al_tentativo),
             "FAKE_SLEEP_LOG": str(log_sleep),
         }
+    )
+
+    return progetto, env, log_pip, log_sleep
+
+
+def _righe(percorso: Path) -> list[str]:
+    # Il setup può fermarsi prima di invocare pip — per esempio quando
+    # rifiuta una `.venv` simbolica — e in quel caso il log non esiste.
+    if not percorso.exists():
+        return []
+    return percorso.read_text(encoding="utf-8").splitlines()
+
+
+def _esegui_setup_con_comandi_fake(
+    tmp_path: Path,
+    *,
+    successo_al_tentativo: int,
+    venv_simbolica: bool = False,
+) -> tuple[subprocess.CompletedProcess[str], list[str], list[str]]:
+    progetto, env, log_pip, log_sleep = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=successo_al_tentativo,
     )
     if venv_simbolica:
         esterna = tmp_path / "ambiente esterno"
@@ -130,17 +202,6 @@ exit 97
         (progetto / ".venv").symlink_to(esterna, target_is_directory=True)
 
     risultato = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
-
-    if rompi_ruff_e_ripeti:
-        _scrivi_eseguibile(progetto / ".venv" / "bin" / "ruff", "#!/usr/bin/env bash\nexit 1\n")
-        risultato = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
-
-    def _righe(percorso: Path) -> list[str]:
-        # Il setup può fermarsi prima di invocare pip — per esempio quando
-        # rifiuta una `.venv` simbolica — e in quel caso il log non esiste.
-        if not percorso.exists():
-            return []
-        return percorso.read_text(encoding="utf-8").splitlines()
 
     return risultato, _righe(log_pip), _righe(log_sleep)
 
@@ -295,6 +356,45 @@ def test_setup_propaga_il_fallimento_dopo_tre_tentativi_fake(tmp_path: Path) -> 
     assert "setup: ambiente pronto" not in risultato.stdout
 
 
+def test_setup_warm_offline_non_invoca_pip(tmp_path: Path) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    env["FAKE_PIP_SUCCESS_ON"] = "0"
+    secondo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert primo.returncode == secondo.returncode == 0
+    assert _righe(log_pip) == [EXPECTED_PIP_COMMAND]
+    assert "setup: dipendenze e configurazione già aggiornate" in secondo.stdout
+    assert "setup: ambiente pronto (Python 3.12.9)" in secondo.stdout
+    assert (progetto / ".venv" / ".setup-environment.sha256").is_file()
+
+
+def test_setup_cambio_dipendenze_invalida_stamp(tmp_path: Path) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+    stamp = progetto / ".venv" / ".setup-environment.sha256"
+
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    impronta_iniziale = stamp.read_text(encoding="utf-8")
+    pyproject = progetto / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8") + "\n[project.optional-dependencies]\ndev = []\n",
+        encoding="utf-8",
+    )
+    secondo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert primo.returncode == secondo.returncode == 0
+    assert _righe(log_pip) == [EXPECTED_PIP_COMMAND, EXPECTED_PIP_COMMAND]
+    assert stamp.read_text(encoding="utf-8") != impronta_iniziale
+    assert "dipendenze installate da pyproject.toml" in secondo.stdout
+
+
 def test_setup_rifiuta_venv_simbolica_fuori_checkout(tmp_path: Path) -> None:
     risultato, chiamate_pip, attese = _esegui_setup_con_comandi_fake(
         tmp_path,
@@ -315,6 +415,15 @@ def test_documentazione_codex_impone_il_gate_del_branch_predefinito() -> None:
         assert requisito in documentazione
 
     for requisito in ("Codex Cloud", "Local", "Worktree", "`.codex/hooks.json`"):
+        assert requisito in documentazione
+
+    for requisito in (
+        "Local Environment",
+        "worktree nuovo",
+        "bootstrap",
+        "senza rete",
+        "fast path",
+    ):
         assert requisito in documentazione
 
 
@@ -338,14 +447,91 @@ def test_agents_impone_setup_come_primo_gate_codex_locale() -> None:
 
 
 def test_setup_ripara_uno_strumento_guasto_con_reinstallazione_forzata(tmp_path: Path) -> None:
-    risultato, chiamate_pip, _ = _esegui_setup_con_comandi_fake(
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
         tmp_path,
         successo_al_tentativo=1,
-        rompi_ruff_e_ripeti=True,
     )
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    log_pip.write_text("", encoding="utf-8")
+    _scrivi_eseguibile(progetto / ".venv" / "bin" / "ruff", "#!/usr/bin/env bash\nexit 1\n")
+
+    riparazione = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
 
     # Un'installazione ordinaria non riscrive un eseguibile che pip considera
-    # già a posto: senza l'escalation l'ambiente resterebbe guasto per sempre.
-    assert risultato.returncode == 0, risultato.stderr
-    assert "ambiente riparato con una reinstallazione forzata" in risultato.stdout
-    assert any("--force-reinstall" in chiamata for chiamata in chiamate_pip)
+    # già a posto: con stamp valido la riparazione passa direttamente alla
+    # reinstallazione forzata, senza un tentativo ordinario preliminare.
+    assert primo.returncode == riparazione.returncode == 0
+    assert "ambiente riparato con una reinstallazione forzata" in riparazione.stdout
+    assert _righe(log_pip) == [EXPECTED_FORCED_PIP_COMMAND]
+
+
+def test_setup_ripara_dipendenze_google_mancanti_con_reinstallazione_forzata(
+    tmp_path: Path,
+) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    log_pip.write_text("", encoding="utf-8")
+    Path(env["FAKE_GOOGLE_STATE"]).write_text("rotto\n", encoding="utf-8")
+
+    riparazione = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert primo.returncode == riparazione.returncode == 0
+    assert "ambiente riparato con una reinstallazione forzata" in riparazione.stdout
+    assert _righe(log_pip) == [EXPECTED_FORCED_PIP_COMMAND]
+
+
+def test_setup_non_ripete_force_reinstall_se_la_riparazione_non_riesce(
+    tmp_path: Path,
+) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    log_pip.write_text("", encoding="utf-8")
+    Path(env["FAKE_GOOGLE_STATE"]).write_text("rotto\n", encoding="utf-8")
+    env["FAKE_GOOGLE_REPAIR_ON_PIP"] = "0"
+
+    fallimento = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert primo.returncode == 0
+    assert fallimento.returncode == 1
+    assert "ambiente riparato" not in fallimento.stdout
+    assert "dipendenze Google non importabili" in fallimento.stderr
+    assert _righe(log_pip) == [EXPECTED_FORCED_PIP_COMMAND]
+
+
+def test_setup_ripara_un_pip_check_guasto_con_reinstallazione_forzata(
+    tmp_path: Path,
+) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+    primo = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+    log_pip.write_text("", encoding="utf-8")
+    Path(env["FAKE_PIP_CHECK_STATE"]).write_text("rotto\n", encoding="utf-8")
+
+    riparazione = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert primo.returncode == riparazione.returncode == 0
+    assert "ambiente riparato con una reinstallazione forzata" in riparazione.stdout
+    assert _righe(log_pip) == [EXPECTED_FORCED_PIP_COMMAND]
+
+
+def test_setup_riverifica_dopo_stamp_e_normalizzazione_macos(tmp_path: Path) -> None:
+    progetto, env, log_pip, _ = _prepara_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+    )
+    env["FAKE_BREAK_CORE_ON_CHFLAGS"] = "1"
+
+    fallimento = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    assert fallimento.returncode == 1
+    assert "setup: ambiente pronto" not in fallimento.stdout
+    assert "pacchetto reminder_certificati non importabile" in fallimento.stderr
+    assert _righe(log_pip) == [EXPECTED_PIP_COMMAND]

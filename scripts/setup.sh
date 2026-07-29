@@ -21,6 +21,7 @@ cd "$radice" || exit 1
 
 venv="$radice/.venv"
 python_venv="$venv/bin/python"
+stamp_dipendenze="$venv/.setup-environment.sha256"
 esito=0
 
 avviso() {
@@ -37,20 +38,30 @@ verifica() {
         problema='pacchetto reminder_certificati non importabile dalla .venv'
         return 1
     fi
+    if ! "$python_venv" -c \
+        'import google.auth, googleapiclient.discovery' >/dev/null 2>&1; then
+        problema='dipendenze Google non importabili dalla .venv'
+        return 1
+    fi
     local comando
-    for comando in pytest ruff; do
+    for comando in pip pytest ruff; do
         if [ ! -x "$venv/bin/$comando" ] ||
            ! "$venv/bin/$comando" --version >/dev/null 2>&1; then
             problema="$comando non funzionante in .venv dopo l'installazione"
             return 1
         fi
     done
+    if ! "$venv/bin/pip" check >/dev/null 2>&1; then
+        problema='dipendenze incoerenti nella .venv'
+        return 1
+    fi
     return 0
 }
 
 rimuovi_flag_nascosto_macos() {
     if command -v chflags >/dev/null 2>&1 &&
-       ! find "$venv" -type f -name '*.pth' \
+       ! find "$venv" -type f \( -name '*.pth' -o \
+           -name '.setup-environment.sha256' \) \
            -exec chflags nohidden {} + 2>/dev/null; then
         avviso 'impossibile rimuovere il flag hidden macOS dalla .venv'
     fi
@@ -92,27 +103,77 @@ fi
 
 if [ "$esito" -eq 0 ] && [ -x "$python_venv" ]; then
     rimuovi_flag_nascosto_macos
-    if installa; then
+elif [ "$esito" -eq 0 ]; then
+    avviso 'python non disponibile nell’ambiente virtuale'
+fi
+
+impronta_dipendenze=''
+if [ "$esito" -eq 0 ] && ! impronta_dipendenze="$(
+        "$python_venv" -c \
+            'import hashlib, pathlib, sys; digest = hashlib.sha256(); [digest.update(pathlib.Path(path).read_bytes()) for path in sys.argv[1:]]; print(digest.hexdigest())' \
+            "$radice/pyproject.toml" "$radice/scripts/setup.sh"
+    )"; then
+    avviso 'impossibile calcolare l’impronta delle dipendenze e della configurazione'
+fi
+
+if [ "$esito" -eq 0 ]; then
+    impronta_salvata=''
+    if [ -f "$stamp_dipendenze" ]; then
+        IFS= read -r impronta_salvata < "$stamp_dipendenze"
+    fi
+    riparazione_forzata_tentata=0
+    riparazione_forzata_completata=0
+
+    if verifica && [ "$impronta_salvata" = "$impronta_dipendenze" ]; then
+        printf 'setup: dipendenze e configurazione già aggiornate\n'
+    elif [ "$impronta_salvata" = "$impronta_dipendenze" ]; then
+        # Con dipendenze invariate, un tool guasto è una corruzione locale:
+        # l'installazione ordinaria sarebbe un no-op, quindi si ripara subito.
+        riparazione_forzata_tentata=1
+        if installa forzata; then
+            rimuovi_flag_nascosto_macos
+            riparazione_forzata_completata=1
+        else
+            avviso 'riparazione forzata dell’ambiente non riuscita'
+        fi
+    elif installa; then
         rimuovi_flag_nascosto_macos
         printf 'setup: dipendenze installate da pyproject.toml in .venv (extra dev, google)\n'
     else
         avviso 'installazione delle dipendenze non riuscita: pytest e ruff potrebbero mancare'
     fi
+fi
 
-    # Uno strumento rotto ma presente lascia il requisito già soddisfatto: pip
-    # non ha nulla da fare e non riscrive il file. Senza la reinstallazione
-    # forzata l'ambiente resterebbe guasto a ogni esecuzione successiva.
-    if [ "$esito" -eq 0 ] && ! verifica; then
+# Dopo un'installazione ordinaria, uno strumento rotto ma presente può restare
+# invariato perché pip considera il requisito già soddisfatto. La reinstallazione
+# forzata riscrive davvero gli eseguibili e mantiene il gate fail-closed.
+if [ "$esito" -eq 0 ] && ! verifica; then
+    if [ "$riparazione_forzata_tentata" -eq 0 ]; then
+        riparazione_forzata_tentata=1
         if installa forzata; then
             rimuovi_flag_nascosto_macos
-            printf 'setup: ambiente riparato con una reinstallazione forzata\n'
-        fi
-        if ! verifica; then
-            avviso "$problema"
+            riparazione_forzata_completata=1
         fi
     fi
-elif [ "$esito" -eq 0 ]; then
-    avviso 'python non disponibile nell’ambiente virtuale'
+    if ! verifica; then
+        avviso "$problema"
+    fi
+fi
+
+if [ "$esito" -eq 0 ] && [ "$riparazione_forzata_completata" -eq 1 ]; then
+    printf 'setup: ambiente riparato con una reinstallazione forzata\n'
+fi
+
+if [ "$esito" -eq 0 ]; then
+    if ! printf '%s\n' "$impronta_dipendenze" > "$stamp_dipendenze"; then
+        avviso 'impossibile salvare lo stamp delle dipendenze dell’ambiente'
+    else
+        rimuovi_flag_nascosto_macos
+    fi
+fi
+
+if [ "$esito" -eq 0 ] && ! verifica; then
+    avviso "$problema"
 fi
 
 if [ "$esito" -eq 0 ]; then

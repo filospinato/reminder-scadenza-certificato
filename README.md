@@ -107,7 +107,13 @@ Usare `bash scripts/setup.sh` in ogni ambiente di sviluppo. Lo script crea una
 modificare il Python globale. Claude Code lo esegue automaticamente all’avvio, alla ripresa, dopo `/clear`,
 dopo una compattazione e al fork; Codex Cloud lo usa come script di setup, mentre Codex
 Local/Worktree applica lo stesso gate tramite `.codex/hooks.json` dopo
-l’approvazione dell’hook di progetto.
+l’approvazione dell’hook di progetto. Un worktree nuovo va associato a una
+Local Environment che esegua `bash scripts/setup.sh` durante la creazione:
+il bootstrap iniziale può richiedere la rete. Per un checkout Local già
+esistente, lo stesso bootstrap va eseguito una volta da terminale con rete prima
+della sessione nel sandbox. Dopo il bootstrap, uno stamp delle dipendenze
+consente al `SessionStart` di verificare offline l’ambiente già coerente senza
+richiamare `pip`.
 
 Dopo il setup, eseguire i controlli attraverso la `.venv`:
 
