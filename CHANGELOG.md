@@ -6,6 +6,15 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ### Affidabilità
 
+- `scripts/setup.sh` salva nella `.venv` l’impronta di `pyproject.toml` e della
+  propria politica di setup. Un ambiente già coerente usa così un fast path
+  offline che verifica pacchetto, client Google, eseguibile e coerenza di `pip`,
+  pytest e Ruff senza reinstallare; un cambio alle dipendenze invalida lo stamp
+  e ripete l’installazione. Dopo avere scritto lo stamp e normalizzato i flag
+  macOS, il gate riverifica l’intero ambiente prima di dichiararlo pronto. Il
+  bootstrap di un checkout pulito continua intenzionalmente a richiedere la rete
+  e a fallire chiuso quando non è disponibile.
+
 - `scripts/setup.sh` ripara uno strumento di sviluppo guasto invece di fallire
   per sempre. Un eseguibile presente ma rotto lascia il requisito già
   soddisfatto, quindi `pip install --editable .[dev,google]` non ha nulla da fare
