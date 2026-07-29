@@ -115,6 +115,11 @@ if [ "${1:-}" = "--version" ]; then
     exit 0
 fi
 if [ "${1:-}" = "-c" ]; then
+    if printf '%s\n' "${2:-}" | grep -q 'UF_HIDDEN' &&
+       [ "${FAKE_BREAK_CORE_ON_FLAG_NORMALIZATION:-0}" = "1" ] &&
+       [ -f "${FAKE_PROJECT:?}/.venv/.setup-environment.sha256" ]; then
+        printf 'rotto\n' > "${FAKE_CORE_STATE:?}"
+    fi
     if [ "$#" -ge 4 ]; then
         cksum "$3" "$4" | cksum | awk '{print $1}'
     elif printf '%s\n' "${2:-}" | grep -q 'reminder_certificati' &&
@@ -145,15 +150,6 @@ exit 0
     for comando in ("pytest", "ruff"):
         _scrivi_eseguibile(fake_bin / comando, "#!/usr/bin/env bash\nexit 0\n")
     _scrivi_eseguibile(
-        fake_bin / "chflags",
-        r"""#!/usr/bin/env bash
-if [ "${FAKE_BREAK_CORE_ON_CHFLAGS:?}" = "1" ]; then
-    printf 'rotto\n' > "${FAKE_CORE_STATE:?}"
-fi
-exit 0
-""",
-    )
-    _scrivi_eseguibile(
         fake_bin / "sleep",
         "#!/usr/bin/env bash\nprintf '%s\\n' \"${1:-}\" >> \"${FAKE_SLEEP_LOG:?}\"\n",
     )
@@ -163,7 +159,7 @@ exit 0
         {
             "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
             "FAKE_BIN": str(fake_bin),
-            "FAKE_BREAK_CORE_ON_CHFLAGS": "0",
+            "FAKE_BREAK_CORE_ON_FLAG_NORMALIZATION": "0",
             "FAKE_CORE_STATE": str(stato_core),
             "FAKE_GOOGLE_REPAIR_ON_PIP": "1",
             "FAKE_GOOGLE_STATE": str(stato_google),
@@ -527,7 +523,8 @@ def test_setup_riverifica_dopo_stamp_e_normalizzazione_macos(tmp_path: Path) -> 
         tmp_path,
         successo_al_tentativo=1,
     )
-    env["FAKE_BREAK_CORE_ON_CHFLAGS"] = "1"
+    env["FAKE_PROJECT"] = str(progetto)
+    env["FAKE_BREAK_CORE_ON_FLAG_NORMALIZATION"] = "1"
 
     fallimento = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
 
@@ -535,3 +532,11 @@ def test_setup_riverifica_dopo_stamp_e_normalizzazione_macos(tmp_path: Path) -> 
     assert "setup: ambiente pronto" not in fallimento.stdout
     assert "pacchetto reminder_certificati non importabile" in fallimento.stderr
     assert _righe(log_pip) == [EXPECTED_PIP_COMMAND]
+
+
+def test_setup_normalizza_i_flag_macos_senza_chflags_esterno() -> None:
+    setup = SETUP_SCRIPT.read_text(encoding="utf-8")
+
+    assert "os.chflags" in setup
+    assert "stat.UF_HIDDEN" in setup
+    assert "command -v chflags" not in setup
