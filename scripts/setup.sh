@@ -28,6 +28,26 @@ avviso() {
     esito=1
 }
 
+# Riporta il primo guasto trovato in `problema` invece di segnalarlo subito,
+# così la stessa verifica serve sia a decidere se riparare sia a dare il verdetto.
+problema=''
+verifica() {
+    problema=''
+    if ! "$python_venv" -c 'import reminder_certificati' >/dev/null 2>&1; then
+        problema='pacchetto reminder_certificati non importabile dalla .venv'
+        return 1
+    fi
+    local comando
+    for comando in pytest ruff; do
+        if [ ! -x "$venv/bin/$comando" ] ||
+           ! "$venv/bin/$comando" --version >/dev/null 2>&1; then
+            problema="$comando non funzionante in .venv dopo l'installazione"
+            return 1
+        fi
+    done
+    return 0
+}
+
 rimuovi_flag_nascosto_macos() {
     if command -v chflags >/dev/null 2>&1 &&
        ! find "$venv" -type f -name '*.pth' \
@@ -38,11 +58,20 @@ rimuovi_flag_nascosto_macos() {
 
 # I mirror dei pacchetti rispondono a intermittenza e un timeout a metà lavoro
 # costa più di qualche secondo di attesa qui.
+#
+# `forzata` aggiunge --force-reinstall: è l'unico modo di riscrivere un
+# eseguibile che pip considera già a posto. Serve solo alla riparazione.
 installa() {
+    local -a forzata=()
+    if [ "${1:-}" = 'forzata' ]; then
+        forzata=(--force-reinstall)
+    fi
+
     local tentativo
     for tentativo in 1 2 3; do
         if "$python_venv" -m pip install --quiet --disable-pip-version-check \
             --root-user-action=ignore --timeout 60 --retries 5 \
+            ${forzata[@]+"${forzata[@]}"} \
             --editable '.[dev,google]'; then
             return 0
         fi
@@ -70,18 +99,17 @@ if [ "$esito" -eq 0 ] && [ -x "$python_venv" ]; then
         avviso 'installazione delle dipendenze non riuscita: pytest e ruff potrebbero mancare'
     fi
 
-    if [ "$esito" -eq 0 ] &&
-       ! "$python_venv" -c 'import reminder_certificati'; then
-        avviso 'pacchetto reminder_certificati non importabile dalla .venv'
-    fi
-
-    if [ "$esito" -eq 0 ]; then
-        for comando in pytest ruff; do
-            if [ ! -x "$venv/bin/$comando" ] ||
-               ! "$venv/bin/$comando" --version >/dev/null 2>&1; then
-                avviso "$comando non funzionante in .venv dopo l'installazione"
-            fi
-        done
+    # Uno strumento rotto ma presente lascia il requisito già soddisfatto: pip
+    # non ha nulla da fare e non riscrive il file. Senza la reinstallazione
+    # forzata l'ambiente resterebbe guasto a ogni esecuzione successiva.
+    if [ "$esito" -eq 0 ] && ! verifica; then
+        if installa forzata; then
+            rimuovi_flag_nascosto_macos
+            printf 'setup: ambiente riparato con una reinstallazione forzata\n'
+        fi
+        if ! verifica; then
+            avviso "$problema"
+        fi
     fi
 elif [ "$esito" -eq 0 ]; then
     avviso 'python non disponibile nell’ambiente virtuale'

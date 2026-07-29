@@ -48,6 +48,7 @@ def _esegui_setup_con_comandi_fake(
     *,
     successo_al_tentativo: int,
     venv_simbolica: bool = False,
+    rompi_ruff_e_ripeti: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], list[str], list[str]]:
     progetto = tmp_path / "repository con spazi"
     setup = progetto / SETUP_SCRIPT
@@ -81,6 +82,16 @@ if [ "${1:-}" = "-m" ] && [ "${2:-}" = "pip" ]; then
     printf '%s\n' "$*" >> "${FAKE_PIP_LOG:?}"
     if [ "${FAKE_PIP_SUCCESS_ON:?}" -gt 0 ] &&
        [ "$tentativo" -ge "${FAKE_PIP_SUCCESS_ON:?}" ]; then
+        # pip vero riscrive un eseguibile solo quando reinstalla per davvero:
+        # con il requisito soddisfatto non tocca il file e un tool rotto resta rotto.
+        case "$*" in
+            *--force-reinstall*)
+                for tool in pytest ruff; do
+                    printf '#!/usr/bin/env bash\nexit 0\n' > "$(dirname "$0")/$tool"
+                    chmod 755 "$(dirname "$0")/$tool"
+                done
+                ;;
+        esac
         exit 0
     fi
     exit 1
@@ -119,6 +130,10 @@ exit 97
         (progetto / ".venv").symlink_to(esterna, target_is_directory=True)
 
     risultato = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
+
+    if rompi_ruff_e_ripeti:
+        _scrivi_eseguibile(progetto / ".venv" / "bin" / "ruff", "#!/usr/bin/env bash\nexit 1\n")
+        risultato = _esegui(["bash", "scripts/setup.sh"], cwd=progetto, env=env)
 
     def _righe(percorso: Path) -> list[str]:
         # Il setup può fermarsi prima di invocare pip — per esempio quando
@@ -320,3 +335,17 @@ def test_agents_impone_setup_come_primo_gate_codex_locale() -> None:
         "fermarsi",
     ):
         assert requisito in gate
+
+
+def test_setup_ripara_uno_strumento_guasto_con_reinstallazione_forzata(tmp_path: Path) -> None:
+    risultato, chiamate_pip, _ = _esegui_setup_con_comandi_fake(
+        tmp_path,
+        successo_al_tentativo=1,
+        rompi_ruff_e_ripeti=True,
+    )
+
+    # Un'installazione ordinaria non riscrive un eseguibile che pip considera
+    # già a posto: senza l'escalation l'ambiente resterebbe guasto per sempre.
+    assert risultato.returncode == 0, risultato.stderr
+    assert "ambiente riparato con una reinstallazione forzata" in risultato.stdout
+    assert any("--force-reinstall" in chiamata for chiamata in chiamate_pip)
