@@ -59,10 +59,24 @@ verifica() {
 }
 
 rimuovi_flag_nascosto_macos() {
-    if command -v chflags >/dev/null 2>&1 &&
-       ! find "$venv" -type f \( -name '*.pth' -o \
-           -name '.setup-environment.sha256' \) \
-           -exec chflags nohidden {} + 2>/dev/null; then
+    if ! "$python_venv" -c '
+import os
+import stat
+import sys
+from pathlib import Path
+
+if not hasattr(os, "chflags") or not hasattr(stat, "UF_HIDDEN"):
+    raise SystemExit(0)
+
+root = Path(sys.argv[1])
+targets = list(root.rglob("*.pth"))
+stamp = root / ".setup-environment.sha256"
+if stamp.is_file():
+    targets.append(stamp)
+
+for path in targets:
+    os.chflags(path, path.stat().st_flags & ~stat.UF_HIDDEN)
+' "$venv" 2>/dev/null; then
         avviso 'impossibile rimuovere il flag hidden macOS dalla .venv'
     fi
 }

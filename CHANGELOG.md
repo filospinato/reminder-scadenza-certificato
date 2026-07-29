@@ -6,6 +6,11 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ### Affidabilità
 
+- La normalizzazione macOS dei `.pth` e dello stamp usa `os.chflags` del Python
+  della `.venv`, limitato ai soli file interessati. Il gate non dipende più dal
+  binario esterno `chflags`, che Bitdefender può bloccare anche dopo un
+  bootstrap riuscito.
+
 - `scripts/setup.sh` salva nella `.venv` l’impronta di `pyproject.toml` e della
   propria politica di setup. Un ambiente già coerente usa così un fast path
   offline che verifica pacchetto, client Google, eseguibile e coerenza di `pip`,
