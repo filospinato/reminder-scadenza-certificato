@@ -7,7 +7,7 @@ on:
     branches: [main]
   # Schedule di sola verifica: gira ruff, compileall, pip check e pytest su
   # dati sintetici, senza environment, senza segreti e senza risorse live.
-  # Non ha nulla a che vedere con le schedule produttive vietate dalla §1.
+  # Non esegue né abilita i workflow produttivi vietati dalla §1.
   # Martedì e non lunedì, e non allo scoccare dell'ora: i cron più affollati
   # su GitHub vengono ritardati proprio quando la coda è piena.
   schedule:
@@ -35,16 +35,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Su push e pull request gira solo la versione di produzione (3.12):
-        # è l'unica che i workflow eseguono davvero. Tre job da mezzo minuto
-        # costano tre minuti fatturati, perché GitHub arrotonda ogni job al
-        # minuto pieno: la matrice completa a ogni merge pagava due minuti in
-        # più per una copertura che nessun runtime esercita.
-        # La matrice completa presidia il `requires-python = ">=3.11"` dichiarato
-        # in pyproject.toml e gira settimanalmente, o a richiesta prima di una
-        # release: un'incompatibilità fra versioni si scopre entro sette giorni
-        # invece che al merge.
-        python-version: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && fromJSON('["3.11", "3.12", "3.13"]') || fromJSON('["3.12"]') }}
+        # Su push e pull request gira solo la versione di produzione (3.12),
+        # l'unica che i workflow eseguono davvero. La matrice di compatibilità
+        # per le versioni stabili attualmente ammesse da `requires-python`
+        # gira invece settimanalmente, o a richiesta prima di una release.
+        python-version: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && fromJSON('["3.11", "3.12", "3.13", "3.14"]') || fromJSON('["3.12"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

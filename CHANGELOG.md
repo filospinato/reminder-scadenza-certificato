@@ -6,13 +6,11 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ### Manutenzione
 
-- La CI esegue la matrice Python completa (3.11, 3.12, 3.13) su cadenza
+- La CI esegue la matrice di compatibilità Python 3.11–3.14 su cadenza
   settimanale e su avvio manuale, non più a ogni push su `main`. Push e pull
   request girano sulla sola 3.12, l'unica versione che i workflow eseguono
-  davvero. GitHub fattura ogni job arrotondato al minuto pieno, quindi tre job
-  da mezzo minuto costavano tre minuti a ogni merge; la copertura del
-  `requires-python = ">=3.11"` dichiarato resta, con un ritardo di rilevazione
-  entro i sette giorni.
+  davvero; le regressioni di compatibilità restano coperte con un ritardo di
+  rilevazione massimo di sette giorni.
 
 ### Affidabilità
 
