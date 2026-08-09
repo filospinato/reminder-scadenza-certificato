@@ -4,6 +4,14 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ## [Unreleased]
 
+### Manutenzione
+
+- La CI esegue la matrice di compatibilità Python 3.11–3.14 su cadenza
+  settimanale e su avvio manuale, non più a ogni push su `main`. Push e pull
+  request girano sulla sola 3.12, l'unica versione che i workflow eseguono
+  davvero; le regressioni di compatibilità restano coperte con un ritardo di
+  rilevazione massimo di sette giorni.
+
 ### Affidabilità
 
 - La normalizzazione macOS dei `.pth` e dello stamp usa `os.chflags` del Python
