@@ -19,6 +19,28 @@ set -uo pipefail
 radice="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$radice" || exit 1
 
+# Fotografa il checkout prima che questo script possa toccare qualsiasi cosa,
+# così `scripts/verify.sh` può dimostrare che né il setup né la verifica lo
+# hanno modificato. La fotografia vive dentro `.git/`, fuori dal working tree,
+# quindi registrarla non altera ciò che misura. Si confronta il contenuto e non
+# i soli codici di stato: `git status --porcelain` non distingue un file già
+# modificato dallo stesso file modificato di nuovo. Se non si riesce a
+# registrarla non si dice niente e `verify.sh` ricade sulla propria baseline più
+# ristretta: stdout e stderr del setup sono fissati dai test e restano identici.
+# `git rev-parse --git-path` risolve correttamente anche in un worktree
+# collegato, dove `.git` è un file e non una directory.
+stato_albero_iniziale() {
+    git status --porcelain=v1 --untracked-files=all &&
+        printf -- '--- contenuto tracciato ---\n' &&
+        git diff --binary --no-ext-diff HEAD
+}
+
+percorso_baseline="$(git rev-parse --git-path reminder-tree-baseline 2>/dev/null)"
+if [ -n "$percorso_baseline" ]; then
+    stato_albero_iniziale > "$percorso_baseline" 2>/dev/null || \
+        rm -f "$percorso_baseline" 2>/dev/null || :
+fi
+
 venv="$radice/.venv"
 python_venv="$venv/bin/python"
 stamp_dipendenze="$venv/.setup-environment.sha256"

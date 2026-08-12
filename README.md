@@ -102,27 +102,25 @@ reminder-certificati produzione --max-sends 1
 
 ## Installazione per lo sviluppo
 
-Usare `bash scripts/setup.sh` in ogni ambiente di sviluppo. Lo script crea una
-`.venv` nel singolo checkout e installa gli stessi extra della CI senza
-modificare il Python globale. Claude Code lo esegue automaticamente all’avvio, alla ripresa, dopo `/clear`,
-dopo una compattazione e al fork; Codex Cloud lo usa come script di setup, mentre Codex
-Local/Worktree applica lo stesso gate tramite `.codex/hooks.json` dopo
-l’approvazione dell’hook di progetto. Un worktree nuovo va associato a una
-Local Environment che esegua `bash scripts/setup.sh` durante la creazione:
-il bootstrap iniziale può richiedere la rete. Per un checkout Local già
-esistente, lo stesso bootstrap va eseguito una volta da terminale con rete prima
-della sessione nel sandbox. Dopo il bootstrap, uno stamp delle dipendenze
-consente al `SessionStart` di verificare offline l’ambiente già coerente senza
-richiamare `pip`.
-
-Dopo il setup, eseguire i controlli attraverso la `.venv`:
+Il repository espone due comandi pubblici, e sono gli stessi che esegue la CI:
 
 ```bash
-.venv/bin/ruff check .
-.venv/bin/python -m compileall -q src
-.venv/bin/python -m pip check
-.venv/bin/pytest
+bash scripts/setup.sh     # prepara l'ambiente
+bash scripts/verify.sh    # verifica il progetto
 ```
+
+`setup.sh` crea una `.venv` nel singolo checkout e installa gli stessi extra della
+CI senza modificare il Python globale. Il primo bootstrap richiede la rete; dopo,
+uno stamp delle dipendenze gli permette di verificare offline un ambiente già
+coerente senza richiamare `pip`. Claude Code lo esegue automaticamente all’avvio
+della sessione. Negli ambienti Codex Cloud va indicato nel campo dello script di
+setup.
+
+`verify.sh` non installa niente, non usa la rete e non tocca risorse live: quali
+controlli esistano è scritto lì e in nessun altro posto, quindi la stessa riga
+riproduce in locale ciò che verifica la CI. I collaudi sui due Spreadsheet Drive
+restano necessariamente fuori dal comando, perché richiedono risorse reali:
+`AGENTS.md` ne descrive la procedura.
 
 ## Fonti di verità
 
@@ -133,8 +131,8 @@ Dopo il setup, eseguire i controlli attraverso la `.venv`:
 - [`pyproject.toml`](pyproject.toml): versione, compatibilità Python, dipendenze ed entry point;
 - [`.github/workflows/`](.github/workflows/): comportamento CI e operativo realmente eseguito;
 - [`config/github/environment-contract.json`](config/github/environment-contract.json): contratto macchina di Variables, Secrets ed Environment;
-- [`config/codex/ENVIRONMENT_SETUP.md`](config/codex/ENVIRONMENT_SETUP.md): configurazione da applicare nell’interfaccia Codex;
 - [`scripts/setup.sh`](scripts/setup.sh): preparazione dell’ambiente di sviluppo, condivisa da tutti gli agenti;
+- [`scripts/verify.sh`](scripts/verify.sh): unica fonte di quali controlli esistono;
 - [`releases/`](releases/): guide e riferimenti immutabili delle singole release;
 - GitHub Issues e milestone: lavoro ancora aperto.
 

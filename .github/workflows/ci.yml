@@ -50,36 +50,34 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install
-        run: pip install -e ".[dev,google]"
+      # Questo workflow conosce due comandi e nient'altro. Quali controlli
+      # esistano lo decide `scripts/verify.sh`, nel repository: un controllo
+      # scritto qui non sarebbe riproducibile in locale, e una copia dell'elenco
+      # tenuta qui divergerebbe da quella di `AGENTS.md`. Ciò che resta di
+      # competenza della CI è la matrice sopra: su quali versioni di Python
+      # girano i controlli, che è una garanzia di piattaforma e non un controllo.
+      - name: Prepara l'ambiente
+        run: bash scripts/setup.sh
 
-      - name: Controlli statici
-        run: |
-          ruff check .
-          python -m compileall -q src
-          python -m pip check
-
-      - name: Test
-        id: test
+      - name: Verifica il progetto
+        id: verify
         continue-on-error: true
         shell: bash
         run: |
-          set +e
-          pytest > pytest.log 2>&1
-          status=$?
-          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
+          set -o pipefail
+          # Il log va fuori dal checkout: `verify.sh` dimostra fra le altre cose
+          # che il checkout non è cambiato, e un log scritto qui dentro glielo
+          # farebbe fallire da solo.
+          bash scripts/verify.sh 2>&1 | tee "$RUNNER_TEMP/verify.log"
 
-      - name: Carica log dei test falliti
-        if: steps.test.outcome == 'failure'
+      - name: Carica il log della verifica fallita
+        if: steps.verify.outcome == 'failure'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-failure-log-python-${{ matrix.python-version }}
-          path: pytest.log
+          name: verify-failure-log-python-${{ matrix.python-version }}
+          path: ${{ runner.temp }}/verify.log
           retention-days: 3
 
-      - name: Propaga il fallimento dei test
-        if: steps.test.outcome == 'failure'
-        run: |
-          cat pytest.log
-          exit 1
+      - name: Propaga il fallimento della verifica
+        if: steps.verify.outcome == 'failure'
+        run: exit 1
