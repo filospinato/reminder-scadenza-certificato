@@ -7,14 +7,10 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 ### Manutenzione
 
 - La verifica del progetto passa da un solo comando, `bash scripts/verify.sh`,
-  che esegue Ruff, `compileall`, `pip check` e l’intera suite, controlla
-  whitespace e marcatori di conflitto e dimostra che né il setup né la verifica
-  hanno modificato il checkout. L’elenco dei controlli era ricopiato in tre
-  posti — `AGENTS.md`, `README.md` e `ci.yml` — che potevano divergere senza che
-  nessuno se ne accorgesse; ora vive soltanto nello script, e la CI conosce due
-  comandi e nient’altro. Un test impedisce che l’elenco rientri in un documento
-  o nel workflow. La matrice Python resta nella CI, perché riguarda su quali
-  versioni girano i controlli e non quali siano.
+  che esegue Ruff, `pip check` e l’intera suite, controlla whitespace e
+  marcatori di conflitto e dimostra che né il setup né la verifica hanno
+  modificato il checkout. `compileall` è stato rimosso perché duplicava il
+  parsing già eseguito da Ruff e dai test.
 - Rimosso lo strato di wrapper per Codex — `.codex/hooks.json`,
   `.codex/hooks/session-start.sh` e `config/codex/ENVIRONMENT_SETUP.md`, 151
   righe il cui unico compito era eseguire `bash scripts/setup.sh`. Per Codex
@@ -22,15 +18,13 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
   informazione che serviva. L’hook di Claude Code resta: `setup.sh` scrive gli
   errori su stderr, e senza quel passaggio un fallimento del gate potrebbe non
   arrivare all’agente.
-- `AGENTS.md` dichiara le tre modalità di accesso — checkout con shell, solo
-  connettore GitHub, nessun accesso — e il confine di ciò che un esito verde
-  certifica: i collaudi sulle risorse live della §5 non passano dal gate e non
-  sono coperti da esso.
-- La CI esegue la matrice di compatibilità Python 3.11–3.14 su cadenza
-  settimanale e su avvio manuale, non più a ogni push su `main`. Push e pull
-  request girano sulla sola 3.12, l'unica versione che i workflow eseguono
-  davvero; le regressioni di compatibilità restano coperte con un ritardo di
-  rilevazione massimo di sette giorni.
+- `AGENTS.md` dichiara le tre modalità di accesso e limita i collaudi Drive
+  pre-deployment alle modifiche che possono influire su adapter Google, schema,
+  migrazioni, persistenza, destinatari o orchestrazione live. Non sono più un
+  prerequisito universale del merge.
+- La CI usa soltanto Python 3.12 — il runtime effettivo dei workflow — su pull
+  request, push a `main` e avvio manuale. Rimossa la matrice settimanale
+  3.11–3.14, che non proteggeva alcun ambiente realmente utilizzato.
 
 ### Affidabilità
 

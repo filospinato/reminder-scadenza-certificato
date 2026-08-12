@@ -309,7 +309,6 @@ def test_verify_dichiara_ogni_controllo_ed_e_l_unico_elenco() -> None:
     # Comandi, non prosa: se un controllo sparisce da qui, sparisce dal gate.
     for controllo in (
         '"$venv/bin/ruff" check .',
-        '"$venv/bin/python" -m compileall -q src',
         '"$venv/bin/python" -m pip check',
         '"$venv/bin/pytest"',
         "git diff --check",

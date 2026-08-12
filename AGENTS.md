@@ -67,8 +67,8 @@ bash scripts/verify.sh
 ```
 
 È l’unico comando pubblico di verifica. Non installa niente, non usa la rete e
-non tocca risorse live. Esegue Ruff, `compileall`, `pip check` e l’intera suite
-con gli strumenti già presenti nella `.venv`, controlla whitespace e marcatori di
+non tocca risorse live. Esegue Ruff, `pip check` e l’intera suite con gli
+strumenti già presenti nella `.venv`, controlla whitespace e marcatori di
 conflitto, e dimostra che né il setup né la verifica hanno modificato il
 checkout.
 
@@ -114,15 +114,33 @@ I test devono coprire il comportamento modificato e, quando applicabile, protegg
 
 ## 5. Collaudi esterni
 
-Ogni modifica al codice deve essere collaudata anche sui due Spreadsheet Drive collegati prima di essere dichiarata pronta per la produzione. Con `INVIO_AUTOMATICO_ATTIVO=false` eseguire:
+I collaudi sui due Spreadsheet Drive collegati sono obbligatori prima del
+deployment soltanto quando una modifica può influire su:
+
+- adapter Google, autenticazione o preflight;
+- schema amministrativo, migrazioni o persistenza;
+- selezione dei destinatari;
+- orchestrazione live.
+
+Non sono un prerequisito universale del merge. Una modifica a documentazione,
+test o infrastruttura di sviluppo che non coinvolge queste aree può essere
+accettata con il solo gate automatico verde sull’esatto commit.
+
+Per le modifiche interessate, con `INVIO_AUTOMATICO_ATTIVO=false` eseguire:
 
 1. `setup-preview`, verificando che non proponga modifiche inattese;
-2. `check`, verificando preflight, dati e registro senza scritture operative e senza SMTP;
-3. `registry-check` anche sul foglio reale per modifiche a schema, migrazioni, adapter o persistenza.
+2. `check`, verificando preflight, dati e registro senza scritture operative e
+   senza SMTP;
+3. `registry-check` sul foglio reale quando cambiano schema, migrazioni,
+   adapter o persistenza.
 
-`setup-apply` si usa soltanto dopo revisione dell’anteprima e con backup. `test-smtp` richiede autorizzazione distinta e non sostituisce i controlli Drive senza invio.
+`setup-apply` si usa soltanto dopo revisione dell’anteprima e con backup.
+`test-smtp` richiede autorizzazione distinta e non sostituisce i controlli
+Drive senza invio.
 
-Quando le risorse live non sono disponibili, dichiarare chiaramente il limite: la modifica può essere corretta in CI, ma non è verificata per la produzione.
+Quando le risorse live non sono disponibili, dichiarare chiaramente il limite:
+la modifica può essere accettata in CI, ma non deve essere distribuita in
+produzione finché il collaudo applicabile non è concluso.
 
 ## 6. Versioni e artefatti di release
 
