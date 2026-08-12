@@ -41,31 +41,64 @@ Un file di stato separato è ammesso soltanto se viene letto o aggiornato automa
 
 ## 4. Verifica automatica obbligatoria
 
-Il `SessionStart` di Codex Local/Worktree deve eseguire
-`bash scripts/setup.sh`, dalla radice del worktree, prima della prima richiesta
-al modello. Lo stesso comando è il primo gate operativo per qualunque agente,
-incluso Claude Code. Il progetto deve essere attendibile perché Codex possa caricare
-`.codex/hooks.json`. Se l’hook è disabilitato, non ancora approvato o viene
-saltato, eseguire manualmente lo stesso comando come primo gate operativo dopo
-avere caricato queste regole e prima di analizzare altri file, modificare file o
-eseguire test. Proseguire soltanto se il comando termina con codice `0` e
-l’output contiene `setup: ambiente pronto`; in caso contrario fermarsi e
-riportare il fallimento.
+Il repository espone due soli comandi pubblici. Tutto il resto è interno.
 
-Lo script crea una `.venv` nel singolo checkout e installa gli stessi extra
-usati dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`.
-Claude Code lo esegue tramite `.claude/hooks/session-start.sh`; per Codex Cloud
-va indicato nel campo dello script di setup descritto in
-`config/codex/ENVIRONMENT_SETUP.md`.
+### Il gate d’ambiente
 
-Eseguire almeno:
+`bash scripts/setup.sh` è il primo gate operativo per qualunque agente, da
+eseguire dalla radice del checkout dopo avere caricato queste regole e prima di
+analizzare altri file, modificare file o eseguire test. Proseguire soltanto se il
+comando termina con codice `0` e l’output contiene `setup: ambiente pronto`; in
+caso contrario fermarsi e riportare il fallimento.
+
+Lo script crea una `.venv` nel singolo checkout e installa gli stessi extra usati
+dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`. Claude
+Code lo esegue automaticamente tramite `.claude/hooks/session-start.sh`, che ne
+riporta l’output e, se il gate fallisce, la nota di blocco: `setup.sh` scrive gli
+errori su stderr, e senza quel passaggio un fallimento potrebbe non arrivare
+all’agente. Negli ambienti Codex Cloud va indicato `bash scripts/setup.sh` nel
+campo dello script di setup: è l’unica informazione necessaria e non serve un
+documento a parte per ricopiarla.
+
+### La verifica del progetto
 
 ```bash
-.venv/bin/ruff check .
-.venv/bin/python -m compileall -q src
-.venv/bin/python -m pip check
-.venv/bin/pytest
+bash scripts/verify.sh
 ```
+
+È l’unico comando pubblico di verifica. Non installa niente, non usa la rete e
+non tocca risorse live. Esegue Ruff, `compileall`, `pip check` e l’intera suite
+con gli strumenti già presenti nella `.venv`, controlla whitespace e marcatori di
+conflitto, e dimostra che né il setup né la verifica hanno modificato il
+checkout.
+
+Ogni controllo eseguibile da cui dipende l’accettazione di una modifica deve
+essere raggiungibile da qui, attraverso un test, e non da un elenco di comandi
+mantenuto a mano in questo file, in un workflow o nella descrizione di una pull
+request. Un elenco mantenuto a mano diverge da ciò che viene eseguito davvero.
+
+Un esito verde certifica esattamente una cosa: su quel commit sono passati tutti
+i controlli eseguibili che il repository dichiara. Non certifica che i collaudi
+della §5 siano stati eseguiti, né che le risorse live si comportino come in CI.
+Un esito rosso o assente è un blocco, e un gate assente non è mai evidenza di
+correttezza.
+
+### Modalità di accesso
+
+Determinare prima la modalità di accesso e applicare la regola corrispondente.
+
+**Checkout con shell.** Vale tutto quanto sopra: prima `setup.sh`, poi
+`verify.sh`, poi i controlli mirati ai componenti realmente coinvolti.
+
+**Solo connettore GitHub.** `scripts/setup.sh` e `scripts/verify.sh` non sono
+applicabili: non simularli e non dichiararli eseguiti. Usare il connettore per
+file, commit, issue, pull request, review e check su uno SHA preciso, e
+descrivere GitHub Actions come evidenza CI su un commit nominato, non come
+comandi eseguiti dall’agente. Se l’incarico richiede validazione eseguibile,
+dichiarare il limite e lasciare il lavoro in bozza o bloccato.
+
+**Nessun accesso al repository.** Lavorare soltanto sul contenuto fornito nella
+conversazione e dichiarare esplicitamente quell’ambito.
 
 I test devono coprire il comportamento modificato e, quando applicabile, proteggere:
 
