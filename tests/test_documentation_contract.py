@@ -94,7 +94,7 @@ def test_readme_e_solo_ssot_semantica() -> None:
 
 
 def test_agents_e_unica_ssot_operativa() -> None:
-    agents = AGENTS.read_text(encoding="utf-8")
+    agents = " ".join(AGENTS.read_text(encoding="utf-8").split())
 
     for requirement in (
         "## 1. Sicurezza e invarianti non negoziabili",
@@ -107,6 +107,12 @@ def test_agents_e_unica_ssot_operativa() -> None:
         "INVIO_AUTOMATICO_ATTIVO=false",
         "setup-preview",
         "registry-check",
+        "prima del deployment",
+        "Non sono un prerequisito universale del merge",
+        "adapter Google",
+        "schema amministrativo, migrazioni o persistenza",
+        "selezione dei destinatari",
+        "orchestrazione live",
         "pull request in bozza",
         "pyproject.toml",
         ".github/workflows/",

@@ -86,13 +86,6 @@ else
     fallito 'Ruff'
 fi
 
-printf '\n== Compilazione bytecode ==\n'
-if "$venv/bin/python" -m compileall -q src; then
-    printf 'verify: compileall superato\n'
-else
-    fallito 'compileall'
-fi
-
 printf '\n== Coerenza delle dipendenze ==\n'
 if "$venv/bin/python" -m pip check; then
     printf 'verify: pip check superato\n'

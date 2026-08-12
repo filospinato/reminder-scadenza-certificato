@@ -70,23 +70,19 @@ def test_ci_annulla_i_run_superati_solo_sulle_pull_request() -> None:
     )
 
 
-def test_ci_separa_i_run_rapidi_dalla_matrice_di_compatibilita() -> None:
+def test_ci_usa_solo_python_3_12_sui_trigger_ordinari() -> None:
     workflow = _leggi(".github/workflows/ci.yml")
     trigger = workflow.split("on:\n", maxsplit=1)[1].split("\npermissions:", maxsplit=1)[0]
 
     assert re.findall(r"^  ([a-z_]+):", trigger, flags=re.MULTILINE) == [
         "push",
         "pull_request",
-        "schedule",
         "workflow_dispatch",
     ]
-    assert '    - cron: "41 4 * * 2"' in trigger
-    assert (
-        "python-version: ${{ (github.event_name == 'schedule' || "
-        "github.event_name == 'workflow_dispatch') && "
-        "fromJSON('[\"3.11\", \"3.12\", \"3.13\", \"3.14\"]') || "
-        "fromJSON('[\"3.12\"]') }}" in workflow
-    )
+    assert "schedule:" not in trigger
+    assert 'python-version: "3.12"' in workflow
+    assert "matrix." not in workflow
+    assert "strategy:" not in workflow
 
 
 def test_tutte_le_actions_sono_fissate_a_sha_immutabili() -> None:
