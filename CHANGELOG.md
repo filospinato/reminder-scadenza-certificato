@@ -25,6 +25,7 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 - README essenziale e terminologia generica, con costi, configurazione a distanza
   e distinzione tra invii manuali e programmazione giornaliera ancora assente.
+- Rimosso il file di esempio inutilizzato: i dati sintetici restano nei test.
 - Rimossi integrazioni e hook per strumenti non più utilizzati, inclusi i relativi test.
 - Regole operative in `AGENTS.md`, contratto GitHub in JSON e guide storiche in
   `releases/`; rimossi documenti di stato e wrapper duplicati.

@@ -22,7 +22,7 @@ Con una **repository pubblica**, i runner standard di GitHub Actions sono gratui
 
 Nomi e ambiti delle impostazioni sono nel [contratto GitHub](config/github/environment-contract.json). Le Variables restano nell'Environment `preproduction`; `SMTP_USERNAME` identifica anche il mittente.
 
-La password va nel **repository secret** `REMINDER_SMTP_PASSWORD`, disponibile soltanto negli step SMTP dei workflow attuali. Un collaboratore può inserirla **dal proprio account e dal proprio dispositivo**, senza comunicarla al proprietario:
+La password va nel **repository secret** `REMINDER_SMTP_PASSWORD`, passato al programma soltanto negli step SMTP dei workflow attuali. Un collaboratore può inserirla **dal proprio account e dal proprio dispositivo**, senza comunicarla al proprietario:
 
 1. Il proprietario invita il collaboratore in **Settings → Collaborators**.
 2. Il collaboratore accetta e apre **Settings → Secrets and variables → Actions → New repository secret**.
@@ -36,7 +36,7 @@ Il vecchio Secret `SMTP_PASSWORD` non è più usato dai workflow aggiornati. Non
 
 Controllo, prova SMTP, registro e invii manuali sono implementati. **La programmazione giornaliera non è attiva**: aggiungere la password e accendere la CONFIG, da soli, non avviano esecuzioni periodiche.
 
-Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Per fermare gli invii impostare la CONFIG su `false` e annullare le esecuzioni già in corso.
+Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Nelle repository pubbliche GitHub disabilita le schedule dopo 60 giorni senza attività sul repository: va previsto anche il controllo dell'ultima esecuzione ([limiti della programmazione](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)). Per fermare gli invii impostare la CONFIG su `false` e annullare le esecuzioni già in corso.
 
 In una repository pubblica, `setup-apply` da Actions è bloccato per non pubblicare backup amministrativi. Eventuali migrazioni vanno eseguite in un ambiente riservato, con WIF e backup protetto. Prima di cambiare visibilità controllare anche cronologia, vecchi log e artifact: la pulizia del README non li modifica.
 
