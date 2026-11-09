@@ -36,16 +36,20 @@ Il vecchio Secret `SMTP_PASSWORD` non è più usato dai workflow aggiornati. Non
 
 Nel **foglio di gestione**, aprire la scheda **CONFIG** e cercare la riga **INVIO_AUTOMATICO_ATTIVO**. Modificare soltanto la colonna **valore** (cella **B3** nello schema iniziale):
 
-- **`true` — attivare o riattivare:** consente gli invii reali dalla successiva esecuzione GitHub, dopo configurazione e collaudi. Non avvia da solo un'esecuzione e non crea una programmazione giornaliera.
+- **`true` — attivare o riattivare:** consente gli invii reali dalla successiva esecuzione GitHub, programmata ogni giorno alle **09:15, ora italiana**, con un massimo di **50 email per esecuzione**. Cambiare la cella non avvia immediatamente un invio.
 - **`false` — disattivare:** blocca gli invii reali delle esecuzioni successive. Il valore viene letto all'avvio: per fermare un'esecuzione già partita, aprire **GitHub → Actions**, selezionare il run produttivo e premere **Cancel workflow**. Le email già inviate non possono essere annullate.
 
 La scheda **DASHBOARD** mostra l'ultima esecuzione, non lo stato in tempo reale dell'interruttore. `check` resta disponibile senza invii; `test-smtp` può inviare una prova manuale anche con l'interruttore su `false`. Conservare il registro **NOTIFICHE**, che evita i duplicati; la password resta nei Secrets GitHub.
 
 ## Stato semantico
 
-Controllo, prova SMTP, registro e invii manuali sono implementati. **La programmazione giornaliera non è attiva**: aggiungere la password e accendere la CONFIG, da soli, non avviano esecuzioni periodiche.
+Il workflow **Reminder certificati — invii reali** viene eseguito una volta al giorno alle **09:15** nel fuso **Europe/Rome**, anche nei festivi; l'orario segue automaticamente ora legale e solare. Il limite è **50 invii per esecuzione**. Il registro evita di reinviare il promemoria per la stessa scadenza; eventuali candidati oltre il limite vengono rivalutati nelle esecuzioni successive, finché rientrano nella finestra di preavviso.
 
-Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Nelle repository pubbliche GitHub disabilita le schedule dopo 60 giorni senza attività sul repository: va previsto anche il controllo dell'ultima esecuzione ([limiti della programmazione](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
+Per un avvio manuale: **Actions → Reminder certificati — invii reali → Run workflow**, branch `main`, limite 1, 5, 10 o 50. Il valore predefinito è 50; il foglio deve essere su `true`. `DESTINATARIO_OVERRIDE` serve soltanto alla prova SMTP: gli invii reali usano gli indirizzi del foglio sorgente.
+
+Controllare periodicamente **DASHBOARD → ultima_esecuzione** e gli esiti in Actions. GitHub può avviare il job in ritardo; nelle repository pubbliche disabilita la programmazione dopo 60 giorni senza attività sul repository. Se disabilitata, riattivarla da **Actions → Reminder certificati — invii reali → Enable workflow**, verificando prima CONFIG e registro ([limiti della programmazione](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
+
+In caso di `UNKNOWN_REVIEW_REQUIRED` o `SENDING` rimasto sospeso, mettere `false` e confrontare il registro con i log del server SMTP prima di decidere se ritentare. Non cancellare le righe per forzare un nuovo invio. Gli errori temporanei consentono al massimo tre tentativi; gli errori permanenti e gli esiti incerti bloccano i retry automatici. Per modifiche al programma seguire i collaudi di [AGENTS.md](AGENTS.md).
 
 In una repository pubblica, `setup-apply` da Actions è bloccato per non pubblicare backup amministrativi. Eventuali migrazioni vanno eseguite in un ambiente riservato, con WIF e backup protetto. Prima di cambiare visibilità controllare anche cronologia, vecchi log e artifact: la pulizia del README non li modifica.
 

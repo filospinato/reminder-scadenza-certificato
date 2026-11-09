@@ -45,7 +45,7 @@ from .orchestrator import ModalitaEsecuzione, OrchestratoreReminder
 from .persistent_registry import RegistroPersistente
 from .registry import StatoNotifica
 from .registry_probe_cli import run as esegui_collaudo_registro
-from .runtime_config import carica_configurazione
+from .runtime_config import LIMITE_INVII_PER_ESECUZIONE, carica_configurazione
 from .smtp_transport import ConfigurazioneSmtp, TrasportoSmtpMdaemon
 
 
@@ -64,12 +64,13 @@ def _data(value: str) -> date:
 
 
 def _limite_invii(value: str) -> int:
+    messaggio = f"usa un intero tra 1 e {LIMITE_INVII_PER_ESECUZIONE}"
     try:
         limite = int(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("usa un intero tra 1 e 10") from exc
-    if not 1 <= limite <= 10:
-        raise argparse.ArgumentTypeError("usa un intero tra 1 e 10")
+        raise argparse.ArgumentTypeError(messaggio) from exc
+    if not 1 <= limite <= LIMITE_INVII_PER_ESECUZIONE:
+        raise argparse.ArgumentTypeError(messaggio)
     return limite
 
 
@@ -138,7 +139,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-sends",
         type=_limite_invii,
         default=None,
-        help="limita questa esecuzione a 1-10 invii reali (default interno: 10)",
+        help=(
+            f"limita questa esecuzione a 1-{LIMITE_INVII_PER_ESECUZIONE} invii reali "
+            f"(default interno: {LIMITE_INVII_PER_ESECUZIONE})"
+        ),
     )
     return parser
 

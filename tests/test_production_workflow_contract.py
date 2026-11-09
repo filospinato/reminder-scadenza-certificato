@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+import pytest
 
 WORKFLOW = Path(".github/workflows/production.yml")
 
@@ -9,12 +13,14 @@ def _testo() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
 
 
-def test_workflow_produttivo_e_attivo_solo_manualmente() -> None:
+def test_workflow_produttivo_ha_schedule_unica_e_avvio_manuale() -> None:
     testo = _testo()
     assert WORKFLOW.exists()
     assert "workflow_dispatch:" in testo
-    assert "schedule:" not in testo
-    assert "cron:" not in testo
+    assert testo.count("\n  schedule:") == 1
+    assert testo.count("cron:") == 1
+    assert '- cron: "15 9 * * *"' in testo
+    assert "timezone: Europe/Rome" in testo
 
 
 def test_workflow_usa_unico_environment_wif_e_lock_condiviso() -> None:
@@ -32,7 +38,7 @@ def test_workflow_usa_unico_environment_wif_e_lock_condiviso() -> None:
 def test_produzione_usa_il_solo_interruttore_del_foglio() -> None:
     testo = _testo()
     assert "run: reminder-certificati produzione --max-sends" in testo
-    assert 'default: "1"' in testo
+    assert 'default: "50"' in testo
     for valore in (
         "PRODUCTION_ENABLED",
         "ALLOW_EMAIL_DELIVERY",
@@ -42,11 +48,25 @@ def test_produzione_usa_il_solo_interruttore_del_foglio() -> None:
     assert "INVIO_AUTOMATICO_ATTIVO" in testo
 
 
-def test_schedule_non_e_preconfigurata_prima_del_go_live() -> None:
+def test_schedule_usa_cinquanta_anche_senza_input_manuali() -> None:
     testo = _testo()
-    assert "schedule:" not in testo
-    assert "cron:" not in testo
-    assert "Aggiungerne una sola" in testo
+    assert '${{ inputs.max_sends || \'50\' }}' in testo
+    for valore in (1, 5, 10, 50):
+        assert f'          - "{valore}"' in testo
+
+
+@pytest.mark.parametrize(
+    ("mese", "giorno", "ora_utc"),
+    [(3, 28, 8), (3, 29, 7), (10, 24, 7), (10, 25, 8)],
+)
+def test_orario_mattutino_non_e_ambiguo_nei_cambi_ora(
+    mese: int, giorno: int, ora_utc: int,
+) -> None:
+    locale = datetime(2026, mese, giorno, 9, 15, tzinfo=ZoneInfo("Europe/Rome"))
+    utc = locale.astimezone(timezone.utc)
+    assert utc.hour == ora_utc
+    assert utc.minute == 15
+    assert utc.astimezone(locale.tzinfo) == locale
 
 
 def test_invio_reale_e_limitato_al_branch_main() -> None:

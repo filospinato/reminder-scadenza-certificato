@@ -54,7 +54,7 @@ def test_workflow_produzione_condivide_lock_e_limita_i_segreti() -> None:
     assert "steps.gate.outputs.enabled" not in workflow
     assert "SMTP_PASSWORD" not in prima_dell_invio
     assert "SMTP_PASSWORD" in workflow
-    assert "schedule:" not in workflow
+    assert "schedule:" in workflow
     assert "reminder-certificati produzione" in workflow
 
 

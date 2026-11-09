@@ -26,7 +26,7 @@ def test_configurazione_iniziale_e_disattivata() -> None:
 
     assert config.automazione_attiva is False
     assert config.destinatario_override is None
-    assert config.limite_invii_per_esecuzione == 10
+    assert config.limite_invii_per_esecuzione == 50
     assert config.invio_reale_consentito(consenso_esterno=True) is False
 
 
@@ -62,7 +62,7 @@ def test_limite_interno_non_e_una_chiave_configurabile() -> None:
     chiavi = {riga[0] for riga in matrice[1:]}
 
     assert "LIMITE_INVII_PER_ESECUZIONE" not in chiavi
-    assert LIMITE_INVII_PER_ESECUZIONE == 10
+    assert LIMITE_INVII_PER_ESECUZIONE == 50
 
 
 def test_rifiuta_chiavi_duplicate_e_sconosciute() -> None:

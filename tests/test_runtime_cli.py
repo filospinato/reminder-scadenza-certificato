@@ -56,12 +56,13 @@ def test_cli_non_accetta_vecchie_conferme() -> None:
             parser.parse_args(args)
 
 
-def test_produzione_accetta_un_limite_di_rollout_solo_tra_uno_e_dieci() -> None:
+def test_produzione_accetta_un_limite_solo_tra_uno_e_cinquanta() -> None:
     parser = runtime_cli.build_parser()
 
     assert parser.parse_args(["produzione"]).max_sends is None
     assert parser.parse_args(["produzione", "--max-sends", "1"]).max_sends == 1
-    for valore in ("0", "11", "non-intero"):
+    assert parser.parse_args(["produzione", "--max-sends", "50"]).max_sends == 50
+    for valore in ("-1", "0", "51", "non-intero"):
         with pytest.raises(SystemExit):
             parser.parse_args(["produzione", "--max-sends", valore])
 
@@ -214,8 +215,10 @@ def test_attenzione_restituisce_exit_code_non_zero(
     assert risultato == 3
 
 
-def test_limite_di_rollout_riduce_il_limite_passato_all_orchestratore(
+@pytest.mark.parametrize("limite", [None, 1, 5, 10, 50])
+def test_limite_di_produzione_passato_all_orchestratore(
     monkeypatch: pytest.MonkeyPatch,
+    limite: int | None,
 ) -> None:
     _predisponi_run_fake(
         monkeypatch,
@@ -265,11 +268,11 @@ def test_limite_di_rollout_riduce_il_limite_passato_all_orchestratore(
             modalita=ModalitaEsecuzione.PRODUZIONE,
             oggi=runtime_cli.date(2026, 7, 20),
             ambiente={},
-            limite_invii=1,
+            limite_invii=limite,
         )
         == 0
     )
-    assert limite_osservato == [1]
+    assert limite_osservato == [50 if limite is None else limite]
 
 
 def test_revisione_registro_segnala_anche_errori_permanenti(
