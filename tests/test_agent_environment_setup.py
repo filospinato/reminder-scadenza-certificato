@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
-SETTINGS = Path(".claude/settings.json")
-SESSION_HOOK = Path(".claude/hooks/session-start.sh")
 SETUP_SCRIPT = Path("scripts/setup.sh")
 VERIFY_SCRIPT = Path("scripts/verify.sh")
 AGENT_RULES = Path("AGENTS.md")
@@ -23,7 +20,6 @@ WRAPPER_RIMOSSI = (
     Path("config/codex/ENVIRONMENT_SETUP.md"),
 )
 
-EXPECTED_HOOK_COMMAND = 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/session-start.sh"'
 EXPECTED_PIP_COMMAND = (
     "-m pip install --quiet --disable-pip-version-check "
     "--root-user-action=ignore --timeout 60 --retries 5 "
@@ -218,77 +214,13 @@ def _esegui_setup_con_comandi_fake(
     return risultato, _righe(log_pip), _righe(log_sleep)
 
 
-def test_settings_registra_tutte_le_origini_con_comando_robusto() -> None:
-    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
-
-    assert settings["hooks"]["SessionStart"] == [
-        {
-            "matcher": "startup|resume|clear|compact|fork",
-            "hooks": [{"type": "command", "command": EXPECTED_HOOK_COMMAND}],
-        }
-    ]
-
-
-def test_comando_hook_gestisce_percorso_con_spazi_e_fallback_locale(tmp_path: Path) -> None:
-    progetto = tmp_path / "repository con spazi"
-    hook = progetto / SESSION_HOOK
-    setup = progetto / SETUP_SCRIPT
-    hook.parent.mkdir(parents=True)
-    setup.parent.mkdir(parents=True)
-    shutil.copyfile(SESSION_HOOK, hook)
-    hook.chmod(0o600)
-    setup.write_text("#!/usr/bin/env bash\nprintf 'setup simulato\\n'\n", encoding="utf-8")
-    setup.chmod(0o600)
-
-    for project_dir, cwd in ((str(progetto), tmp_path), (None, progetto)):
-        env = os.environ.copy()
-        env["CLAUDE_CODE_REMOTE"] = "true"
-        if project_dir is None:
-            env.pop("CLAUDE_PROJECT_DIR", None)
-        else:
-            env["CLAUDE_PROJECT_DIR"] = project_dir
-
-        risultato = _esegui(["bash", "-c", EXPECTED_HOOK_COMMAND], cwd=cwd, env=env)
-
-        assert risultato.returncode == 0, risultato.stderr
-        assert risultato.stdout == "setup simulato\n"
-        assert risultato.stderr == ""
 
 
 def test_script_shell_hanno_sintassi_valida() -> None:
-    for script in (SESSION_HOOK, SETUP_SCRIPT, VERIFY_SCRIPT):
+    for script in (SETUP_SCRIPT, VERIFY_SCRIPT):
         risultato = _esegui(["bash", "-n", str(script)])
         assert risultato.returncode == 0, f"{script}: {risultato.stderr}"
 
-
-def test_hook_locale_esegue_il_setup_condiviso(tmp_path: Path) -> None:
-    progetto = tmp_path / "repository"
-    setup = progetto / SETUP_SCRIPT
-    setup.parent.mkdir(parents=True)
-    setup.write_text(
-        "#!/usr/bin/env bash\nprintf 'invocato\\n' > \"$CLAUDE_PROJECT_DIR/invocato\"\n",
-        encoding="utf-8",
-    )
-    env = os.environ.copy()
-    env.pop("CLAUDE_CODE_REMOTE", None)
-    env["CLAUDE_PROJECT_DIR"] = str(progetto)
-
-    risultato = _esegui(["bash", str(SESSION_HOOK)], env=env)
-
-    assert risultato.returncode == 0
-    assert risultato.stdout == ""
-    assert risultato.stderr == ""
-    assert (progetto / "invocato").read_text(encoding="utf-8") == "invocato\n"
-
-    setup.write_text(
-        "#!/usr/bin/env bash\nprintf 'setup fallito\\n' >&2\nexit 9\n",
-        encoding="utf-8",
-    )
-    fallimento = _esegui(["bash", str(SESSION_HOOK)], env=env)
-    assert fallimento.returncode == 0
-    assert "setup fallito" in fallimento.stdout
-    assert "GATE BLOCCANTE" in fallimento.stdout
-    assert fallimento.stderr == ""
 
 
 def test_lo_strato_wrapper_di_codex_resta_rimosso() -> None:

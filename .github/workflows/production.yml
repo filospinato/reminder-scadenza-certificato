@@ -64,7 +64,7 @@ jobs:
           SMTP_FROM: ${{ vars.SMTP_USERNAME }}
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ vars.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_PASSWORD: ${{ secrets.REMINDER_SMTP_PASSWORD }}
         run: reminder-certificati produzione --max-sends "${{ inputs.max_sends }}"
 
 # Gli invii richiedono INVIO_AUTOMATICO_ATTIVO=true nella CONFIG.

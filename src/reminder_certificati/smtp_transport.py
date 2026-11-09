@@ -46,7 +46,7 @@ class ConfigurazioneSmtp:
     porta: int
     mittente: str
     username: str | None = None
-    password: str | None = None
+    password: str | None = field(default=None, repr=False)
     sicurezza: str = "STARTTLS"
     timeout_secondi: float = 20.0
     reply_to: str | None = None

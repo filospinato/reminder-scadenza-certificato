@@ -1,152 +1,58 @@
 # Reminder scadenza certificato
 
-Sistema che legge in sola lettura il foglio `Operativo`, individua gli arbitri con certificato medico prossimo alla scadenza e invia promemoria individuali tramite SMTP MDaemon, mantenendo un registro persistente anti-duplicazione.
-
 ## Obiettivo
 
-Il progetto automatizza un’attività amministrativa ripetitiva senza trasformare il foglio operativo in un database scrivibile e senza affidare la sicurezza a un singolo interruttore tecnico.
-
-Il sistema deve:
-
-- elaborare soltanto le persone attive e soggette all’obbligo del certificato;
-- usare nome, cognome, email e scadenza provenienti dalla stessa riga;
-- inviare un solo messaggio per destinatario;
-- impedire duplicazioni anche dopo errori o interruzioni;
-- produrre dashboard e anomalie aggregate senza esporre dati personali nei log;
-- consentire controllo, prova SMTP, rollout e arresto con procedure separate.
+Promemoria email per i tesserati con certificato medico in scadenza. Il programma legge un foglio Google, seleziona le persone attive e mantiene un registro per evitare invii duplicati.
 
 ## Architettura
 
-```text
-Google Sheets Operativo (read-only)
-              |
-              v
-      lettura e validazione
-              |
-              v
-      selezione candidati
-              |
-              +--------------------+
-              |                    |
-              v                    v
-  composizione testo/HTML     anomalie aggregate
-              |
-              v
-   registro amministrativo
-   SENDING prima di SMTP
-              |
-              v
-        MDaemon SMTP
-              |
-              v
-  SENT / errore / revisione
-```
+Il programma Python gira sui runner Linux di **GitHub Actions**, soltanto durante le esecuzioni: non richiede un computer acceso né un server dedicato. Usa due Google Sheets separati, uno come sorgente e uno per configurazione, registro e monitoraggio; invia tramite il server SMTP della casella configurata.
 
-Componenti principali:
-
-- package Python installabile con entry point `reminder-certificati`;
-- adapter Google Sheets autenticato tramite WIF/OIDC;
-- foglio amministrativo separato con CONFIG, registro, dashboard e anomalie;
-- compositore MIME testo/HTML con firma istituzionale versionata;
-- trasporto SMTP MDaemon;
-- GitHub Actions per controllo, manutenzione e invii reali controllati.
+Con una **repository pubblica**, i runner standard di GitHub Actions sono gratuiti e non consumano la quota inclusa per le repository private. Runner maggiorati e servizi esterni seguono le proprie condizioni: [fatturazione GitHub Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Il programma non usa API di intelligenza artificiale.
 
 ## Modello di sicurezza
 
-- `Operativo` è sempre in sola lettura.
-- Google usa credenziali temporanee WIF/OIDC; le chiavi permanenti sono vietate.
-- Il controllo senza invio non inizializza SMTP e non crea notifiche operative.
-- Il test SMTP sostituisce il destinatario con un override e invia al massimo un messaggio.
-- Gli invii reali richiedono autorizzazione esplicita e l’interruttore esterno `INVIO_AUTOMATICO_ATTIVO=true`.
-- La prenotazione `SENDING` viene persistita prima del contatto SMTP.
-- Gli esiti incerti non vengono ritentati automaticamente.
-- Tutti i workflow che accedono al registro condividono un lock di concorrenza.
+- Il foglio sorgente `Operativo` resta in sola lettura; Google usa credenziali temporanee WIF/OIDC.
+- Il controllo `check` non invia email; `test-smtp` invia al massimo una prova al destinatario override.
+- Gli invii reali richiedono `INVIO_AUTOMATICO_ATTIVO=true` nella CONFIG.
+- Il registro prenota ogni invio prima del contatto SMTP; gli esiti incerti richiedono revisione e non vengono ritentati automaticamente.
+- I workflow operativi usano `main` e lo stesso lock. Password e dati dei tesserati restano fuori dal codice e dai log.
+
+## Configurazione
+
+Nomi e ambiti delle impostazioni sono nel [contratto GitHub](config/github/environment-contract.json). Le Variables restano nell'Environment `preproduction`; `SMTP_USERNAME` identifica anche il mittente.
+
+La password va nel **repository secret** `REMINDER_SMTP_PASSWORD`, disponibile soltanto negli step SMTP dei workflow attuali. Un collaboratore può inserirla **dal proprio account e dal proprio dispositivo**, senza comunicarla al proprietario:
+
+1. Il proprietario invita il collaboratore in **Settings → Collaborators**.
+2. Il collaboratore accetta e apre **Settings → Secrets and variables → Actions → New repository secret**.
+3. Inserisce `REMINDER_SMTP_PASSWORD`, la password SMTP, quindi **Add secret**.
+
+Non creare questo segreto nell'Environment: nelle repository personali quella configurazione richiede il proprietario. La collaborazione funziona anche con una repository privata; renderla pubblica non concede accesso alle impostazioni. La password salvata non è rileggibile dall'interfaccia, ma il codice autorizzato può utilizzarla: chi può modificare i workflow deve essere fidato. [Guida GitHub ai Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+
+Il vecchio Secret `SMTP_PASSWORD` non è più usato dai workflow aggiornati. Non creare un Environment secret con lo stesso nome del nuovo repository secret, perché avrebbe precedenza.
 
 ## Stato semantico
 
-| Area | Stato |
-|---|---|
-| Lettura e validazione di `Operativo` | disponibile |
-| Foglio amministrativo e migrazioni | disponibili |
-| Registro anti-duplicazione | disponibile |
-| Composizione testo/HTML e firma istituzionale | disponibile |
-| Integrazione Google tramite WIF/OIDC | disponibile |
-| Controllo senza invio | validato |
-| Prova SMTP verso override | validata |
-| Workflow produttivo manuale | disponibile |
-| Schedule automatica | non attiva |
-| Rollout reale continuativo | richiede autorizzazione e collaudi finali |
-| Consegna a responsabile non tecnico | da completare |
+Controllo, prova SMTP, registro e invii manuali sono implementati. **La programmazione giornaliera non è attiva**: aggiungere la password e accendere la CONFIG, da soli, non avviano esecuzioni periodiche.
 
-Lo stato semantico resta volutamente ad alto livello. I valori esatti vivono nelle fonti che li usano: `pyproject.toml`, workflow, codice, contratto dell’Environment e configurazione GitHub.
+Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Per fermare gli invii impostare la CONFIG su `false` e annullare le esecuzioni già in corso.
 
-## Comandi pubblici
+In una repository pubblica, `setup-apply` da Actions è bloccato per non pubblicare backup amministrativi. Eventuali migrazioni vanno eseguite in un ambiente riservato, con WIF e backup protetto. Prima di cambiare visibilità controllare anche cronologia, vecchi log e artifact: la pulizia del README non li modifica.
+
+## Sviluppo
 
 ```bash
-reminder-certificati setup-admin --spreadsheet-id ID
-reminder-certificati setup-admin --spreadsheet-id ID --apply
-reminder-certificati check
-reminder-certificati registry-check
-reminder-certificati test-smtp
-reminder-certificati produzione
-reminder-certificati produzione --max-sends 1
+bash scripts/setup.sh
+bash scripts/verify.sh
 ```
 
-`setup-admin` mostra per default un’anteprima. L’opzione `--apply` inizializza o migra il foglio amministrativo con backup quando necessario.
-
-`check` unisce preflight, controllo dei candidati e revisione del registro senza invio.
-
-`test-smtp` esegue una sola prova controllata al destinatario override.
-
-`produzione` è riservato agli invii reali autorizzati.
-
-## Installazione per lo sviluppo
-
-Il repository espone due comandi pubblici, e sono gli stessi che esegue la CI:
-
-```bash
-bash scripts/setup.sh     # prepara l'ambiente
-bash scripts/verify.sh    # verifica il progetto
-```
-
-`setup.sh` crea una `.venv` nel singolo checkout e installa gli stessi extra della
-CI senza modificare il Python globale. Il primo bootstrap richiede la rete; dopo,
-uno stamp delle dipendenze gli permette di verificare offline un ambiente già
-coerente senza richiamare `pip`. Claude Code lo esegue automaticamente all’avvio
-della sessione. Negli ambienti Codex Cloud va indicato nel campo dello script di
-setup.
-
-`verify.sh` non installa niente, non usa la rete e non tocca risorse live: quali
-controlli esistano è scritto lì e in nessun altro posto, quindi la stessa riga
-riproduce in locale ciò che verifica la CI. I collaudi sui due Spreadsheet Drive
-restano necessariamente fuori dal comando, perché richiedono risorse reali:
-`AGENTS.md` ne descrive la procedura.
+Il primo comando prepara la `.venv`; il secondo esegue tutti i controlli del progetto senza rete né invii. Il primo bootstrap richiede accesso alle dipendenze.
 
 ## Fonti di verità
 
-- [`README.md`](README.md): overview, architettura e stato semantico;
-- [`AGENTS.md`](AGENTS.md): unica fonte delle regole operative per le modifiche;
-- [`CLAUDE.md`](CLAUDE.md): importa `AGENTS.md`, perché Claude Code legge questo file e non `AGENTS.md`;
-- [`CHANGELOG.md`](CHANGELOG.md): storia semantica delle release;
-- [`pyproject.toml`](pyproject.toml): versione, compatibilità Python, dipendenze ed entry point;
-- [`.github/workflows/`](.github/workflows/): comportamento CI e operativo realmente eseguito;
-- [`config/github/environment-contract.json`](config/github/environment-contract.json): contratto macchina di Variables, Secrets ed Environment;
-- [`scripts/setup.sh`](scripts/setup.sh): preparazione dell’ambiente di sviluppo, condivisa da tutti gli agenti;
-- [`scripts/verify.sh`](scripts/verify.sh): unica fonte di quali controlli esistono;
-- [`releases/`](releases/): guide e riferimenti immutabili delle singole release;
-- GitHub Issues e milestone: lavoro ancora aperto.
-
-Non devono essere introdotte roadmap, file `LATEST`, manifesti di stato duplicati, handoff temporanei o altre fonti concorrenti.
-
-## Documentazione delle release
-
-La directory `releases/vX.Y.Z/`, coerente con la versione in `pyproject.toml`, contiene:
-
-- guida operativa;
-- deployment e rollout;
-- riferimento tecnico;
-- validazione della release.
-
-## Contribuire
-
-Prima di modificare il repository leggere [`AGENTS.md`](AGENTS.md). Le modifiche passano sempre da branch dedicato, test completi e pull request con revisione del diff pubblicato. Nessuna modifica documentale o applicativa abilita automaticamente risorse live o invii reali.
+- [AGENTS.md](AGENTS.md): regole per contribuire e collaudi prima del deployment.
+- [CHANGELOG.md](CHANGELOG.md): modifiche funzionali.
+- [pyproject.toml](pyproject.toml): versione, dipendenze ed entry point.
+- [Workflow](.github/workflows/) e [contratto](config/github/environment-contract.json): configurazione effettiva.
+- [releases/](releases/): fotografie storiche delle release; per il codice corrente valgono questo `README.md`, i workflow e il contratto.

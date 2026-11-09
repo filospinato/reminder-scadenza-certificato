@@ -15,6 +15,11 @@ from reminder_certificati.data_sources import (
     tabella_da_matrice,
 )
 
+from reminder_certificati.google_runtime import (
+    ConfigurazioneRisorseGoogle,
+    costruisci_componenti_google,
+)
+
 
 @dataclass
 class LettoreFake:
@@ -307,3 +312,65 @@ def test_lettore_google_api_converte_errori_e_risposte_non_valide() -> None:
             spreadsheet_id="sheet",
             intervallo_a1="'Operativo'!A2:F2",
         )
+
+
+def test_runtime_legge_attivita_corrente_oltre_as_senza_leggere_colonne_extra() -> None:
+    intestazioni = [""] * 50
+    valori = [""] * 50
+    campi = {
+        0: ("Tessera", "T-1"),
+        1: ("Cognome", "Rossi"),
+        2: ("Nome", "Mario"),
+        4: ("Qualifica", "ordinario"),
+        5: ("Abilitazione", ""),
+        7: ("Data Scadenza Certificato", "2026-11-20"),
+        18: ("e-Mail", "mario@example.invalid"),
+        43: ("Fa attività quest'anno 2025/2026", "si"),
+        47: ("Fa attività quest'anno", "no"),
+    }
+    for indice, (nome, valore) in campi.items():
+        intestazioni[indice] = nome
+        valori[indice] = valore
+
+    class ServizioSorgenteFake:
+        def __init__(self) -> None:
+            self.ranges: list[str] = []
+            self.batch_ranges: list[str] = []
+
+        def spreadsheets(self):
+            return self
+
+        def values(self):
+            return self
+
+        def get(self, **kwargs: Any) -> RichiestaFake:
+            intervallo = kwargs["range"]
+            self.ranges.append(intervallo)
+            match = re.fullmatch(r"'Operativo'!A2:([A-Z]+)2", intervallo)
+            assert match is not None
+            fine = _indice_colonna(match.group(1)) + 1
+            return RichiestaFake({"values": [intestazioni[:fine]]})
+
+        def batchGet(self, **kwargs: Any) -> RichiestaFake:
+            self.batch_ranges = kwargs["ranges"]
+            colonne = []
+            for intervallo in self.batch_ranges:
+                match = re.fullmatch(r"'Operativo'!([A-Z]+)3:\1", intervallo)
+                assert match is not None
+                indice = _indice_colonna(match.group(1))
+                colonne.append({"values": [[valori[indice]]]})
+            return RichiestaFake({"valueRanges": colonne})
+
+    servizio = ServizioSorgenteFake()
+    risorse = ConfigurazioneRisorseGoogle("source-id", "admin-id")
+    componenti = costruisci_componenti_google(servizio=servizio, risorse=risorse)
+    tabella = componenti.sorgente_operativo.leggi()
+
+    assert len(servizio.ranges) == 1
+    assert len(servizio.batch_ranges) == 8
+    assert "'Operativo'!AV3:AV" in servizio.batch_ranges
+    assert "'Operativo'!AR3:AR" not in servizio.batch_ranges
+    assert tabella.righe[0]["Tessera"] == "T-1"
+    assert tabella.righe[0]["Fa attività quest'anno"] == "no"
+    assert tabella.righe[0]["e-Mail"] == "mario@example.invalid"
+    assert len(tabella.righe[0]) == 8

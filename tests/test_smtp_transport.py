@@ -226,3 +226,18 @@ def test_risposte_smtp_4xx_sono_ritentabili(errore: Exception) -> None:
 def test_risposte_smtp_5xx_sono_permanenti(errore: Exception) -> None:
     with pytest.raises(ErroreSmtpPermanente):
         _trasporto_con_errore(errore).invia(_messaggio())
+
+
+def test_password_non_compare_nella_rappresentazione_diagnostica() -> None:
+    config = ConfigurazioneSmtp.da_ambiente(
+        {
+            "SMTP_HOST": "smtp.example.invalid",
+            "SMTP_FROM": "reminder@example.invalid",
+            "SMTP_USERNAME": "reminder@example.invalid",
+            "SMTP_PASSWORD": "password-sintetica-per-test",
+        }
+    )
+
+    assert config.password == "password-sintetica-per-test"
+    assert "password-sintetica-per-test" not in repr(config)
+    assert "password=" not in repr(config)

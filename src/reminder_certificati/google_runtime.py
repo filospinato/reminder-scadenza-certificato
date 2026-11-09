@@ -29,7 +29,7 @@ class ErroreGoogleRuntime(RuntimeError):
 
 OPERATIVO_SHEET_NAME = "Operativo"
 OPERATIVO_HEADER_ROW = 2
-OPERATIVO_COLUMNS_A1 = "A:AS"
+OPERATIVO_COLUMNS_A1 = "A:ZZ"
 
 
 @dataclass(frozen=True, slots=True)

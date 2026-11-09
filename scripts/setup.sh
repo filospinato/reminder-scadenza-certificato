@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Prepara l'ambiente di sviluppo del repository.
 #
-# È il punto unico da cui passano tutti gli agenti: l'hook di avvio di Claude
-# Code lo richiama, Codex lo esegue nella fase di setup — l'unica in cui la rete
-# è disponibile, perché la fase agente gira isolata — e una persona può
-# lanciarlo a mano. Una sola procedura, tre modi di invocarla.
+# Procedura condivisa da sviluppo locale, agenti e CI.
+# Il primo bootstrap richiede la rete; le esecuzioni successive possono usare
+# l'ambiente già verificato nel checkout.
 #
 # La lista delle dipendenze resta in `pyproject.toml`: duplicarla qui farebbe
 # divergere le due fonti e l'ambiente finirebbe per mentire su cosa è installato.

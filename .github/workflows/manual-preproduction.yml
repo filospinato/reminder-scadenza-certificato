@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   run:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: preproduction
@@ -67,5 +68,5 @@ jobs:
           SMTP_FROM: ${{ vars.SMTP_USERNAME }}
           SMTP_REPLY_TO: ${{ vars.SMTP_REPLY_TO }}
           SMTP_USERNAME: ${{ vars.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_PASSWORD: ${{ secrets.REMINDER_SMTP_PASSWORD }}
         run: reminder-certificati test-smtp
