@@ -67,7 +67,7 @@ def test_segreti_smtp_restano_nel_solo_test_email() -> None:
     ):
         assert f"${{{{ vars.{nome} }}}}" in blocco
     assert "SMTP_FROM: ${{ vars.SMTP_USERNAME }}" in blocco
-    assert "${{ secrets.SMTP_PASSWORD }}" in blocco
+    assert "${{ secrets.REMINDER_SMTP_PASSWORD }}" in blocco
     assert "SMTP_FROM_NAME" not in testo
 
 
@@ -97,3 +97,26 @@ def test_i_due_workflow_mantengono_wif_lock_e_installazione_riproducibile() -> N
         assert "google-github-actions/auth@" in testo
         assert "# v3" in testo
         assert "pip install --upgrade pip" not in testo
+
+
+def test_backup_amministrativi_non_sono_pubblicati_da_repository_pubbliche() -> None:
+    testo = MANUTENZIONE.read_text(encoding="utf-8")
+    guardia = testo.index("- name: Proteggi il backup amministrativo")
+    auth = testo.index("- name: Autenticazione Google temporanea")
+    assert guardia < auth
+    assert "inputs.operation == 'setup-apply' && github.event.repository.private != true" in testo
+    assert "exit 1" in testo[guardia:auth]
+
+    applicazione = testo.split("- name: Prepara o aggiorna con backup", maxsplit=1)[1]
+    applicazione, artifact = applicazione.split("- name: Carica il backup", maxsplit=1)
+    assert "if: inputs.operation == 'setup-apply' && github.event.repository.private == true" in applicazione
+    assert (
+        "if: always() && inputs.operation == 'setup-apply' && github.event.repository.private == true"
+        in artifact
+    )
+
+
+def test_controllo_e_manutenzione_usano_solamente_main() -> None:
+    for percorso in (ORDINARIO, MANUTENZIONE):
+        testo = percorso.read_text(encoding="utf-8")
+        assert "if: github.ref == 'refs/heads/main'" in testo.split("steps:", maxsplit=1)[0]

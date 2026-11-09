@@ -17,7 +17,7 @@ def test_configurazione_google_usa_contratto_canonico_operativo() -> None:
 
     assert config.operativo_sheet_name == "Operativo"
     assert config.operativo_header_row == 2
-    assert config.operativo_columns_a1 == "A:AS"
+    assert config.operativo_columns_a1 == "A:ZZ"
     assert MAPPATURA_OPERATIVO_REALE.id_arbitro == "Tessera"
     assert MAPPATURA_OPERATIVO_REALE.nome == "Nome"
     assert MAPPATURA_OPERATIVO_REALE.email == "e-Mail"
@@ -40,7 +40,7 @@ def test_configurazione_google_ignora_override_strutturali_legacy() -> None:
 
     assert config.operativo_sheet_name == "Operativo"
     assert config.operativo_header_row == 2
-    assert config.operativo_columns_a1 == "A:AS"
+    assert config.operativo_columns_a1 == "A:ZZ"
 
 
 def test_check_headers_puo_non_richiedere_admin() -> None:

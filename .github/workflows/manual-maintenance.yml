@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   run:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: preproduction
@@ -32,6 +33,12 @@ jobs:
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
       ADMIN_SPREADSHEET_ID: ${{ vars.ADMIN_SPREADSHEET_ID }}
     steps:
+      - name: Proteggi il backup amministrativo
+        if: inputs.operation == 'setup-apply' && github.event.repository.private != true
+        run: |
+          echo "::error::setup-apply richiede un ambiente riservato: il backup non deve essere pubblicato su GitHub. Vedi README."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -58,11 +65,11 @@ jobs:
         run: reminder-certificati setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID"
 
       - name: Prepara o aggiorna con backup
-        if: inputs.operation == 'setup-apply'
+        if: inputs.operation == 'setup-apply' && github.event.repository.private == true
         run: reminder-certificati setup-admin --spreadsheet-id "$ADMIN_SPREADSHEET_ID" --apply --backup-path admin-migration-backup.json
 
       - name: Carica il backup dell'aggiornamento
-        if: always() && inputs.operation == 'setup-apply'
+        if: always() && inputs.operation == 'setup-apply' && github.event.repository.private == true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: admin-migration-backup

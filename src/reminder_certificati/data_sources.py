@@ -124,7 +124,7 @@ class SorgenteMemoria:
 
 @dataclass(frozen=True, slots=True)
 class AdapterGoogleSheets:
-    """Legge la riga intestazioni e poi soltanto le sei colonne necessarie."""
+    """Legge la riga intestazioni e poi soltanto le colonne richieste dalla mappatura."""
 
     lettore: LettoreValoriSheets
     spreadsheet_id: str

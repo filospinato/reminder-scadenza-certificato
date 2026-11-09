@@ -4,7 +4,7 @@ Questo file è l’unica fonte delle regole per agenti e persone che modificano 
 
 ## 1. Sicurezza e invarianti non negoziabili
 
-- Non inserire nel repository, nei diff, nei log, nelle issue o nelle pull request credenziali, token, password, chiavi private, contenuti completi dei fogli o dati personali degli arbitri.
+- Non inserire nel repository, nei diff, nei log, nelle issue o nelle pull request credenziali, token, password, chiavi private, contenuti completi dei fogli o dati personali dei tesserati.
 - Il foglio `Operativo` è sempre in sola lettura. Il sistema può scrivere soltanto nel foglio amministrativo previsto dal contratto applicativo.
 - L’accesso Google deve usare WIF/OIDC e credenziali temporanee `external_account`. Le chiavi JSON permanenti di service account sono vietate.
 - Nessuna modifica al codice o alla documentazione deve attivare autonomamente invii reali, schedule produttive, nuovi permessi cloud o altre risorse live.
@@ -51,14 +51,10 @@ analizzare altri file, modificare file o eseguire test. Proseguire soltanto se i
 comando termina con codice `0` e l’output contiene `setup: ambiente pronto`; in
 caso contrario fermarsi e riportare il fallimento.
 
-Lo script crea una `.venv` nel singolo checkout e installa gli stessi extra usati
-dalla CI senza duplicarne l’elenco, già mantenuto in `pyproject.toml`. Claude
-Code lo esegue automaticamente tramite `.claude/hooks/session-start.sh`, che ne
-riporta l’output e, se il gate fallisce, la nota di blocco: `setup.sh` scrive gli
-errori su stderr, e senza quel passaggio un fallimento potrebbe non arrivare
-all’agente. Negli ambienti Codex Cloud va indicato `bash scripts/setup.sh` nel
-campo dello script di setup: è l’unica informazione necessaria e non serve un
-documento a parte per ricopiarla.
+Lo script crea una `.venv` nel singolo checkout e installa gli extra dichiarati
+in `pyproject.toml`. Negli ambienti Codex Cloud va indicato
+`bash scripts/setup.sh` nel campo dello script di setup; non servono wrapper o
+documenti aggiuntivi.
 
 ### La verifica del progetto
 

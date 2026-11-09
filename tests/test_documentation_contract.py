@@ -13,7 +13,6 @@ ROOT_DOCUMENTS = {
     "README.md",
     "AGENTS.md",
     "CHANGELOG.md",
-    "CLAUDE.md",
 }
 
 LEGACY_PATHS = (

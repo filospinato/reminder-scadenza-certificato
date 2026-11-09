@@ -4,78 +4,39 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ## [Unreleased]
 
+### Affidabilità e configurazione
+
+- Estesa la ricerca delle intestazioni di Operativo fino a ZZ, mantenendo la
+  lettura batch delle sole otto colonne richieste: la colonna di attività
+  corrente può trovarsi oltre AS senza essere confusa con quella storica.
+- La password SMTP dei workflow proviene dal repository secret
+  `REMINDER_SMTP_PASSWORD`, configurabile da un collaboratore con il proprio
+  account. Le Variables restano nell'Environment; il precedente Secret
+  `SMTP_PASSWORD` non viene più usato dai workflow.
+- Limitati a `main` anche controllo e manutenzione. Nei repository pubblici
+  sono bloccati applicazione e caricamento dei backup amministrativi.
+- Esclusa la password dalla rappresentazione diagnostica della configurazione SMTP.
+- Aggiunti retry alle operazioni Google Sheets idempotenti, lasciando gli append
+  senza retry per evitare scritture duplicate dall'esito incerto.
+- Rimossa una lista di stati inattivi inutilizzata e resa esplicita l'anomalia
+  critica in caso di mancata registrazione di un esito SMTP non classificato.
+
 ### Manutenzione
 
-- La verifica del progetto passa da un solo comando, `bash scripts/verify.sh`,
-  che esegue Ruff, `pip check` e l’intera suite, controlla whitespace e
-  marcatori di conflitto e dimostra che né il setup né la verifica hanno
-  modificato il checkout. `compileall` è stato rimosso perché duplicava il
-  parsing già eseguito da Ruff e dai test.
-- Rimosso lo strato di wrapper per Codex — `.codex/hooks.json`,
-  `.codex/hooks/session-start.sh` e `config/codex/ENVIRONMENT_SETUP.md`, 151
-  righe il cui unico compito era eseguire `bash scripts/setup.sh`. Per Codex
-  Cloud resta quel comando nel campo dello script di setup, che è l’unica
-  informazione che serviva. L’hook di Claude Code resta: `setup.sh` scrive gli
-  errori su stderr, e senza quel passaggio un fallimento del gate potrebbe non
-  arrivare all’agente.
-- `AGENTS.md` dichiara le tre modalità di accesso e limita i collaudi Drive
-  pre-deployment alle modifiche che possono influire su adapter Google, schema,
-  migrazioni, persistenza, destinatari o orchestrazione live. Non sono più un
-  prerequisito universale del merge.
-- La CI usa soltanto Python 3.12 — il runtime effettivo dei workflow — su pull
-  request, push a `main` e avvio manuale. Rimossa la matrice settimanale
-  3.11–3.14, che non proteggeva alcun ambiente realmente utilizzato.
-
-### Affidabilità
-
-- La normalizzazione macOS dei `.pth` e dello stamp usa `os.chflags` del Python
-  della `.venv`, limitato ai soli file interessati. Il gate non dipende più dal
-  binario esterno `chflags`, che Bitdefender può bloccare anche dopo un
-  bootstrap riuscito.
-
-- `scripts/setup.sh` salva nella `.venv` l’impronta di `pyproject.toml` e della
-  propria politica di setup. Un ambiente già coerente usa così un fast path
-  offline che verifica pacchetto, client Google, eseguibile e coerenza di `pip`,
-  pytest e Ruff senza reinstallare; un cambio alle dipendenze invalida lo stamp
-  e ripete l’installazione. Dopo avere scritto lo stamp e normalizzato i flag
-  macOS, il gate riverifica l’intero ambiente prima di dichiararlo pronto. Il
-  bootstrap di un checkout pulito continua intenzionalmente a richiedere la rete
-  e a fallire chiuso quando non è disponibile.
-
-- `scripts/setup.sh` ripara uno strumento di sviluppo guasto invece di fallire
-  per sempre. Un eseguibile presente ma rotto lascia il requisito già
-  soddisfatto, quindi `pip install --editable .[dev,google]` non ha nulla da fare
-  e non riscrive il file: il gate rilevava il guasto, reinstallava a vuoto e
-  usciva con errore a ogni esecuzione successiva. È lo stato che impedisce a
-  un'automazione di eseguire `ruff check .` e di rimettersi in sesto da sola. La
-  riparazione ora passa a `--force-reinstall`, che il file lo riscrive davvero.
-
-- reso esplicito il set stabile di regole Ruff usato dalla CI;
-- aggiunti retry automatici alle operazioni runtime idempotenti di Google Sheets,
-  mantenendo gli append senza retry automatici per non duplicare scritture dall’esito
-  incerto;
-- rimossa dalla politica dello stato una lista di valori inattivi che non partecipava
-  alla semantica documentata di `Operativo`;
-- resa visibile come anomalia critica anche l’eventuale mancata registrazione di un
-  esito SMTP non classificato.
-
-### Documentazione e architettura dell’informazione
-
-- consolidate in root le tre fonti documentali canoniche: `README.md`, `AGENTS.md` e `CHANGELOG.md`;
-- spostati guide, contratti e validazioni della release in `releases/v0.14.18/`;
-- sostituito il contratto Markdown dell’Environment con `config/github/environment-contract.json`;
-- rimossi roadmap, checklist, handoff e documenti concorrenti sotto `docs/`;
-- evitato un manifesto di stato separato, mantenendo versione, workflow e configurazioni nelle rispettive fonti autoritative;
-- aggiornati i test per proteggere la nuova architettura SSoT;
-- introdotto `scripts/setup.sh` come unica procedura di preparazione dell’ambiente
-  per tutti gli agenti, richiamato all’avvio, alla ripresa, dopo `/clear`, dopo
-  una compattazione e al fork delle
-  sessioni Claude Code locali e remote e documentato per Codex in
-  `config/codex/ENVIRONMENT_SETUP.md`; la configurazione Cloud va salvata solo
-  quando lo script è già presente su `main`, mentre un hook Codex di progetto
-  applica lo stesso gate a Local e Worktree; lo script installa gli stessi extra
-  della CI in una `.venv` per-checkout senza modificare il Python globale e senza
-  duplicare l’elenco, che resta in `pyproject.toml`.
+- README essenziale e terminologia generica, con costi, configurazione a distanza
+  e distinzione tra invii manuali e programmazione giornaliera ancora assente.
+- Rimosso il file di esempio inutilizzato: i dati sintetici restano nei test.
+- Rimossi integrazioni e hook per strumenti non più utilizzati, inclusi i relativi test.
+- Regole operative in `AGENTS.md`, contratto GitHub in JSON e guide storiche in
+  `releases/`; rimossi documenti di stato e wrapper duplicati.
+- Preparazione dell'ambiente con `scripts/setup.sh`: extra da `pyproject.toml`,
+  ambiente per checkout, verifica offline quando coerente, riparazione degli
+  strumenti guasti e normalizzazione dei flag macOS tramite Python.
+- Verifica unica con `scripts/verify.sh`: controlli automatici, coerenza delle
+  dipendenze, whitespace e checkout invariato. Rimosso `compileall` ridondante.
+- CI sul runtime Python 3.12, con regole Ruff esplicite; rimossa la matrice
+  settimanale. I collaudi Drive restano obbligatori prima del deployment solo
+  per le modifiche che possono influire sulle risorse live.
 
 ## [0.14.18] - 2026-07-22
 

@@ -47,7 +47,10 @@ def test_solo_la_password_smtp_e_un_secret() -> None:
     public = set(contract["variables"])
     secrets = set(contract["secrets"])
 
-    assert secrets == {"SMTP_PASSWORD"}
+    assert secrets == {"REMINDER_SMTP_PASSWORD"}
+    assert contract["secrets_scope"] == "repository"
+    assert contract["variables_scope"] == "environment"
+    assert "REMINDER_SMTP_PASSWORD" not in public
     assert "SMTP_PASSWORD" not in public
     for name in (
         "SMTP_HOST",
