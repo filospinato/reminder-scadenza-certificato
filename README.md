@@ -32,11 +32,20 @@ Non creare questo segreto nell'Environment: nelle repository personali quella co
 
 Il vecchio Secret `SMTP_PASSWORD` non è più usato dai workflow aggiornati. Non creare un Environment secret con lo stesso nome del nuovo repository secret, perché avrebbe precedenza.
 
+## Attivare e fermare gli invii dal foglio
+
+Nel **foglio di gestione**, aprire la scheda **CONFIG** e cercare la riga **INVIO_AUTOMATICO_ATTIVO**. Modificare soltanto la colonna **valore** (cella **B3** nello schema iniziale):
+
+- **`true` — attivare o riattivare:** consente gli invii reali dalla successiva esecuzione GitHub, dopo configurazione e collaudi. Non avvia da solo un'esecuzione e non crea una programmazione giornaliera.
+- **`false` — disattivare:** blocca gli invii reali delle esecuzioni successive. Il valore viene letto all'avvio: per fermare un'esecuzione già partita, aprire **GitHub → Actions**, selezionare il run produttivo e premere **Cancel workflow**. Le email già inviate non possono essere annullate.
+
+La scheda **DASHBOARD** mostra l'ultima esecuzione, non lo stato in tempo reale dell'interruttore. `check` resta disponibile senza invii; `test-smtp` può inviare una prova manuale anche con l'interruttore su `false`. Conservare il registro **NOTIFICHE**, che evita i duplicati; la password resta nei Secrets GitHub.
+
 ## Stato semantico
 
 Controllo, prova SMTP, registro e invii manuali sono implementati. **La programmazione giornaliera non è attiva**: aggiungere la password e accendere la CONFIG, da soli, non avviano esecuzioni periodiche.
 
-Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Nelle repository pubbliche GitHub disabilita le schedule dopo 60 giorni senza attività sul repository: va previsto anche il controllo dell'ultima esecuzione ([limiti della programmazione](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)). Per fermare gli invii impostare la CONFIG su `false` e annullare le esecuzioni già in corso.
+Per l'avvio: mantenere `INVIO_AUTOMATICO_ATTIVO=false`, eseguire `setup-preview`, `check` e `registry-check`; poi una prova SMTP autorizzata e i lotti reali controllati da 1, 5 e 10. La schedule richiede una modifica separata dopo questi collaudi. Nelle repository pubbliche GitHub disabilita le schedule dopo 60 giorni senza attività sul repository: va previsto anche il controllo dell'ultima esecuzione ([limiti della programmazione](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
 
 In una repository pubblica, `setup-apply` da Actions è bloccato per non pubblicare backup amministrativi. Eventuali migrazioni vanno eseguite in un ambiente riservato, con WIF e backup protetto. Prima di cambiare visibilità controllare anche cronologia, vecchi log e artifact: la pulizia del README non li modifica.
 
