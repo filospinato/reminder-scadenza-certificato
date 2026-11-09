@@ -17,7 +17,7 @@ from .email_templates import (
 )
 from .validation import email_valida
 
-LIMITE_INVII_PER_ESECUZIONE = 10
+LIMITE_INVII_PER_ESECUZIONE = 50
 
 
 class ErroreConfigurazioneRuntime(ValueError):

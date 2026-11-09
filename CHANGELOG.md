@@ -4,6 +4,15 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 
 ## [Unreleased]
 
+### Esecuzione quotidiana
+
+- Pianificazione giornaliera alle 09:15 nel fuso Europe/Rome, con avvio manuale
+  sempre disponibile e rispetto dell'interruttore nel foglio di gestione.
+- Portato a 50 il limite interno e il valore predefinito per ogni esecuzione;
+  il workflow programmato usa lo stesso limite anche senza input manuali.
+- Verificati limite, arresto e ripresa senza duplicati e confini del cambio d'ora;
+  la prova SMTP resta limitata a un solo messaggio all'override.
+
 ### Affidabilità e configurazione
 
 - Estesa la ricerca delle intestazioni di Operativo fino a ZZ, mantenendo la
@@ -24,7 +33,7 @@ Questo documento registra soltanto i delta funzionali delle release. Evidenze di
 ### Manutenzione
 
 - README essenziale e terminologia generica, con costi, configurazione a distanza
-  e distinzione tra invii manuali e programmazione giornaliera ancora assente.
+  e istruzioni per invii manuali, giornalieri e gestione delle anomalie.
 - Rimosso il file di esempio inutilizzato: i dati sintetici restano nei test.
 - Rimossi integrazioni e hook per strumenti non più utilizzati, inclusi i relativi test.
 - Regole operative in `AGENTS.md`, contratto GitHub in JSON e guide storiche in

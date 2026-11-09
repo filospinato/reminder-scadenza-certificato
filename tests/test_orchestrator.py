@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 
 from reminder_certificati.admin_store import ArchivioNotificheMemoria
@@ -9,7 +10,10 @@ from reminder_certificati.orchestrator import ModalitaEsecuzione, OrchestratoreR
 from reminder_certificati.persistent_registry import RegistroPersistente
 from reminder_certificati.registry import StatoNotifica
 from reminder_certificati.rules import TIPO_NOTIFICA_SCADENZA
-from reminder_certificati.runtime_config import ConfigurazioneRuntime
+from reminder_certificati.runtime_config import (
+    LIMITE_INVII_PER_ESECUZIONE,
+    ConfigurazioneRuntime,
+)
 from reminder_certificati.smtp_transport import (
     ErroreSmtpPermanente,
     ErroreSmtpRetryable,
@@ -37,7 +41,7 @@ def _sorgente(*righe: list[str]) -> SorgenteMemoria:
 def _config(
     *,
     attiva: bool = True,
-    limite: int = 10,
+    limite: int = LIMITE_INVII_PER_ESECUZIONE,
     override: str | None = "test@example.invalid",
 ) -> ConfigurazioneRuntime:
     return ConfigurazioneRuntime(
@@ -181,7 +185,7 @@ def test_test_smtp_invia_al_massimo_un_messaggio() -> None:
             ["A-1", "Anna", "Verdi", "anna@example.invalid", "2026-08-01", "true"],
             ["A-2", "Luca", "Verdi", "luca@example.invalid", "2026-08-02", "true"],
         ),
-        configurazione=_config(limite=10),
+        configurazione=_config(),
         dashboard=DashboardMemoria(),
         anomalie=AnomalieMemoria(),
         versione_app=VERSIONE,
@@ -247,6 +251,53 @@ def test_produzione_attiva_usa_il_solo_interruttore() -> None:
 
     assert esito.invii_riusciti == 1
     assert smtp.inviati[0].destinatario == "anna@example.invalid"
+
+
+def test_limite_cinquanta_arresto_ripresa_e_deduplicazione() -> None:
+    archivio = ArchivioNotificheMemoria()
+    smtp = TrasportoEmailMemoria()
+    orchestratore = OrchestratoreReminder(
+        sorgente=_sorgente(*[
+            [f"A-{i:03}", "Persona", "Test", f"test{i}@example.invalid", "2026-08-01", "true"]
+            for i in range(51)
+        ]),
+        configurazione=_config(),
+        dashboard=DashboardMemoria(),
+        anomalie=AnomalieMemoria(),
+        versione_app=VERSIONE,
+        registro=RegistroPersistente(archivio, versione_app=VERSIONE),
+        trasporto_email=smtp,
+    )
+    kwargs = dict(
+        oggi=date(2026, 7, 17),
+        modalita=ModalitaEsecuzione.PRODUZIONE,
+        consenso_esterno_invio=True,
+    )
+
+    prima = orchestratore.esegui(**kwargs)
+    assert prima.candidati == 51
+    assert prima.invii_tentati == prima.invii_riusciti == 50
+    assert len(archivio.snapshot()) == len(smtp.inviati) == 50
+
+    spento = replace(
+        orchestratore,
+        configurazione=replace(orchestratore.configurazione, automazione_attiva=False),
+    ).esegui(**kwargs)
+    assert spento.stato == "DISATTIVATO"
+    assert spento.invii_tentati == 0
+    assert len(archivio.snapshot()) == len(smtp.inviati) == 50
+
+    ripresa = orchestratore.esegui(**kwargs)
+    assert ripresa.notifiche_gia_presenti == 50
+    assert ripresa.invii_tentati == ripresa.invii_riusciti == 1
+
+    ripetizione = orchestratore.esegui(**kwargs)
+    assert ripetizione.notifiche_gia_presenti == 51
+    assert ripetizione.invii_tentati == 0
+    assert len(archivio.snapshot()) == len(smtp.inviati) == 51
+    assert len({messaggio.destinatario for messaggio in smtp.inviati}) == 51
+    assert all(riga.stato is StatoNotifica.SENT and riga.tentativi == 1
+               for riga in archivio.snapshot())
 
 
 def test_errore_smtp_non_classificato_diventa_esito_incerto() -> None:
