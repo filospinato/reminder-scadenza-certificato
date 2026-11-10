@@ -64,3 +64,21 @@ jobs:
       - name: Propaga il fallimento della verifica
         if: steps.verify.outcome == 'failure'
         run: exit 1
+
+  schedule_diagnostics:
+    name: Stato della programmazione (sola lettura)
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/diagnose-schedule-start'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: read
+    steps:
+      - name: Leggi lo stato registrato da GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+        run: |
+          gh api --method GET "repos/$TARGET_REPO/actions/workflows/production.yml" \
+            --jq '{id, name, path, state, created_at, updated_at}'
+          gh api --method GET "repos/$TARGET_REPO/actions/workflows?per_page=100" \
+            --jq '{total_count, workflows: [.workflows[] | {id, name, path, state, created_at, updated_at}]}'
